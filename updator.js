@@ -5,8 +5,8 @@ const { execSync } = require('child_process');
 
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
 const PACKAGE_JSON = path.join(process.cwd(), 'package.json');
-const VERSIONS_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/refs/heads/main/versions.json';
-const PACKAGE_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/refs/heads/main/package.json';
+const VERSIONS_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/versions.json';
+const PACKAGE_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/package.json';
 
 // Simple logger without colors
 const log = {
@@ -54,12 +54,13 @@ async function updateFiles(files, backupFolder) {
   for (const filePath in files) {
     const fullPath = path.join(process.cwd(), filePath);
     try {
-      const fileBuffer = await fetchFileBuffer(`https://github.com/Mr-Perfect-DevX/Luna-V1/tree/main/${filePath}`);
+      // Use raw.githubusercontent.com to fetch raw file content
+      const fileBuffer = await fetchFileBuffer(`https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/${filePath}`);
 
-      // Backup existing file
+      // Backup existing file before overwriting
       await backupFile(fullPath, backupFolder);
 
-      // Write new file
+      // Ensure directory exists and write new file content
       ensureFolderExists(path.dirname(fullPath));
       fs.writeFileSync(fullPath, fileBuffer);
       log.info('UPDATE', `Updated file: ${filePath}`);
@@ -126,7 +127,7 @@ async function main() {
     await updateFiles(allFiles, backupFolder);
     await deleteFiles(allDeletes, backupFolder);
 
-    // Update package.json to latest
+    // Update package.json to latest version
     const latestPackageJson = await fetchJSON(PACKAGE_JSON_URL);
     fs.writeFileSync(PACKAGE_JSON, JSON.stringify(latestPackageJson, null, 2));
     log.info('UPDATE', 'package.json updated.');
