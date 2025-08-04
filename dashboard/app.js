@@ -272,45 +272,27 @@ class WebServer {
     }
 
     async getStats() {
-        const uptime = Math.floor((Date.now() - this.startTime) / 1000);
-        
-        // Get user and group counts from database
-        let userCount = 0;
-        let groupCount = 0;
-        
         try {
-            const db = require('./connectDB');
-            if (db.getStatus().connected) {
-                userCount = await db.getUserCount();
-                groupCount = await db.getGroupCount();
+            const uptime = Math.floor((Date.now() - this.startTime) / 1000);
+            
+            // Get user and group counts from database
+            let userCount = 0;
+            let groupCount = 0;
+            
+            const database = require('./connectDB');
+            if (database.getStatus().connected) {
+                userCount = await database.getUserCount();
+                groupCount = await database.getGroupCount();
             }
-        } catch (error) {
-            // Ignore database errors for stats
-        }
-        
-        return {
-            users: userCount,
-            groups: groupCount,
-            commands: global.commands ? global.commands.size : 0,
-            uptime,
-            memory: process.memoryUsage(),
-            nodeVersion: process.version,
-            platform: process.platform
-        };
-    }
-
-    async getStats() {
-        try {
-            const userCount = await db.getUserCount();
-            const groupCount = await db.getGroupCount();
-            const commandCount = global.commands ? global.commands.size : 0;
-            const uptime = process.uptime() || 0;
-
+            
             return {
                 users: userCount,
                 groups: groupCount,
-                commands: commandCount,
-                uptime: Math.floor(uptime)
+                commands: global.commands ? global.commands.size : 0,
+                uptime,
+                memory: process.memoryUsage(),
+                nodeVersion: process.version,
+                platform: process.platform
             };
         } catch (error) {
             logError(`Error getting stats: ${error.message}`);
