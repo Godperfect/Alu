@@ -43,6 +43,10 @@ const store = (() => {
 const commandManager = new CommandManager();
 const eventManager = new EventManager();
 
+// Load commands and events
+commandManager.loadCommands();
+eventManager.loadEvents();
+
 let isLoggedIn = false;
 
 async function startBotz() {
