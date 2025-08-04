@@ -112,7 +112,6 @@ const logGoatBotStyle = (type, data = {}) => {
     switch (type) {
         case 'startup':
             console.clear();
-            console.log(chalk.blue.bold('LUNA BOT v1.3'));
             console.log(chalk.gray(`Starting at ${date} ${timestamp}`));
             break;
 
