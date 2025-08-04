@@ -65,13 +65,6 @@ const logWarning = (message) => {
     writeToFile('WARNING', message);
 };
 
-const logWarning = (message) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-    console.log(chalk.yellow(`[ WARNING ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
-    writeToFile('WARNING', message);
-};
-
 const logCommand = (commandName, userId, chatType, groupName = null) => {
     const timestamp = getTimestamp();
     const date = getDate();
