@@ -1,6 +1,6 @@
 
 const http = require('http');
-const { logSuccess, logError, logInfo } = require('../utils/logger');
+const { logSuccess, logError, logInfo } = require('../utils');
 const config = require('../config.json');
 
 function startUptimeServer() {
