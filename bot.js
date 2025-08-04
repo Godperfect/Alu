@@ -5,7 +5,7 @@ const main = require('bytenode');
 const pino = require('pino');
 const fs = require('fs');
 const chalk = require('chalk'); 
-const { logInfo, logError } = require('./utils');
+const { logInfo, logError, logSuccess } = require('./utils');
 const config = require('./config.json');
 const { authenticateSession, getAuthState } = require('./bot/login/login.obf.jsc');
 const eventHandler = require('./bot/handler/eventHandler');
@@ -60,11 +60,11 @@ async function startBotz() {
         // Step 1: Authorization
         logInfo('AUTHORIZED USER');
         
-        const { state, saveCreds } = await getAuthState();
-        
         // Step 2: Login process
-        logInfo('LOGGING IN: ' + config.botSettings.ownerNumber);
+        logInfo('LOGGING IN: ' + (config.botSettings.ownerNumber || ''));
         logInfo('CHECKING SESSIONS');
+        
+        const { state, saveCreds } = await getAuthState();
 
         // Step 3: Database connection
         logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
@@ -108,14 +108,14 @@ async function startBotz() {
                 logSuccess('BOT IS SUCCESSFULLY CONNECTED');
                 
                 // Step 4: Load commands and events
-                logInfo('Checking commands & events...');
-                logInfo('Loading modules (installing if missing)...');
+                logInfo('Loading commands and events...');
                 commandManager.loadCommands();
                 eventManager.loadEvents();
 
                 if (config.serverUptime && config.serverUptime.enable) {
                     logInfo('Starting uptime server...');
-                    startUptimeServer(config.serverUptime.port || 3001);
+                    const server = startUptimeServer(config.serverUptime.port || 3001);
+                    logSuccess(`Uptime server running on port ${config.serverUptime.port || 3001}`);
                 }
             } else if (connection === 'close') {
                 logInfo('Bot disconnected');
