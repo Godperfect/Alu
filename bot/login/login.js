@@ -77,8 +77,25 @@ function getVersion() {
  * Display the Luna Bot title and version info
  */
 const displayLunaBotTitle = () => {
-    // Just return without displaying anything
-    return "";
+    // Clear the console
+    console.clear();
+
+    // Print colorful title using chalk
+    console.log(chalk.bold.magenta(lunaAsciiArt));
+
+    // Print version and credit centered
+    const version = getVersion();
+    const versionText = `         Luna Bot version ${version}`;
+    const creditText = "       Created by Mr perfect with 💗";
+
+    console.log(chalk.cyan(versionText));
+    console.log(chalk.blue(creditText));
+
+    // Horizontal line
+    const line = "─".repeat(42);
+    console.log(chalk.yellow(line));
+
+    return line;
 };
 
 // Ensure auth directory exists
