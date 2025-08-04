@@ -1,164 +1,147 @@
-const chalk = require('chalk');
-const fs = require('fs');
-const path = require('path');
+const moment = require('moment-timezone');
 
-const logDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
-}
+let gradients = {};
+let gradient;
 
-const getTimestamp = () => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
+(async () => {
+    gradient = (await import('gradient-string')).default;
+
+    gradients = {
+        lime: gradient('#32CD32', '#ADFF2F'),
+        cyan: gradient('#00FFFF', '#00BFFF'),
+        instagram: gradient(['#F58529', '#DD2A7B', '#8134AF', '#515BD4']),
+        purple: gradient('#9B59B6', '#8E44AD'),
+        blue: gradient('#2980B9', '#3498DB'),
+        red: gradient('#FF6347', '#FF4500'),
+        yellow: gradient('#FFDD00', '#FF6347'),
+        rainbow: gradient.rainbow
+    };
+})();
+
+const getNepalTime = () => {
+    return moment().tz('Asia/Kathmandu').format('YYYY-MM-DD HH:mm:ss');
 };
 
-const getDate = () => {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    return `${day}/${month}/${year}`;
+const waitForGradient = async () => {
+    while (!gradient) await new Promise(r => setTimeout(r, 10));
 };
 
-const writeToFile = (level, message) => {
-    const logFile = path.join(logDir, `${new Date().toISOString().split('T')[0]}.log`);
-    const logEntry = `[${getTimestamp()}] [${getDate()}] [${level}] ${message}\n`;
-    fs.appendFileSync(logFile, logEntry);
+const logInfo = async (message) => {
+    await waitForGradient();
+    console.log(gradients.lime(`[INFO] ${message}`));
 };
 
-const logInfo = (message) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-    console.log(chalk.blue(`[ INFO ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
-    writeToFile('INFO', message);
+const logSuccess = async (message) => {
+    await waitForGradient();
+    console.log(gradients.cyan(`[SUCCESS] ${message}`));
 };
 
-const logSuccess = (message) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-    console.log(chalk.green(`[ SUCCESS ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
-    writeToFile('SUCCESS', message);
+const logError = async (message) => {
+    await waitForGradient();
+    console.log(gradients.instagram(`[ERROR] ${message}`));
 };
 
-const logError = (message) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-    console.log(chalk.red(`[ ERROR ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
-    writeToFile('ERROR', message);
-};
-
-const logWarning = (message) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-    console.log(chalk.yellow(`[ WARNING ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
-    writeToFile('WARNING', message);
-};
-
-const logCommand = (commandName, userId, chatType, groupName = null) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-    const location = groupName ? `${groupName} (${chatType})` : chatType;
-    const message = `Command '${commandName}' executed by ${userId} in ${location}`;
-    console.log(chalk.cyan(`[ COMMAND ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
-    writeToFile('COMMAND', message);
-};
-
-const logMessage = (messageData) => {
+const logMessage = async (messageData) => {
+    await waitForGradient();
     const {
+        messageType,
+        chatName,
         senderName,
-        senderId,
         messageText,
-        chatType,
-        groupName,
         hasAttachment,
+        attachmentType,
         isForwarded,
-        replyTo,
+        repliedTo,
+        isReaction,
+        reaction,
+        timestamp,
         fromMe
     } = messageData;
 
-    const timestamp = getTimestamp();
-    const date = getDate();
+    console.log(gradient.rainbow("-".repeat(37)));
 
-    console.log(chalk.magenta('━'.repeat(60)));
-    console.log(chalk.cyan.bold('📱 MESSAGE EVENT') + chalk.gray(` [${date}, ${timestamp}]`));
-    console.log(chalk.white(`👤 Sender: `) + chalk.yellow(senderName) + chalk.gray(` (${senderId})`));
-    console.log(chalk.white(`📍 Location: `) + chalk.cyan(groupName || 'Private Chat'));
-    console.log(chalk.white(`📝 Type: `) + chalk.green(chatType));
-    console.log(chalk.white(`💬 Content: `) + chalk.white(messageText || '[Media/Attachment]'));
-    console.log(chalk.white(`📎 Attachment: `) + (hasAttachment ? chalk.green('Yes') : chalk.gray('No')));
-    console.log(chalk.white(`🔄 Forwarded: `) + (isForwarded ? chalk.green('Yes') : chalk.gray('No')));
-    console.log(chalk.white(`↩️  Reply: `) + chalk.gray(replyTo || 'None'));
-    console.log(chalk.white(`🤖 From Bot: `) + (fromMe ? chalk.green('Yes') : chalk.gray('No')));
-    console.log(chalk.magenta('━'.repeat(60)));
+    const icon = messageType === 'group' || messageType === 'community' ? '👥' :
+        messageType === 'channel' ? '📢' : '📩';
+    const messageStatus = fromMe ? 'Sent' : 'Received';
+    const typeName = messageType === 'private' ? 'Private' :
+        messageType === 'group' ? 'Group' :
+        messageType === 'community' ? 'Community' : 'Channel';
 
-    writeToFile('MESSAGE', JSON.stringify(messageData));
+    console.log(`\n${icon} ${typeName} Message ${messageStatus}`);
+    if (chatName) {
+        const nameLabel = messageType === 'group' || messageType === 'community' ? '👥 Group Name' :
+            messageType === 'channel' ? '📢 Channel Name' : '👤 Sender';
+        console.log(`${nameLabel}: ${gradients.cyan(chatName)}`);
+    }
+
+    if (!fromMe) {
+        console.log(`👤 Sender: ${gradients.purple(senderName)}`);
+    }
+
+    const chatTypeFullName = messageType === 'private' ? 'Private Chat' :
+        messageType === 'group' ? 'Group Chat' :
+        messageType === 'community' ? 'Community Group' : 'Channel';
+    console.log(`📌 Chat Type: ${gradients.blue(chatTypeFullName)}`);
+
+    if (!isReaction || messageText) {
+        console.log(`💬 Message: ${gradients.yellow(messageText || '[No text content]')}`);
+    }
+
+    console.log(`📎 Attachment: ${gradients.purple(hasAttachment ? attachmentType : 'None')}`);
+    console.log(`🔁 Forwarded: ${gradients.blue(isForwarded ? 'Yes' : 'No')}`);
+    console.log(`↩️ Replied To: ${gradients.yellow(repliedTo || 'None')}`);
+    console.log(`👍 Reaction: ${gradients.purple(reaction ? `"${reaction}"` : 'None')}`);
+
+    if (isReaction) {
+        console.log(`👍 Message Type: ${gradients.red('Reaction Message')}`);
+    }
+
+    console.log(`📨 From Me: ${gradients.blue(fromMe ? 'True' : 'False')}`);
+    console.log(`🕒 Timestamp: ${gradients.yellow(timestamp)}`);
+
+    console.log(gradient.rainbow("-".repeat(37) + "\n"));
 };
 
-const logGoatBotStyle = (type, data = {}) => {
-    const timestamp = getTimestamp();
-    const date = getDate();
-
-    switch (type) {
-        case 'startup':
-            console.clear();
-            console.log(chalk.blue.bold('\n╔══════════════════════════════════════════════════════════╗'));
-            console.log(chalk.blue.bold('║') + chalk.white.bold('                      LUNA BOT v1.3                      ') + chalk.blue.bold('║'));
-            console.log(chalk.blue.bold('║') + chalk.cyan('                   Professional WhatsApp Bot              ') + chalk.blue.bold('║'));
-            console.log(chalk.blue.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.blue.bold('║'));
-            console.log(chalk.blue.bold('╚══════════════════════════════════════════════════════════╝\n'));
-            break;
-
-        case 'ready':
-            console.log(chalk.green.bold('\n╔══════════════════════════════════════════════════════════╗'));
-            console.log(chalk.green.bold('║') + chalk.white.bold('                    ✅ BOT ONLINE                        ') + chalk.green.bold('║'));
-            console.log(chalk.green.bold('║') + chalk.white(`                   Connected as: ${data.name || 'Luna'}                   `) + chalk.green.bold('║'));
-            console.log(chalk.green.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.green.bold('║'));
-            console.log(chalk.green.bold('╚══════════════════════════════════════════════════════════╝\n'));
-            break;
-
-        case 'command_load':
-            console.log(chalk.blue(`●`) + chalk.white(` Command loaded: `) + chalk.yellow.bold(data.name) + 
-                       (data.category ? chalk.gray(` [${data.category}]`) : ''));
-            break;
-
-        case 'event_load':
-            console.log(chalk.magenta(`●`) + chalk.white(` Event loaded: `) + chalk.cyan.bold(data.name));
-            break;
-
-        case 'database':
-            if (data.status === 'connected') {
-                console.log(chalk.green(`✓`) + chalk.white(` Database connected: `) + chalk.green.bold(data.type.toUpperCase()));
-            } else if (data.status === 'error') {
-                console.log(chalk.red(`✗`) + chalk.white(` Database error: `) + chalk.red(data.error));
-            }
-            break;
-
-        case 'connection':
-            const statusIcons = {
-                'open': chalk.green('●'),
-                'close': chalk.red('●'),
-                'connecting': chalk.yellow('●'),
-                'reconnecting': chalk.blue('●')
-            };
-            const icon = statusIcons[data.status] || chalk.white('●');
-            console.log(icon + chalk.white(` Connection status: `) + chalk.bold(data.status.toUpperCase()));
-            break;
-
-        case 'uptime':
-            console.log(chalk.cyan(`●`) + chalk.white(` Uptime server: `) + chalk.cyan.bold(`http://localhost:${data.port}`));
-            break;
+const logCommand = async (command, sender, success = true) => {
+    await waitForGradient();
+    const time = getNepalTime();
+    if (success) {
+        console.log(gradients.cyan(`[COMMAND] ${sender} executed: ${command} at ${time}`));
+    } else {
+        console.log(gradients.red(`[COMMAND FAILED] ${sender} failed to execute: ${command} at ${time}`));
     }
+};
+
+const logMessageDetails = async ({ ownerId, sender, groupName, message, reactions = null, timezone }) => {
+    await waitForGradient();
+    const time = getNepalTime();
+
+    console.log(gradient.rainbow("-".repeat(37) + "\n"));
+    console.log(gradients.rainbow("[INFO]"));
+    console.log(`    ${gradients.yellow('Owner ID:')} ${gradients.purple(ownerId.join(', '))}`);
+    console.log(`    ${gradients.blue('Sender:')} ${gradients.purple(sender)}`);
+    console.log(`    ${gradients.yellow('Group Name:')} ${gradients.purple(groupName || 'Unknown Group')}`);
+    console.log(`    ${gradients.blue('Message:')} ${gradients.purple(message || '[No Message]')}`);
+
+    if (reactions) {
+        console.log(`    ${gradients.blue('Reactions:')}`);
+        console.log(`        ${gradients.green('User:')} ${gradients.purple(reactions.user)}`);
+        console.log(`        ${gradients.yellow('Emoji:')} ${gradients.red(reactions.emoji)}`);
+    } else {
+        console.log(`    ${gradients.blue('Reactions:')} ${gradients.red('None')}`);
+    }
+
+    console.log(`    ${gradients.yellow('Timezone:')} ${gradients.red(timezone)}`);
+    console.log(`    ${gradients.yellow('Logged At:')} ${gradients.red(time)}`);
+    console.log(gradient.rainbow("-".repeat(37) + "\n"));
+    console.log(gradient.rainbow('\n======= Thanks to Mr perfect ========\n'));
 };
 
 module.exports = {
     logInfo,
     logSuccess,
     logError,
-    logWarning,
-    logCommand,
     logMessage,
-    logGoatBotStyle
+    logCommand,
+    logMessageDetails
 };

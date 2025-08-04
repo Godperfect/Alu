@@ -1,6 +1,6 @@
 {
   "whatsappAccount": {
-    "phoneNumber": "",
+    "phoneNumber": "9779863479066",
     "sessionPath": "session",
     "qrTimeout": 60,
     "multiDevice": true,
@@ -31,17 +31,9 @@
     "logLevel": "silent"
   },
   "database": {
-    "type": "sqlite",
-    "sqlite": {
-      "path": "./data/database.db",
-      "autoCreate": true
-    },
-    "mongodb": {
-      "uri": "",
-      "database": "luna_bot",
-      "autoConnect": false
-    },
-    "autoSyncWhenStart": true
+    "type": "",
+    "uriMongodb": "",
+    "autoSyncWhenStart": false
   },
   "adminOnly": {
     "enable": false,

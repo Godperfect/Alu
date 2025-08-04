@@ -5,16 +5,16 @@ const main = require('bytenode');
 const pino = require('pino');
 const fs = require('fs');
 const chalk = require('chalk'); 
-const { logInfo, logError, logGoatBotStyle, initializeMediaHandlers } = require('./utils');
+const { logInfo, logError } = require('./utils/logger');
 const config = require('./config.json');
-const { authenticateSession, getAuthState } = require('./bot/login/login.js');
+const { authenticateSession, getAuthState } = require('./bot/login/login.obf.jsc');
 const eventHandler = require('./bot/handler/eventHandler');
 const { handleConnection } = require('./bot/login/plug');
+const { initializeMediaHandlers } = require('./utils/mediaHandler');
 const { startUptimeServer } = require('./bot/sentainal');
 const { initializeGlobals, config: globalConfig } = require('./config/globals');
 const CommandManager = require('./bot/managers/cmdPulse');
 const EventManager = require('./bot/managers/eventPulse');
-const DatabaseManager = require('./bot/managers/databaseManager');
 
 // Import the language manager
 const languageManager = require('./language/language.js');
@@ -40,21 +40,17 @@ const store = (() => {
 
 const commandManager = new CommandManager();
 const eventManager = new EventManager();
-const databaseManager = new DatabaseManager();
 
 let isLoggedIn = false;
 
 async function startBotz() {
     try {
-        // Initialize globals and systems
         initializeGlobals();
+
+        // Initialize language manager with config
         languageManager.initialize(config);
 
-        // Clean startup display
-        logGoatBotStyle('startup');
-
-        // Show connecting status
-        logGoatBotStyle('connecting');
+        
 
         process.on('unhandledRejection', (reason, promise) => {
             logError(languageManager.get('error.unexpected', reason));
@@ -84,50 +80,26 @@ async function startBotz() {
             }
         });
 
-        ptz.ev.on('connection.update', async ({ connection }) => {
-
+        ptz.ev.on('connection.update', ({ connection }) => {
             if (connection === 'open' && !isLoggedIn) {
                 isLoggedIn = true;
+                
+                console.log(chalk.red('─────────────────────────────────────────'));
+                
+                logInfo(languageManager.get('bot.loadingCommandsEvents'));
+                commandManager.loadCommands();
+                eventManager.loadEvents();
 
-                // Log successful connection
-                logGoatBotStyle('connection', { status: 'open', name: config.botSettings.botName });
-
-                // Initialize database after successful login
-                if (config.database.autoSyncWhenStart) {
-                    logGoatBotStyle('database_connecting', { type: config.database.type });
-                    try {
-                        await databaseManager.initialize();
-                        logGoatBotStyle('database', { 
-                            status: 'connected', 
-                            type: config.database.type 
-                        });
-                    } catch (error) {
-                        logGoatBotStyle('database', { 
-                            status: 'error', 
-                            error: error.message 
-                        });
-                    }
-                }
-
-                // Load commands and events
-                logGoatBotStyle('loading_modules');
-                await commandManager.loadCommands();
-                await eventManager.loadEvents();
-
-                // Start uptime server
                 if (config.serverUptime && config.serverUptime.enable) {
+                    logInfo(languageManager.get('bot.startingUptimeServer'));
                     startUptimeServer(config.serverUptime.port || 3001);
-                    logGoatBotStyle('uptime', { port: config.serverUptime.port || 3001 });
                 }
-
-                // Show completion message
-                logGoatBotStyle('loading_complete');
             } else if (connection === 'close') {
-                logGoatBotStyle('connection', { status: 'close' });
+                logInfo(languageManager.get('connection.disconnected'));
             } else if (connection === 'connecting') {
-                logGoatBotStyle('connection', { status: 'connecting' });
+                
             } else if (connection === 'reconnecting') {
-                logGoatBotStyle('connection', { status: 'reconnecting' });
+                logInfo(languageManager.get('connection.reconnecting'));
             }
         });
 

@@ -1,85 +1,127 @@
+
+const { getPermissionLevel } = require("../../utils/permission");
+const { logError } = require("../../utils/logger");
+const { commands, aliases } = global; // Ensure global.commands and global.aliases are initialized
+
 module.exports = {
     config: {
         name: "help",
-        aliases: ["h", "commands", "menu"],
-        description: "Display all available commands",
-        category: "system",
+        aliases: ["h", "menu", "commands"],
+        description: "View command usage and list all available commands",
+        category: "info",
         role: 0,
-        cooldown: 5,
+        cooldown: 3,
         guide: {
-            en: "{p}help [command_name] - Show help for specific command\n{p}help - Show all commands"
+            en: "{p}help [command name]\nExample: {p}help ai"
         }
     },
 
-    onStart: async ({ sock, m, args, commandManager }) => {
+    onStart: async ({ sock, m, args, sender, messageInfo }) => {
         try {
-            if (args[0]) {
-                // Show specific command info
-                const command = commandManager.getCommand(args[0]);
-                if (!command) {
-                    return await sock.sendMessage(m.key.remoteJid, {
-                        text: `❌ Command "${args[0]}" not found.`
-                    }, { quoted: m });
+            const prefix = global.prefix;
+            const userRole = getPermissionLevel(sender);
+            
+            if (args.length === 0) {
+                let categories = {};
+                let msg = "╔══════════════╗\n *GOAT BOT STYLE💐*\n╚══════════════╝\n";
+
+                for (const [name, command] of commands.entries()) {
+                    const permission = command.permission || command.config?.role || 0;
+                    if (permission > userRole) continue; // Skip commands user cannot access
+
+                    const category = command.category || command.config?.category || "Uncategorized";
+                    if (!categories[category]) categories[category] = [];
+                    categories[category].push(name);
                 }
 
-                const guide = command.config.guide?.en || 'No guide available';
-                const helpText = `
-╭─────────────────────╮
-│     📚 COMMAND HELP      │
-╰─────────────────────╯
+                Object.keys(categories).forEach((category) => {
+                    if (category !== "info") {
+                        msg += `\n╭────────────⭓\n│『 *${category.toUpperCase()}* 』`;
 
-🏷️ Name: ${command.config.name}
-📝 Description: ${command.config.description}
-📂 Category: ${command.config.category}
-👥 Role: ${['Everyone', 'Group Admin', 'Bot Admin'][command.config.role]}
-⏱️ Cooldown: ${command.config.cooldown}s
-🔗 Aliases: ${command.config.aliases?.join(', ') || 'None'}
+                        categories[category].sort().forEach((cmd) => {
+                            msg += `\n│✧ ${cmd}`;
+                        });
 
-📖 Usage:
-${guide.replace(/{p}/g, global.prefix)}
-                `.trim();
-
-                await sock.sendMessage(m.key.remoteJid, { text: helpText }, { quoted: m });
-            } else {
-                // Show all commands by category
-                const categories = commandManager.getCategories();
-                let helpText = `
-╭─────────────────────╮
-│     🤖 ${global.botName.toUpperCase()} COMMANDS     │
-╰─────────────────────╯
-
-`;
-
-                for (const category of categories) {
-                    const commands = commandManager.getCommandsByCategory(category);
-                    helpText += `\n📂 ${category.toUpperCase()}\n`;
-
-                    for (const cmd of commands) {
-                        helpText += `├ ${global.prefix}${cmd.config.name} - ${cmd.config.description}\n`;
+                        msg += `\n╰────────⭓`;
                     }
+                });
+
+                const totalCommands = commands.size;
+                msg += `\n\nCurrently, I have *${totalCommands}* commands available. More commands will be added soon!\n`;
+                msg += `\n_Type *${prefix}help commandName* to view details of a specific command._\n`;
+                msg += `\n💫 *GOAT BOT STYLE* 💫\n`;
+                msg += `\n🤖 Commands with onChat work without prefix too!`;
+
+                // Random help images/gifs
+                const helpListImages = [
+                    "https://i.imgur.com/WHRGiPz.gif",
+                    "https://i.imgur.com/zM4Hvmn.gif",
+                    "https://i.imgur.com/8d6WbRJ.gif",
+                    "https://i.imgur.com/aYS6HRa.mp4",
+                    "https://i.imgur.com/AIz8ASV.jpeg",
+                    "https://i.imgur.com/6vAPXOY.gif",
+                ];
+                const helpListImage = helpListImages[Math.floor(Math.random() * helpListImages.length)];
+
+                await sock.sendMessage(m.key.remoteJid, {
+                    text: msg,
+                    image: { url: helpListImage },
+                    footer: "GoatBot Style Bot",
+                });
+
+            } else {
+                const commandName = args[0].toLowerCase();
+                const command = commands.get(commandName) || commands.get(aliases.get(commandName));
+
+                if (!command) {
+                    return await sock.sendMessage(
+                        m.key.remoteJid,
+                        { text: `⚠️ Command "*${commandName}*" not found.` },
+                        { quoted: m }
+                    );
                 }
 
-                helpText += `\n💡 Use ${global.prefix}help <command> for detailed info about a command.`;
-                helpText += `\n👑 Total Commands: ${commandManager.commands.size}`;
+                const permission = command.permission || command.config?.role || 0;
+                const roleText = roleToString(permission);
+                const description = command.description || command.config?.description || "No description available.";
+                const category = command.category || command.config?.category || "Uncategorized";
+                const aliases = command.aliases || command.config?.aliases || [];
+                const guide = command.config?.guide?.en || command.usage || `*${prefix}${command.name}*`;
+                const hasOnChat = typeof command.onChat === 'function';
 
-                await sock.sendMessage(m.key.remoteJid, { text: helpText }, { quoted: m });
+                const response = `╭── *COMMAND INFO* ────⭓
+│ *Name:* ${command.name}
+│ *Description:* ${description}
+│ *Category:* ${category}
+│ *Aliases:* ${aliases.length > 0 ? aliases.join(", ") : "None"}
+│ *Role Required:* ${roleText}
+│ *Usage:* ${guide.replace(/{p}/g, prefix)}
+│ *OnChat:* ${hasOnChat ? "✅ Yes (works without prefix)" : "❌ No"}
+╰━━━━━━━━━❖`;
+
+                await sock.sendMessage(m.key.remoteJid, { text: response }, { quoted: m });
             }
-        } catch (error) {
-            await sock.sendMessage(m.key.remoteJid, {
-                text: "❌ Error occurred while showing help."
-            }, { quoted: m });
+        } catch (err) {
+            logError(`Error in help command: ${err.message}`);
+            await sock.sendMessage(
+                m.key.remoteJid,
+                { text: "❌ An error occurred while fetching the help menu." },
+                { quoted: m }
+            );
         }
     },
-
-    onChat: async ({ sock, m, messageText, event }) => {
-        const lowerText = messageText.toLowerCase();
-        if (lowerText === "help" || lowerText === "commands" || lowerText === "menu") {
-            // Quick help without prefix
-            await sock.sendMessage(event.threadID, {
-                text: `🤖 Type ${global.prefix}help to see all commands!`
-            }, { quoted: m });
-            return true;
-        }
-        return false;
-    }
 };
+
+// Function to convert role numbers to text
+function roleToString(role) {
+    switch (role) {
+        case 0:
+            return "All users";
+        case 1:
+            return "Group Admins";
+        case 2:
+            return "Bot Admins";
+        default:
+            return "Unknown Role";
+    }
+}
