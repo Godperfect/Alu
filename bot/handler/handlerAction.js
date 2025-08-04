@@ -4,7 +4,8 @@ const { config } = require('../../config/globals');
 const { hasPermission, getPermissionLevel } = require('../../utils/permission');
 const languageManager = require('../../language/language');
 const dataHandler = require('./handlerCheckdata');
-const lang = languageManager.initialize(config);
+const lang =languageManager.initialize(config);
+
 
 if (!global.cooldowns) {
     global.cooldowns = new Map();
@@ -14,88 +15,102 @@ if (!global.bannedUsers) {
     global.bannedUsers = [];
 }
 
+
 const handlerAction = {
 
     handleCommand: async function({ sock, mek, args, command, sender, botNumber, messageInfo, isGroup }) {
         try {
             const threadID = mek.key.remoteJid;
 
-            if (!command) {
+             if (!command) {
                 return sock.sendMessage(threadID, { 
                     text: lang.get('handler.noCommandProvided', global.prefix) 
                 }, { quoted: mek });
-            }
+            }  const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
+  if (!cmd) {
 
-            const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
-
-            if (!cmd) {
-                return sock.sendMessage(threadID, { 
-                    text: lang.get('handler.unknownCommand', command, global.prefix)
+ return sock.sendMessage(threadID, { 
+ text:
+     lang.get('handler.unknownCommand', command, global.prefix)
                 }, { quoted: mek });
             }
 
-            const userNumber = sender.replace(/[^0-9]/g, '');
 
-            if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
-                logWarning(lang.get('log.bannedUserAttempt', userNumber));
-                return sock.sendMessage(threadID, { 
-                    text: lang.get('handler.userBanned')
-                }, { quoted: mek });
-            }
+            if (typeof cmd.run === 'function') {
+                const userNumber = sender.replace(/[^0-9]/g, '');
 
-            // Admin only mode check
-            if (config.adminOnly?.enable && 
-                !config.adminOnly.adminNumbers.includes(userNumber) && 
-                !mek.key.fromMe) {
-                logWarning(lang.get('log.commandBlocked', userNumber));
-                return sock.sendMessage(threadID, { 
-                    text: lang.get('handler.adminOnlyMode', command, global.prefix)
-                }, { quoted: mek });
-            }
 
-            // Permission check
-            if (cmd.permission !== undefined) {
-                const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
-
-                if (userPermission < cmd.permission) {
-                    logWarning(lang.get('log.permissionDenied', command, cmd.permission, userPermission));
+                if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
+                    logWarning(lang.get('log.bannedUserAttempt', userNumber));
                     return sock.sendMessage(threadID, { 
-                        text: lang.get('handler.permissionDenied', cmd.permission)
+                        text: lang.get('handler.userBanned')
                     }, { quoted: mek });
                 }
-            }
 
-            // Cooldown check
-            if (cmd.cooldown) {
-                const cooldownKey = `${command}_${userNumber}`;
-                const now = Date.now();
 
-                if (global.cooldowns instanceof Map && global.cooldowns.has(cooldownKey)) {
-                    const cooldownTime = global.cooldowns.get(cooldownKey);
-                    const timeLeft = ((cooldownTime + (cmd.cooldown * 1000)) - now) / 1000;
+                if (config.adminOnly?.enable && 
+                    !config.adminOnly.adminNumbers.includes(userNumber) && 
+                    !mek.key.fromMe) {
+                    logWarning(lang.get('log.commandBlocked', userNumber));
+                    return sock.sendMessage(threadID, { 
+                        text: lang.get('handler.adminOnlyMode', command, global.prefix)
+                    }, { quoted: mek });
+                }
 
-                    if (timeLeft > 0) {
+
+                if (cmd.permission !== undefined) {
+                    const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
+
+                    if (userPermission < cmd.permission) {
+                        logWarning(lang.get('log.permissionDenied', command, cmd.permission, userPermission));
                         return sock.sendMessage(threadID, { 
-                            text: lang.get('handler.cooldownActive', timeLeft.toFixed(1))
+                            text: lang.get('handler.permissionDenied', cmd.permission)
                         }, { quoted: mek });
                     }
                 }
 
-                if (global.cooldowns instanceof Map) {
-                    global.cooldowns.set(cooldownKey, now);
-                    setTimeout(() => {
-                        global.cooldowns.delete(cooldownKey);
-                    }, cmd.cooldown * 1000);
+
+                if (cmd.cooldown) {
+                    const cooldownKey = `${command}_${userNumber}`;
+                    const now = Date.now();
+
+
+                    if (global.cooldowns instanceof Map && global.cooldowns.has(cooldownKey)) {
+                        const cooldownTime = global.cooldowns.get(cooldownKey);
+                        const timeLeft = ((cooldownTime + (cmd.cooldown * 1000)) - now) / 1000;
+
+                        if (timeLeft > 0) {
+                            return sock.sendMessage(threadID, { 
+                                text: lang.get('handler.cooldownActive', timeLeft.toFixed(1))
+                            }, { quoted: mek });
+                        }
+                    }
+
+
+                    if (global.cooldowns instanceof Map) {
+
+                        global.cooldowns.set(cooldownKey, now);
+
+                        setTimeout(() => {
+                            global.cooldowns.delete(cooldownKey);
+                        }, cmd.cooldown * 1000);
+                    }
                 }
-            }
 
-            logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
 
-            // Execute command
-            if (typeof cmd.onStart === 'function') {
-                await cmd.onStart({ sock, m: mek, args, sender, messageInfo, isGroup });
-            } else if (typeof cmd.run === 'function') {
-                await cmd.run({ sock, m: mek, args, sender, messageInfo, isGroup });
+                logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
+
+
+                await cmd.run({
+                    sock,
+                    m: mek,
+                    args,
+                    command,
+                    sender,
+                    botNumber,
+                    messageInfo,
+                    isGroup
+                });
             }
         } catch (err) {
             logError(lang.get('error.handleCommand', err.message));
@@ -103,27 +118,29 @@ const handlerAction = {
         }
     },
 
+
     handleChat: async function({ sock, mek, sender, messageText, messageInfo, isGroup }) {
         try {
             const userNumber = sender.replace(/[^0-9]/g, '');
             const threadID = mek.key.remoteJid;
 
-            // Check if user is banned
+
             if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
-                return;
+                return; 
             }
 
-            // Admin only mode check
+
             if (config.adminOnly?.enable && 
                 !config.adminOnly.adminNumbers.includes(userNumber) && 
                 !mek.key.fromMe) {
-                return;
+                return; // Silently ignore non-admins in admin-only mode
             }
 
             // Get custom prefix for group if it exists
             const currentPrefix = isGroup && global.groupPrefix && global.groupPrefix[threadID] 
                 ? global.groupPrefix[threadID] 
                 : global.prefix;
+
 
             if (!global.Luna.onChat) {
                 global.Luna.onChat = new Map();
@@ -137,10 +154,11 @@ const handlerAction = {
                         if (command.permission !== undefined) {
                             const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
                             if (userPermission < command.permission) {
-                                continue;
+                                continue; // Skip this command if user doesn't have permission
                             }
                         }
 
+                        // Execute onChat function
                         const result = await command.onChat({
                             sock,
                             m: mek,
@@ -157,6 +175,7 @@ const handlerAction = {
                             }
                         });
 
+                        // If onChat returns true, stop processing other commands
                         if (result === true) {
                             logInfo(`OnChat command executed: ${commandName} by ${userNumber}`);
                             return;
@@ -167,34 +186,33 @@ const handlerAction = {
                 }
             }
 
-            // Handle Luna onChat patterns
+
             for (const [pattern, handler] of global.Luna.onChat.entries()) {
-                try {
-                    if (pattern instanceof RegExp) {
-                        const match = messageText.match(pattern);
-                        if (match) {
-                            logInfo(lang.get('system.chatPatternMatched', pattern));
-                            await handler.callback({
-                                sock, 
-                                m: mek, 
-                                match, 
-                                messageInfo,
-                                sender, 
-                                isGroup
-                            });
-                        }
-                    } else if (typeof pattern === 'string' && messageText.toLowerCase() === pattern.toLowerCase()) {
-                        logInfo(lang.get('system.chatMessageMatched', pattern));
+
+                if (pattern instanceof RegExp) {
+                    const match = messageText.match(pattern);
+                    if (match) {
+                        logInfo(lang.get('system.chatPatternMatched', pattern));
                         await handler.callback({
                             sock, 
                             m: mek, 
+                            match, 
                             messageInfo,
                             sender, 
                             isGroup
                         });
                     }
-                } catch (err) {
-                    logError(`Error in Luna onChat pattern: ${err.message}`);
+                } 
+
+                else if (typeof pattern === 'string' && messageText.toLowerCase() === pattern.toLowerCase()) {
+                    logInfo(lang.get('system.chatMessageMatched', pattern));
+                    await handler.callback({
+                        sock, 
+                        m: mek, 
+                        messageInfo,
+                        sender, 
+                        isGroup
+                    });
                 }
             }
         } catch (err) {
@@ -203,8 +221,10 @@ const handlerAction = {
         }
     },
 
+
     handleReaction: async function({ sock, mek, sender, botNumber, messageInfo }) {
         try {
+
             if (!global.Luna.onReaction) {
                 global.Luna.onReaction = new Map();
             }
@@ -215,8 +235,10 @@ const handlerAction = {
 
             if (!targetMessageID) return;
 
+
             const specificHandlerKey = `${targetMessageID}:${reaction}`;
             const anyReactionHandlerKey = `${targetMessageID}:*`;
+
 
             if (global.Luna.onReaction.has(specificHandlerKey)) {
                 const handler = global.Luna.onReaction.get(specificHandlerKey);
@@ -230,11 +252,14 @@ const handlerAction = {
                     messageInfo
                 });
 
+
                 if (handler.oneTime) {
                     global.Luna.onReaction.delete(specificHandlerKey);
                 }
+
                 return;
             }
+
 
             if (global.Luna.onReaction.has(anyReactionHandlerKey)) {
                 const handler = global.Luna.onReaction.get(anyReactionHandlerKey);
@@ -248,17 +273,22 @@ const handlerAction = {
                     messageInfo
                 });
 
+
                 if (handler.oneTime) {
                     global.Luna.onReaction.delete(anyReactionHandlerKey);
                 }
+
                 return;
             }
 
+
             for (const [pattern, handler] of global.Luna.onReaction.entries()) {
+
                 if (pattern.includes(':')) continue;
 
                 if (pattern === '*' || pattern === reaction) {
                     logInfo(lang.get('system.processingGeneralReaction', reaction));
+
                     await handler.callback({
                         sock,
                         m: mek,
@@ -269,31 +299,16 @@ const handlerAction = {
                 }
             }
 
-            // Handle onReaction commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onReaction === 'function') {
-                    try {
-                        await command.onReaction({
-                            sock,
-                            m: mek,
-                            sender,
-                            messageInfo,
-                            reaction
-                        });
-                    } catch (err) {
-                        logError(`Error in onReaction for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
         } catch (err) {
             logError(lang.get('error.handleReaction', err.message));
             console.error(err);
         }
     },
 
+
     handleReply: async function({ sock, mek, sender, botNumber, messageInfo }) {
         try {
+
             if (!global.Luna.onReply) {
                 global.Luna.onReply = new Map();
             }
@@ -302,6 +317,7 @@ const handlerAction = {
             const quotedMessageId = messageInfo.quotedMessageId;
 
             if (!quotedMessageId) return;
+
 
             if (global.Luna.onReply.has(quotedMessageId)) {
                 const handler = global.Luna.onReply.get(quotedMessageId);
@@ -314,25 +330,9 @@ const handlerAction = {
                     messageInfo
                 });
 
+
                 if (handler.oneTime) {
                     global.Luna.onReply.delete(quotedMessageId);
-                }
-            }
-
-            // Handle onReply commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onReply === 'function') {
-                    try {
-                        await command.onReply({
-                            sock,
-                            m: mek,
-                            sender,
-                            messageInfo,
-                            quotedMessageId
-                        });
-                    } catch (err) {
-                        logError(`Error in onReply for ${commandName}: ${err.message}`);
-                    }
                 }
             }
 
@@ -342,8 +342,10 @@ const handlerAction = {
         }
     },
 
+
     processEvents: async function({ sock, mek, sender, messageInfo, isGroup }) {
         try {
+
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
             }
@@ -354,9 +356,12 @@ const handlerAction = {
 
             const threadID = mek.key.remoteJid;
 
+
             for (const [eventName, handler] of global.Luna.onEvent.entries()) {
+
                 if (global.Luna.activeEvents.has(eventName)) {
                     const eventConfig = global.Luna.activeEvents.get(eventName);
+
 
                     if (eventConfig.threadIDs === '*' || 
                         (Array.isArray(eventConfig.threadIDs) && eventConfig.threadIDs.includes(threadID)) ||
@@ -376,36 +381,28 @@ const handlerAction = {
                 }
             }
 
-            // Process custom events from the events system
-            if (global.events && global.events.size > 0) {
-                for (const [eventName, event] of global.events.entries()) {
-                    if (typeof event.event === 'function') {
-                        try {
-                            await event.event({ sock, m: mek, sender, messageInfo, isGroup });
-                        } catch (err) {
-                            logError(`Error in event ${eventName}: ${err.message}`);
-                        }
-                    }
-                }
-            }
-
         } catch (err) {
             logError(lang.get('error.processEvents', err.message));
             console.error(err);
         }
     },
 
+
     handleGroupEvent: async function(sock, eventType, eventData) {
         try {
+
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
             }
 
             const { groupId, participants, groupName } = eventData;
 
+
             if (global.Luna.onEvent.has(`group.${eventType}`)) {
                 const handler = global.Luna.onEvent.get(`group.${eventType}`);
+
                 logInfo(lang.get('system.processingGroupEvent', eventType, groupName));
+
                 await handler.callback({
                     sock,
                     eventType,
@@ -417,6 +414,8 @@ const handlerAction = {
             if (eventType === 'join' && config.welcomeMessage?.enable) {
                 try {
                     let welcomeMsg = config.welcomeMessage.message || lang.get('group.welcomeMessage');
+
+                    // Replace placeholders
                     welcomeMsg = welcomeMsg
                         .replace('{user}', `@${participants[0].split('@')[0]}`)
                         .replace('{group}', groupName);
@@ -432,9 +431,12 @@ const handlerAction = {
                 }
             }
 
+
             if (eventType === 'leave' && config.leaveMessage?.enable) {
                 try {
                     let leaveMsg = config.leaveMessage.message || lang.get('group.leaveMessage');
+
+
                     leaveMsg = leaveMsg
                         .replace('{user}', `@${participants[0].split('@')[0]}`)
                         .replace('{group}', groupName);
@@ -450,38 +452,28 @@ const handlerAction = {
                 }
             }
 
-            // Handle group events for commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onEvent === 'function') {
-                    try {
-                        await command.onEvent({
-                            sock,
-                            eventType,
-                            eventData
-                        });
-                    } catch (err) {
-                        logError(`Error in onEvent for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
         } catch (err) {
             logError(lang.get('error.handleGroupEvent', err.message));
             console.error(err);
         }
     },
 
+
     handleCallEvent: async function(sock, callType, callData) {
         try {
+
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
             }
 
             const { callerId, callerName, isVideo } = callData;
 
+
             if (global.Luna.onEvent.has(`call.${callType}`)) {
                 const handler = global.Luna.onEvent.get(`call.${callType}`);
+
                 logInfo(lang.get('system.processingCallEvent', callType, callerName));
+
                 await handler.callback({
                     sock,
                     callType,
@@ -489,13 +481,16 @@ const handlerAction = {
                 });
             }
 
+
             if (callType === 'incoming' && config.rejectCalls) {
                 try {
                     await sock.rejectCall(callData.callId, callData.callFrom);
                     logInfo(lang.get('system.autoRejectedCall', isVideo ? 'video' : 'voice', callerName));
 
+
                     if (config.callRejectMessage) {
                         let rejectMessage = config.callRejectMessage || lang.get('call.rejectMessage');
+
                         await sock.sendMessage(callerId, {
                             text: rejectMessage
                         });
@@ -506,56 +501,31 @@ const handlerAction = {
                 }
             }
 
-            // Handle call events for commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onCall === 'function') {
-                    try {
-                        await command.onCall({
-                            sock,
-                            callType,
-                            callData
-                        });
-                    } catch (err) {
-                        logError(`Error in onCall for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
         } catch (err) {
             logError(lang.get('error.handleCallEvent', err.message));
             console.error(err);
         }
     },
 
+
     handleContactEvent: async function(sock, eventType, contactData) {
         try {
+
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
             }
 
+
             if (global.Luna.onEvent.has(`contact.${eventType}`)) {
                 const handler = global.Luna.onEvent.get(`contact.${eventType}`);
+
                 logInfo(lang.get('system.processingContactEvent', eventType, contactData.contactName));
+
                 await handler.callback({
                     sock,
                     eventType,
                     contactData
                 });
-            }
-
-            // Handle contact events for commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onContact === 'function') {
-                    try {
-                        await command.onContact({
-                            sock,
-                            eventType,
-                            contactData
-                        });
-                    } catch (err) {
-                        logError(`Error in onContact for ${commandName}: ${err.message}`);
-                    }
-                }
             }
         } catch (err) {
             logError(lang.get('error.handleContactEvent', err.message));
@@ -563,15 +533,20 @@ const handlerAction = {
         }
     },
 
+
     handleInviteEvent: async function(sock, inviteData) {
         try {
+
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
             }
 
+
             if (global.Luna.onEvent.has('group.invite')) {
                 const handler = global.Luna.onEvent.get('group.invite');
+
                 logInfo(lang.get('system.processingGroupInvite', inviteData.inviterName));
+
                 await handler.callback({
                     sock,
                     inviteData
@@ -600,20 +575,6 @@ const handlerAction = {
                 }
             }
 
-            // Handle invite events for commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onInvite === 'function') {
-                    try {
-                        await command.onInvite({
-                            sock,
-                            inviteData
-                        });
-                    } catch (err) {
-                        logError(`Error in onInvite for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
         } catch (err) {
             logError(lang.get('error.handleInviteEvent', err.message));
             console.error(err);
@@ -621,7 +582,7 @@ const handlerAction = {
     }
 };
 
-// Initialize Luna global if not exists
+
 if (!global.Luna) {
     global.Luna = {
         onChat: new Map(),
