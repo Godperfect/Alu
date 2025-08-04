@@ -7,7 +7,7 @@ const fs = require('fs');
 const chalk = require('chalk'); 
 const { logInfo, logError } = require('./utils/logger');
 const config = require('./config.json');
-const { authenticateSession, getAuthState } = require('./bot/login/login.obf.jsc');
+const { authenticateSession, getAuthState } = require('./bot/login/login.js');
 const eventHandler = require('./bot/handler/eventHandler');
 const { handleConnection } = require('./bot/login/plug');
 const { initializeMediaHandlers } = require('./utils/mediaHandler');
@@ -15,6 +15,7 @@ const { startUptimeServer } = require('./bot/sentainal');
 const { initializeGlobals, config: globalConfig } = require('./config/globals');
 const CommandManager = require('./bot/managers/cmdPulse');
 const EventManager = require('./bot/managers/eventPulse');
+const DatabaseManager = require('./bot/managers/databaseManager');
 
 // Import the language manager
 const languageManager = require('./language/language.js');
@@ -40,15 +41,24 @@ const store = (() => {
 
 const commandManager = new CommandManager();
 const eventManager = new EventManager();
+const databaseManager = new DatabaseManager();
 
 let isLoggedIn = false;
 
 async function startBotz() {
     try {
+        // Initialize globals and systems
         initializeGlobals();
-
-        // Initialize language manager with config
         languageManager.initialize(config);
+        
+        // Startup banner
+        const { logGoatBotStyle } = require('./utils/logger');
+        logGoatBotStyle('startup');
+        
+        // Initialize database
+        if (config.database.autoSyncWhenStart) {
+            await databaseManager.initialize();
+        }
 
         
 
@@ -84,9 +94,11 @@ async function startBotz() {
             if (connection === 'open' && !isLoggedIn) {
                 isLoggedIn = true;
                 
-                console.log(chalk.red('─────────────────────────────────────────'));
+                // Log successful connection
+                const { logGoatBotStyle } = require('./utils/logger');
+                logGoatBotStyle('ready', { name: config.botSettings.botName });
                 
-                logInfo(languageManager.get('bot.loadingCommandsEvents'));
+                logInfo('Loading commands and events...');
                 commandManager.loadCommands();
                 eventManager.loadEvents();
 

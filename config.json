@@ -31,9 +31,17 @@
     "logLevel": "silent"
   },
   "database": {
-    "type": "",
-    "uriMongodb": "",
-    "autoSyncWhenStart": false
+    "type": "sqlite",
+    "sqlite": {
+      "path": "./data/database.db",
+      "autoCreate": true
+    },
+    "mongodb": {
+      "uri": "",
+      "database": "luna_bot",
+      "autoConnect": false
+    },
+    "autoSyncWhenStart": true
   },
   "adminOnly": {
     "enable": false,
