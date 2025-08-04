@@ -16,8 +16,6 @@ if (!global.bannedUsers) {
 }
 
 
-const languageManager = require('../../language/language.js');
-
 const handlerAction = {
     
     handleCommand: async function({ sock, mek, args, command, sender, botNumber, messageInfo, isGroup }) {
@@ -26,13 +24,14 @@ const handlerAction = {
 
              if (!command) {
                 return sock.sendMessage(threadID, { 
-                    text: languageManager.get('handler.noCommandProvided', global.prefix) 
+                    text: lang.get('handler.noCommandProvided', global.prefix) 
                 }, { quoted: mek });
             }  const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
   if (!cmd) {
 
  return sock.sendMessage(threadID, { 
- text: languageManager.get('handler.unknownCommand', command, global.prefix)
+ text:
+     lang.get('handler.unknownCommand', command, global.prefix)
                 }, { quoted: mek });
             }
 
@@ -42,9 +41,9 @@ const handlerAction = {
 
 
                 if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
-                    logWarning(languageManager.get('log.bannedUserAttempt', userNumber));
+                    logWarning(lang.get('log.bannedUserAttempt', userNumber));
                     return sock.sendMessage(threadID, { 
-                        text: languageManager.get('handler.userBanned')
+                        text: lang.get('handler.userBanned')
                     }, { quoted: mek });
                 }
 

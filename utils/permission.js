@@ -70,8 +70,6 @@ const hasPermission = (userNumber, groupMetadata, requiredLevel) => {
  * @param {string} userNumber - User's phone number without special characters
  * @returns {boolean} - True if user can use the bot
  */
-const config = require('../config.json');
-
 const canUseBot = (userNumber) => {
     // If admin-only mode is enabled, only bot admins can use it
     if (config.adminOnly.enable) {
