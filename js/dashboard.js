@@ -1,4 +1,3 @@
-
 class LunaDashboard {
     constructor() {
         this.socket = null;
@@ -478,16 +477,156 @@ class LunaDashboard {
     }
 }
 
-// Initialize dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.lunaDashboard = new LunaDashboard();
+// Dashboard functionality
+let statsInterval;
 
-    // Add click effects to interactive elements
-    document.addEventListener('click', (event) => {
-        if (event.target.matches('.stat-card, .command-item, #refresh-btn')) {
-            window.lunaDashboard.createClickEffect(event);
+function loadStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateStatsDisplay(data.stats);
+                updateBotStatus(data.status);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading stats:', error);
+        });
+}
+
+function updateStatsDisplay(stats) {
+    document.getElementById('user-count').textContent = stats.users;
+    document.getElementById('group-count').textContent = stats.groups;
+    document.getElementById('command-count').textContent = stats.commands;
+    document.getElementById('uptime').textContent = formatUptime(stats.uptime);
+}
+
+function updateBotStatus(status) {
+    const statusElement = document.getElementById('bot-status');
+    statusElement.textContent = status;
+    statusElement.className = `status ${status}`;
+}
+
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) {
+        return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    } else {
+        return `${minutes}m`;
+    }
+}
+
+function loadUserAnalytics(userId) {
+    fetch(`/api/analytics/user/${userId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.userStats) {
+                displayUserAnalytics(data.userStats);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading user analytics:', error);
+        });
+}
+
+function loadGroupAnalytics(groupId, days = 7) {
+    fetch(`/api/analytics/group/${groupId}?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayGroupAnalytics(data.groupStats, data.recentActivities);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading group analytics:', error);
+        });
+}
+
+function displayUserAnalytics(stats) {
+    const analyticsDiv = document.getElementById('user-analytics');
+    if (analyticsDiv) {
+        analyticsDiv.innerHTML = `
+            <h3>User Analytics</h3>
+            <p>Total Messages: ${stats.totalMessages || 0}</p>
+            <p>Media Sent: ${stats.totalMediaSent || 0}</p>
+            <p>Weekly Messages: ${stats.weeklyMessageCount || 0}</p>
+            <p>Monthly Messages: ${stats.monthlyMessageCount || 0}</p>
+            <p>Last Activity: ${stats.lastActivityType || 'N/A'}</p>
+        `;
+    }
+}
+
+function displayGroupAnalytics(stats, activities) {
+    const analyticsDiv = document.getElementById('group-analytics');
+    if (analyticsDiv && stats) {
+        let html = `
+            <h3>Group Analytics</h3>
+            <p>Total Messages: ${stats.totalMessages || 0}</p>
+            <p>Active Users: ${stats.activeUsers || 0}</p>
+            <p>Media Messages: ${stats.mediaMessages || 0}</p>
+            <p>Forwarded Messages: ${stats.forwardedMessages || 0}</p>
+        `;
+
+        if (stats.topUsers && stats.topUsers.length > 0) {
+            html += '<h4>Top Users:</h4><ul>';
+            stats.topUsers.forEach(user => {
+                html += `<li>${user.userId || user._id}: ${user.messageCount} messages</li>`;
+            });
+            html += '</ul>';
         }
+
+        if (activities && activities.length > 0) {
+            html += '<h4>Recent Activities:</h4><ul>';
+            activities.slice(0, 5).forEach(activity => {
+                html += `<li>${activity.activityType} - ${new Date(activity.timestamp).toLocaleString()}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        analyticsDiv.innerHTML = html;
+    }
+}
+
+function cleanupMessages() {
+    const days = prompt('Enter number of days to keep messages (default: 30):') || 30;
+
+    fetch('/api/maintenance/cleanup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ daysToKeep: parseInt(days) })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Successfully cleaned ${data.deletedCount} old messages`);
+        } else {
+            alert('Failed to cleanup messages: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error cleaning messages:', error);
+        alert('Error cleaning messages');
     });
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    statsInterval = setInterval(loadStats, 30000); // Refresh every 30 seconds
+});
+
+// Stop interval when page is unloaded
+window.addEventListener('beforeunload', function() {
+    if (statsInterval) {
+        clearInterval(statsInterval);
+    }
 });
 
 // Export for use in other modules

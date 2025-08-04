@@ -131,6 +131,140 @@ class MongoDB {
             return null;
         }
     }
+
+    // Message tracking methods for MongoDB
+    async logMessage(messageData) {
+        try {
+            const messages = this.db.collection('messages');
+            await messages.insertOne({
+                ...messageData,
+                timestamp: new Date()
+            });
+
+            // Update user stats
+            await this.updateUserMessageStats(messageData.userId, messageData.hasMedia);
+            
+            return true;
+        } catch (error) {
+            logError(`Failed to log message: ${error.message}`);
+            return false;
+        }
+    }
+
+    async updateUserMessageStats(userId, hasMedia = false) {
+        try {
+            const userStats = this.db.collection('userStats');
+            const now = new Date();
+            const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            await userStats.updateOne(
+                { userId },
+                {
+                    $inc: {
+                        totalMessages: 1,
+                        totalMediaSent: hasMedia ? 1 : 0,
+                        weeklyMessageCount: 1,
+                        monthlyMessageCount: 1
+                    },
+                    $set: {
+                        lastActivityTime: now,
+                        lastActivityType: 'message'
+                    },
+                    $setOnInsert: {
+                        lastWeekReset: weekStart,
+                        lastMonthReset: monthStart
+                    }
+                },
+                { upsert: true }
+            );
+
+            return true;
+        } catch (error) {
+            logError(`Failed to update user message stats: ${error.message}`);
+            return false;
+        }
+    }
+
+    async logGroupActivity(groupId, activityType, userId = null, details = null) {
+        try {
+            const groupActivities = this.db.collection('groupActivities');
+            await groupActivities.insertOne({
+                groupId,
+                activityType,
+                userId,
+                details,
+                timestamp: new Date()
+            });
+            return true;
+        } catch (error) {
+            logError(`Failed to log group activity: ${error.message}`);
+            return false;
+        }
+    }
+
+    async getUserMessageStats(userId) {
+        try {
+            const userStats = this.db.collection('userStats');
+            return await userStats.findOne({ userId });
+        } catch (error) {
+            logError(`Failed to get user message stats: ${error.message}`);
+            return null;
+        }
+    }
+
+    async getGroupMessageStats(groupId, days = 7) {
+        try {
+            const messages = this.db.collection('messages');
+            const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+            
+            const pipeline = [
+                { $match: { groupId, timestamp: { $gte: since } } },
+                {
+                    $group: {
+                        _id: null,
+                        totalMessages: { $sum: 1 },
+                        activeUsers: { $addToSet: '$userId' },
+                        mediaMessages: { $sum: { $cond: ['$hasMedia', 1, 0] } },
+                        forwardedMessages: { $sum: { $cond: ['$isForwarded', 1, 0] } }
+                    }
+                }
+            ];
+
+            const stats = await messages.aggregate(pipeline).toArray();
+            const topUsers = await messages.aggregate([
+                { $match: { groupId, timestamp: { $gte: since } } },
+                { $group: { _id: '$userId', messageCount: { $sum: 1 } } },
+                { $sort: { messageCount: -1 } },
+                { $limit: 5 }
+            ]).toArray();
+
+            return {
+                ...stats[0],
+                activeUsers: stats[0]?.activeUsers?.length || 0,
+                topUsers
+            };
+        } catch (error) {
+            logError(`Failed to get group message stats: ${error.message}`);
+            return null;
+        }
+    }
+
+    async cleanOldMessages(daysToKeep = 30) {
+        try {
+            const messages = this.db.collection('messages');
+            const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
+            
+            const result = await messages.deleteMany({
+                timestamp: { $lt: cutoffDate }
+            });
+
+            return result.deletedCount || 0;
+        } catch (error) {
+            logError(`Failed to clean old messages: ${error.message}`);
+            return 0;
+        }
+    }
 }
 
 module.exports = new MongoDB();

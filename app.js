@@ -130,6 +130,91 @@ class WebServer {
             }
         });
 
+        // Message analytics endpoints
+        this.app.get('/api/analytics/user/:userId', async (req, res) => {
+            try {
+                const { userId } = req.params;
+                const db = require('./connectDB');
+                
+                if (!db.getStatus().connected) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Database not connected'
+                    });
+                }
+
+                const stats = await db.getUserMessageStats(userId);
+                res.json({
+                    success: true,
+                    userStats: stats
+                });
+            } catch (error) {
+                logError(`User analytics API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch user analytics'
+                });
+            }
+        });
+
+        this.app.get('/api/analytics/group/:groupId', async (req, res) => {
+            try {
+                const { groupId } = req.params;
+                const { days = 7 } = req.query;
+                const db = require('./connectDB');
+                
+                if (!db.getStatus().connected) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Database not connected'
+                    });
+                }
+
+                const stats = await db.getGroupMessageStats(groupId, parseInt(days));
+                const activities = await db.getRecentGroupActivities(groupId, 20);
+                
+                res.json({
+                    success: true,
+                    groupStats: stats,
+                    recentActivities: activities
+                });
+            } catch (error) {
+                logError(`Group analytics API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch group analytics'
+                });
+            }
+        });
+
+        this.app.post('/api/maintenance/cleanup', async (req, res) => {
+            try {
+                const { daysToKeep = 30 } = req.body;
+                const db = require('./connectDB');
+                
+                if (!db.getStatus().connected) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Database not connected'
+                    });
+                }
+
+                const deletedCount = await db.cleanOldMessages(daysToKeep);
+                
+                res.json({
+                    success: true,
+                    message: `Cleaned ${deletedCount} old messages`,
+                    deletedCount
+                });
+            } catch (error) {
+                logError(`Cleanup API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to cleanup messages'
+                });
+            }
+        });
+
         this.app.post('/api/execute', async (req, res) => {
             try {
                 const { command } = req.body;

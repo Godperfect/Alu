@@ -187,6 +187,82 @@ class DataHandler {
         }
     }
 
+    async logMessage(messageInfo) {
+        try {
+            const messageData = {
+                messageId: messageInfo.key?.id || messageInfo.id,
+                userId: messageInfo.sender || messageInfo.participant,
+                groupId: messageInfo.isGroup ? messageInfo.chat : null,
+                messageType: this.getMessageType(messageInfo),
+                messageLength: this.getMessageLength(messageInfo),
+                hasMedia: this.hasMedia(messageInfo),
+                isForwarded: messageInfo.message?.contextInfo?.isForwarded || false,
+                isReply: !!messageInfo.message?.contextInfo?.quotedMessage
+            };
+
+            await db.logMessage(messageData);
+            logInfo(`Message logged for user ${messageData.userId}`);
+        } catch (error) {
+            logError(`Error logging message: ${error.message}`);
+        }
+    }
+
+    async logGroupActivity(groupId, activityType, userId = null, details = null) {
+        try {
+            await db.logGroupActivity(groupId, activityType, userId, details);
+        } catch (error) {
+            logError(`Error logging group activity: ${error.message}`);
+        }
+    }
+
+    getMessageType(messageInfo) {
+        const message = messageInfo.message;
+        if (!message) return 'unknown';
+
+        if (message.conversation || message.extendedTextMessage) return 'text';
+        if (message.imageMessage) return 'image';
+        if (message.videoMessage) return 'video';
+        if (message.audioMessage) return 'audio';
+        if (message.documentMessage) return 'document';
+        if (message.stickerMessage) return 'sticker';
+        if (message.locationMessage) return 'location';
+        if (message.contactMessage) return 'contact';
+        
+        return 'other';
+    }
+
+    getMessageLength(messageInfo) {
+        const message = messageInfo.message;
+        if (message?.conversation) return message.conversation.length;
+        if (message?.extendedTextMessage?.text) return message.extendedTextMessage.text.length;
+        return 0;
+    }
+
+    hasMedia(messageInfo) {
+        const message = messageInfo.message;
+        return !!(message?.imageMessage || message?.videoMessage || 
+                 message?.audioMessage || message?.documentMessage || 
+                 message?.stickerMessage);
+    }
+
+    async getUserMessageStats(userId) {
+        try {
+            return await db.getUserMessageStats(userId);
+        } catch (error) {
+            logError(`Error getting user message stats: ${error.message}`);
+            return null;
+        }
+    }
+
+    async getGroupMessageStats(groupId, days = 7) {
+        try {
+            return await db.getGroupMessageStats(groupId, days);
+        } catch (error) {
+            logError(`Error getting group message stats: ${error.message}`);
+            return null;
+        }
+    }
+
     clearCache() {
         this.userCache.clear();
         this.groupCache.clear();
