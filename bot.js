@@ -1,3 +1,6 @@
+
+const { DisconnectReason } = require('@whiskeysockets/baileys');
+
 const {
     default: makeWASocket
 } = require("@whiskeysockets/baileys");
@@ -15,7 +18,7 @@ const { startUptimeServer } = require('./bot/sentainal');
 const { initializeGlobals, config: globalConfig } = require('./config/globals');
 const CommandManager = require('./bot/managers/cmdPulse');
 const EventManager = require('./bot/managers/eventPulse');
-const db = require('./connectDB');
+const db = require('./dashboard/connectDB');
 const dataHandler = require('./bot/handler/handlerCheckdata');
 
 // Import the language manager
@@ -141,11 +144,12 @@ async function startBotz() {
 
         // Start web dashboard silently
         try {
-            const WebServer = require('./app');
+            const WebServer = require('./dashboard/app');
             const webServer = new WebServer();
             webServer.start();
+            logInfo('Dashboard started on port 5000');
         } catch (error) {
-            // Dashboard startup failed silently
+            logError(`Dashboard startup failed: ${error.message}`);
         }
 
         return ptz;

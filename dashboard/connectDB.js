@@ -1,8 +1,8 @@
 
 const mongoDB = require('./database/mongodb');
 const sqliteDB = require('./database/sqlite');
-const { logInfo, logError, logSuccess } = require('./utils');
-const config = require('./config.json');
+const { logInfo, logError, logSuccess } = require('../utils');
+const config = require('../config.json');
 
 class DatabaseManager {
     constructor() {

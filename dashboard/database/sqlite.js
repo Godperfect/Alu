@@ -280,7 +280,7 @@ class SQLiteDB {
     async updateUserActivity(userNumber, userName = null) {
         try {
             const now = new Date().toISOString();
-            await this.db.run(`
+            await this.run(`
                 INSERT OR REPLACE INTO users (userNumber, userName, lastSeen, messageCount, joinDate)
                 VALUES (?, ?, ?, 
                     COALESCE((SELECT messageCount FROM users WHERE userNumber = ?), 0) + 1,
@@ -295,7 +295,7 @@ class SQLiteDB {
     async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
         try {
             const now = new Date().toISOString();
-            await this.db.run(`
+            await this.run(`
                 INSERT OR REPLACE INTO groups (groupId, groupName, lastActivity, messageCount, participantCount, joinDate)
                 VALUES (?, ?, ?, 
                     COALESCE((SELECT messageCount FROM groups WHERE groupId = ?), 0) + 1,
@@ -312,8 +312,8 @@ class SQLiteDB {
     async logMessage(messageData) {
         try {
             const { messageId, userId, groupId, messageType, messageLength, hasMedia, isForwarded, isReply } = messageData;
-            
-            await this.db.run(`
+
+            await this.run(`
                 INSERT OR IGNORE INTO messages 
                 (messageId, userId, groupId, messageType, messageLength, hasMedia, isForwarded, isReply)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -321,7 +321,7 @@ class SQLiteDB {
 
             // Update user stats
             await this.updateUserMessageStats(userId, hasMedia);
-            
+
             return true;
         } catch (error) {
             console.error('Error logging message:', error);
@@ -335,7 +335,7 @@ class SQLiteDB {
             const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-            await this.db.run(`
+            await this.run(`
                 INSERT OR REPLACE INTO user_stats 
                 (userId, totalMessages, totalMediaSent, lastActivityTime, lastActivityType,
                  weeklyMessageCount, monthlyMessageCount, lastWeekReset, lastMonthReset)
@@ -381,7 +381,7 @@ class SQLiteDB {
 
     async logGroupActivity(groupId, activityType, userId = null, details = null) {
         try {
-            await this.db.run(`
+            await this.run(`
                 INSERT INTO group_activities (groupId, activityType, userId, details)
                 VALUES (?, ?, ?, ?)
             `, [groupId, activityType, userId, details]);
@@ -394,7 +394,7 @@ class SQLiteDB {
 
     async getUserMessageStats(userId) {
         try {
-            return await this.db.get('SELECT * FROM user_stats WHERE userId = ?', [userId]);
+            return await this.get('SELECT * FROM user_stats WHERE userId = ?', [userId]);
         } catch (error) {
             console.error('Error getting user message stats:', error);
             return null;
@@ -404,8 +404,8 @@ class SQLiteDB {
     async getGroupMessageStats(groupId, days = 7) {
         try {
             const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-            
-            const stats = await this.db.get(`
+
+            const stats = await this.get(`
                 SELECT 
                     COUNT(*) as totalMessages,
                     COUNT(DISTINCT userId) as activeUsers,
@@ -415,7 +415,7 @@ class SQLiteDB {
                 WHERE groupId = ? AND timestamp >= ?
             `, [groupId, since]);
 
-            const topUsers = await this.db.all(`
+            const topUsers = await this.all(`
                 SELECT userId, COUNT(*) as messageCount
                 FROM messages 
                 WHERE groupId = ? AND timestamp >= ?
@@ -433,7 +433,7 @@ class SQLiteDB {
 
     async getRecentGroupActivities(groupId, limit = 10) {
         try {
-            return await this.db.all(`
+            return await this.all(`
                 SELECT * FROM group_activities 
                 WHERE groupId = ? 
                 ORDER BY timestamp DESC 
@@ -448,8 +448,8 @@ class SQLiteDB {
     async cleanOldMessages(daysToKeep = 30) {
         try {
             const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
-            
-            const result = await this.db.run(`
+
+            const result = await this.run(`
                 DELETE FROM messages WHERE timestamp < ?
             `, [cutoffDate]);
 
