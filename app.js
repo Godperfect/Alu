@@ -86,11 +86,17 @@ class WebServer {
 
         this.app.get('/api/users', async (req, res) => {
             try {
-                // This would need to be implemented in your database layer
+                const db = require('./connectDB');
+                let users = [];
+                
+                if (db.getStatus().connected) {
+                    users = await db.getAllUsers();
+                }
+                
                 res.json({
                     success: true,
-                    users: [],
-                    message: 'User listing not implemented yet'
+                    users: users,
+                    total: users.length
                 });
             } catch (error) {
                 logError(`Users API error: ${error.message}`);
@@ -103,11 +109,17 @@ class WebServer {
 
         this.app.get('/api/groups', async (req, res) => {
             try {
-                // This would need to be implemented in your database layer
+                const db = require('./connectDB');
+                let groups = [];
+                
+                if (db.getStatus().connected) {
+                    groups = await db.getAllGroups();
+                }
+                
                 res.json({
                     success: true,
-                    groups: [],
-                    message: 'Group listing not implemented yet'
+                    groups: groups,
+                    total: groups.length
                 });
             } catch (error) {
                 logError(`Groups API error: ${error.message}`);
@@ -184,9 +196,8 @@ class WebServer {
         try {
             const db = require('./connectDB');
             if (db.getStatus().connected) {
-                // You can implement these queries based on your database schema
-                // userCount = await db.getUserCount();
-                // groupCount = await db.getGroupCount();
+                userCount = await db.getUserCount();
+                groupCount = await db.getGroupCount();
             }
         } catch (error) {
             // Ignore database errors for stats

@@ -102,8 +102,10 @@ async function startBotz() {
                 console.log('─────────────────────────────────────────');
                 
                 // Load commands and events after successful connection
-                commandManager.loadCommands();
-                eventManager.loadEvents();
+                setTimeout(() => {
+                    commandManager.loadCommands();
+                    eventManager.loadEvents();
+                }, 100);
             }
         });
 

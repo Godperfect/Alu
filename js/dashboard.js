@@ -16,6 +16,7 @@ class LunaDashboard {
         this.createFallingStars();
         this.loadInitialData();
         this.setupEventListeners();
+        this.setupTabs();
         this.startStatsUpdate();
         this.animateElements();
     }
@@ -113,6 +114,8 @@ class LunaDashboard {
                 refreshBtn.textContent = 'Refreshing...';
                 
                 await this.loadInitialData();
+                await this.loadUsersData();
+                await this.loadGroupsData();
                 
                 setTimeout(() => {
                     refreshBtn.style.transform = 'scale(1)';
@@ -133,6 +136,114 @@ class LunaDashboard {
                 item.style.transform = 'translateY(0) scale(1)';
             });
         });
+    }
+
+    setupTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.getAttribute('data-tab');
+                
+                // Remove active class from all tabs
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                btn.classList.add('active');
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+                
+                // Load data based on tab
+                if (tabName === 'users') {
+                    this.loadUsersData();
+                } else if (tabName === 'groups') {
+                    this.loadGroupsData();
+                }
+            });
+        });
+
+        // Load initial data for users and groups
+        this.loadUsersData();
+        this.loadGroupsData();
+    }
+
+    async loadUsersData() {
+        try {
+            const response = await fetch('/api/users');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderUsersTable(data.users);
+            }
+        } catch (error) {
+            console.error('Failed to load users:', error);
+            this.showNotification('Failed to load users data', 'error');
+        }
+    }
+
+    async loadGroupsData() {
+        try {
+            const response = await fetch('/api/groups');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderGroupsTable(data.groups);
+            }
+        } catch (error) {
+            console.error('Failed to load groups:', error);
+            this.showNotification('Failed to load groups data', 'error');
+        }
+    }
+
+    renderUsersTable(users) {
+        const tbody = document.getElementById('users-table-body');
+        
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">No users found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(user => {
+            const status = user.isBanned ? 'banned' : user.isAdmin ? 'admin' : 'active';
+            const statusClass = user.isBanned ? 'status-banned' : user.isAdmin ? 'status-admin' : 'status-active';
+            const lastSeen = new Date(user.lastSeen).toLocaleDateString();
+            
+            return `
+                <tr>
+                    <td>${user.phoneNumber}</td>
+                    <td>${user.name || 'Unknown'}</td>
+                    <td>${user.commandCount || 0}</td>
+                    <td><span class="status-badge ${statusClass}">${status}</span></td>
+                    <td>${lastSeen}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    renderGroupsTable(groups) {
+        const tbody = document.getElementById('groups-table-body');
+        
+        if (groups.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">No groups found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = groups.map(group => {
+            const status = group.isActive ? 'active' : 'inactive';
+            const statusClass = group.isActive ? 'status-active' : 'status-banned';
+            const lastActivity = new Date(group.lastActivity).toLocaleDateString();
+            
+            return `
+                <tr>
+                    <td>${group.groupName || 'Unknown Group'}</td>
+                    <td>${group.groupId}</td>
+                    <td>${group.memberCount || 0}</td>
+                    <td><span class="status-badge ${statusClass}">${status}</span></td>
+                    <td>${lastActivity}</td>
+                </tr>
+            `;
+        }).join('');
     }
 
     updateStats(data) {
