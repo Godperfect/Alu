@@ -16,43 +16,36 @@ if (!global.bannedUsers) {
 }
 
 
-const { logError, logInfo, logWarning } = require('../../utils');
-const lang = require('../../language/language');
-
 const handlerAction = {
 
     handleCommand: async function({ sock, mek, args, command, sender, botNumber, messageInfo, isGroup }) {
         try {
             const threadID = mek.key.remoteJid;
 
-            if (!command) {
+             if (!command) {
                 return sock.sendMessage(threadID, { 
                     text: lang.get('handler.noCommandProvided', global.prefix) 
                 }, { quoted: mek });
-            }
+            }  const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
+  if (!cmd) {
 
-            const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
-            
-            if (!cmd) {
-                return sock.sendMessage(threadID, { 
-                    text: lang.get('handler.unknownCommand', command, global.prefix)
+ return sock.sendMessage(threadID, { 
+ text:
+     lang.get('handler.unknownCommand', command, global.prefix)
                 }, { quoted: mek });
             }
 
-            const userNumber = sender.replace(/[^0-9]/g, '');
 
-            if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
-                logWarning(lang.get('log.bannedUserAttempt', userNumber));
-                return sock.sendMessage(threadID, { 
-                    text: lang.get('handler.userBanned')
-                }, { quoted: mek });
-            }
+            if (typeof cmd.run === 'function') {
+                const userNumber = sender.replace(/[^0-9]/g, '');
 
-            if (typeof cmd.onStart === 'function') {
-                await cmd.onStart({ sock, m: mek, args, sender, messageInfo, isGroup });
-            } else if (typeof cmd.run === 'function') {
-                await cmd.run({ sock, m: mek, args, sender, messageInfo, isGroup });
-            }
+
+                if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
+                    logWarning(lang.get('log.bannedUserAttempt', userNumber));
+                    return sock.sendMessage(threadID, { 
+                        text: lang.get('handler.userBanned')
+                    }, { quoted: mek });
+                }
 
 
                 if (config.adminOnly?.enable && 
@@ -165,20 +158,7 @@ const handlerAction = {
                             }
                         }
 
-                        } catch (error) {
-            logError(`Error in handleCommand: ${error.message}`);
-        }
-    },
-
-    handleChat: async function({ sock, mek, sender, messageText, messageInfo, isGroup }) {
-        try {
-            const threadID = mek.key.remoteJid;
-            const userNumber = sender.replace(/[^0-9]/g, '');
-
-            // Handle onChat commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onChat === 'function') {
-                    try {
+                        // Execute onChat function
                         const result = await command.onChat({
                             sock,
                             m: mek,
@@ -195,6 +175,7 @@ const handlerAction = {
                             }
                         });
 
+                        // If onChat returns true, stop processing other commands
                         if (result === true) {
                             logInfo(`OnChat command executed: ${commandName} by ${userNumber}`);
                             return;
@@ -205,209 +186,8 @@ const handlerAction = {
                 }
             }
 
-            // Handle Luna onChat patterns
+
             for (const [pattern, handler] of global.Luna.onChat.entries()) {
-                try {
-                    if (messageText.match(pattern)) {
-                        await handler({ sock, m: mek, sender, messageText, messageInfo, isGroup });
-                    }
-                } catch (err) {
-                    logError(`Error in Luna onChat pattern: ${err.message}`);
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleChat: ${error.message}`);
-        }
-    },
-
-    handleReply: async function({ sock, mek, sender, botNumber, messageInfo }) {
-        try {
-            const quotedMessageId = messageInfo.quotedMessageId;
-            
-            // Handle onReply commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onReply === 'function') {
-                    try {
-                        await command.onReply({
-                            sock,
-                            m: mek,
-                            sender,
-                            messageInfo,
-                            quotedMessageId
-                        });
-                    } catch (err) {
-                        logError(`Error in onReply for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
-            // Handle Luna onReply patterns
-            for (const [replyId, handler] of global.Luna.onReply.entries()) {
-                try {
-                    if (quotedMessageId === replyId) {
-                        await handler({ sock, m: mek, sender, messageInfo });
-                        global.Luna.onReply.delete(replyId);
-                    }
-                } catch (err) {
-                    logError(`Error in Luna onReply: ${err.message}`);
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleReply: ${error.message}`);
-        }
-    },
-
-    handleReaction: async function({ sock, mek, sender, botNumber, messageInfo }) {
-        try {
-            const reaction = messageInfo.reaction;
-            
-            // Handle onReaction commands
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onReaction === 'function') {
-                    try {
-                        await command.onReaction({
-                            sock,
-                            m: mek,
-                            sender,
-                            messageInfo,
-                            reaction
-                        });
-                    } catch (err) {
-                        logError(`Error in onReaction for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
-            // Handle Luna onReaction patterns
-            for (const [pattern, handler] of global.Luna.onReaction.entries()) {
-                try {
-                    if (reaction === pattern) {
-                        await handler({ sock, m: mek, sender, messageInfo, reaction });
-                    }
-                } catch (err) {
-                    logError(`Error in Luna onReaction: ${err.message}`);
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleReaction: ${error.message}`);
-        }
-    },
-
-    handleGroupEvent: async function(sock, eventType, eventData) {
-        try {
-            // Handle group events (join, leave, promote, demote)
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onEvent === 'function') {
-                    try {
-                        await command.onEvent({
-                            sock,
-                            eventType,
-                            eventData
-                        });
-                    } catch (err) {
-                        logError(`Error in onEvent for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-
-            // Handle Luna onEvent patterns
-            for (const [eventPattern, handler] of global.Luna.onEvent.entries()) {
-                try {
-                    if (eventType === eventPattern) {
-                        await handler({ sock, eventType, eventData });
-                    }
-                } catch (err) {
-                    logError(`Error in Luna onEvent: ${err.message}`);
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleGroupEvent: ${error.message}`);
-        }
-    },
-
-    handleCallEvent: async function(sock, callType, callData) {
-        try {
-            // Handle call events (missed, incoming)
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onCall === 'function') {
-                    try {
-                        await command.onCall({
-                            sock,
-                            callType,
-                            callData
-                        });
-                    } catch (err) {
-                        logError(`Error in onCall for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleCallEvent: ${error.message}`);
-        }
-    },
-
-    handleContactEvent: async function(sock, eventType, contactData) {
-        try {
-            // Handle contact events (joined)
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onContact === 'function') {
-                    try {
-                        await command.onContact({
-                            sock,
-                            eventType,
-                            contactData
-                        });
-                    } catch (err) {
-                        logError(`Error in onContact for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleContactEvent: ${error.message}`);
-        }
-    },
-
-    handleInviteEvent: async function(sock, inviteData) {
-        try {
-            // Handle group invite events
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onInvite === 'function') {
-                    try {
-                        await command.onInvite({
-                            sock,
-                            inviteData
-                        });
-                    } catch (err) {
-                        logError(`Error in onInvite for ${commandName}: ${err.message}`);
-                    }
-                }
-            }
-        } catch (error) {
-            logError(`Error in handleInviteEvent: ${error.message}`);
-        }
-    },
-
-    processEvents: async function({ sock, mek, sender, messageInfo, isGroup }) {
-        try {
-            // Process custom events from the events system
-            if (global.events && global.events.size > 0) {
-                for (const [eventName, event] of global.events.entries()) {
-                    if (typeof event.event === 'function') {
-                        try {
-                            await event.event({ sock, m: mek, sender, messageInfo, isGroup });
-                        } catch (err) {
-                            logError(`Error in event ${eventName}: ${err.message}`);
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            logError(`Error in processEvents: ${error.message}`);
-        }
-    }
-};
-
-module.exports = handlerAction;
 
                 if (pattern instanceof RegExp) {
                     const match = messageText.match(pattern);
