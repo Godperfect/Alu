@@ -27,7 +27,7 @@ const handlerAction = {
             }
 
             const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
-            
+
             if (!cmd) {
                 return sock.sendMessage(threadID, { 
                     text: lang.get('handler.unknownCommand', command, global.prefix)
@@ -41,127 +41,6 @@ const handlerAction = {
                 return sock.sendMessage(threadID, { 
                     text: lang.get('handler.userBanned')
                 }, { quoted: mek });
-            }
-
-            if (typeof cmd.onStart === 'function') {
-                await cmd.onStart({ sock, m: mek, args, sender, messageInfo, isGroup });
-            } else if (typeof cmd.run === 'function') {
-                await cmd.run({ sock, m: mek, args, sender, messageInfo, isGroup });
-            }
-
-
-                if (config.adminOnly?.enable && 
-                    !config.adminOnly.adminNumbers.includes(userNumber) && 
-                    !mek.key.fromMe) {
-                    logWarning(lang.get('log.commandBlocked', userNumber));
-                    return sock.sendMessage(threadID, { 
-                        text: lang.get('handler.adminOnlyMode', command, global.prefix)
-                    }, { quoted: mek });
-                }
-
-
-                if (cmd.permission !== undefined) {
-                    const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
-
-                    if (userPermission < cmd.permission) {
-                        logWarning(lang.get('log.permissionDenied', command, cmd.permission, userPermission));
-                        return sock.sendMessage(threadID, { 
-                            text: lang.get('handler.permissionDenied', cmd.permission)
-                        }, { quoted: mek });
-                    }
-                }
-
-
-                if (cmd.cooldown) {
-                    const cooldownKey = `${command}_${userNumber}`;
-                    const now = Date.now();
-
-
-                    if (global.cooldowns instanceof Map && global.cooldowns.has(cooldownKey)) {
-                        const cooldownTime = global.cooldowns.get(cooldownKey);
-                        const timeLeft = ((cooldownTime + (cmd.cooldown * 1000)) - now) / 1000;
-
-                        if (timeLeft > 0) {
-                            return sock.sendMessage(threadID, { 
-                                text: lang.get('handler.cooldownActive', timeLeft.toFixed(1))
-                            }, { quoted: mek });
-                        }
-                    }
-
-
-                    if (global.cooldowns instanceof Map) {
-
-                        global.cooldowns.set(cooldownKey, now);
-
-                        setTimeout(() => {
-                            global.cooldowns.delete(cooldownKey);
-                        }, cmd.cooldown * 1000);
-                    }
-                }
-
-
-                logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
-
-
-                await cmd.run({
-                    sock,
-                    m: mek,
-                    args,
-                    command,
-                    sender,
-                    botNumber,
-                    messageInfo,
-                    isGroup
-                });
-            }
-        } catch (err) {
-            logError(lang.get('error.handleCommand', err.message));
-            console.error(err);
-        }
-    },
-
-
-    handleChat: async function({ sock, mek, sender, messageText, messageInfo, isGroup }) {
-        try {
-            const userNumber = sender.replace(/[^0-9]/g, '');
-            const threadID = mek.key.remoteJid;
-
-
-            if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {
-                return; 
-            }
-
-
-            if (config.adminOnly?.enable && 
-                !config.adminOnly.adminNumbers.includes(userNumber) && 
-                !mek.key.fromMe) {
-                return; // Silently ignore non-admins in admin-only mode
-            }
-
-            // Get custom prefix for group if it exists
-            const currentPrefix = isGroup && global.groupPrefix && global.groupPrefix[threadID] 
-                ? global.groupPrefix[threadID] 
-                : global.prefix;
-
-
-            if (!global.Luna.onChat) {
-                global.Luna.onChat = new Map();
-            }
-
-            // Check for Luna-style command onChat functions
-            for (const [commandName, command] of global.commands.entries()) {
-                if (typeof command.onChat === 'function') {
-                    try {
-                        // Check permission for onChat commands
-                        if (command.permission !== undefined) {
-                            const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
-                            if (userPermission < command.permission) {
-                                continue; // Skip this command if user doesn't have permission
-                            }
-                        }
-
-                        } else if (typeof cmd.run === 'function') {
-                await cmd.run({ sock, m: mek, args, sender, messageInfo, isGroup });
             }
 
             // Admin only mode check
@@ -212,6 +91,12 @@ const handlerAction = {
 
             logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
 
+            // Execute command
+            if (typeof cmd.onStart === 'function') {
+                await cmd.onStart({ sock, m: mek, args, sender, messageInfo, isGroup });
+            } else if (typeof cmd.run === 'function') {
+                await cmd.run({ sock, m: mek, args, sender, messageInfo, isGroup });
+            }
         } catch (err) {
             logError(lang.get('error.handleCommand', err.message));
             console.error(err);
@@ -736,7 +621,7 @@ const handlerAction = {
     }
 };
 
-
+// Initialize Luna global if not exists
 if (!global.Luna) {
     global.Luna = {
         onChat: new Map(),
