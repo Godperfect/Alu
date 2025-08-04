@@ -32,26 +32,26 @@ try {
 
 /**
  * Get formatted timestamp
- * @returns {string} Formatted timestamp in [HH:mm:ss] format
+ * @returns {string} Formatted timestamp in HH:mm:ss format
  */
 const getTimestamp = () => {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+    return `${hours}:${minutes}:${seconds}`;
 };
 
 /**
  * Get formatted date
- * @returns {string} Formatted date in [YYYY-MM-DD] format
+ * @returns {string} Formatted date in DD/MM/YYYY format
  */
 const getFormattedDate = () => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    return chalk.gray(`[${year}-${month}-${day}]`);
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
 };
 
 // Generate ASCII art for "LUNA V 1" using figlet
@@ -135,10 +135,12 @@ const checkGitHubAuthorization = async (phoneNumber) => {
 
         const authData = response.data;
         if (Array.isArray(authData) && authData.includes(phoneNumber)) {
-            logSuccess(' authorization successful!');
+            const { logGoatBotStyle } = require('../../utils/logger');
+            logGoatBotStyle('auth', { type: 'success' });
             return true;
         } else {
-            logError('Unauthorized access attempt!');
+            const { logGoatBotStyle } = require('../../utils/logger');
+            logGoatBotStyle('auth', { type: 'unauthorized' });
             return false;
         }
     } catch (error) {
@@ -183,10 +185,10 @@ const authenticateSession = async (ptz) => {
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
             if (!phoneNumber) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Enter your phone number:')}`);
+                console.log(chalk.yellow(`[ INPUT ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Enter your phone number:'));
                 phoneNumber = await question('> ');
             } else {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('PHONE NUMBER:')} ${chalk.green(phoneNumber)}`);
+                console.log(chalk.blue(`[ INFO ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Phone Number: ') + chalk.green(phoneNumber));
             }
 
             // Clean the phone number
@@ -195,7 +197,7 @@ const authenticateSession = async (ptz) => {
             // Check GitHub authorization before proceeding
             const isAuthorized = await checkGitHubAuthorization(phoneNumber);
             if (!isAuthorized) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('Need access to the bot? Just reach out to the developer at +977 9863479066.')}`);
+                console.log(chalk.red(`[ ACCESS ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Need access to the bot? Just reach out to the developer at +977 9863479066.'));
                 process.exit(1); // Exit if unauthorized
             }
 
@@ -206,8 +208,9 @@ const authenticateSession = async (ptz) => {
                 // Format code with dashes for readability
                 code = code?.match(/.{1,3}/g)?.join("-") || code;
 
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('PAIRING CODE:')} ${chalk.green(code)}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Please enter this code in your WhatsApp mobile app')}`);
+                const { logGoatBotStyle } = require('../../utils/logger');
+                logGoatBotStyle('auth', { type: 'pairing', code: code });
+                console.log(chalk.blue(`[ INFO ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Please enter this code in your WhatsApp mobile app'));
 
                 // Set up connection update listener to detect when user is linked
                 ptz.ev.on('connection.update', (update) => {
