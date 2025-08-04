@@ -2,7 +2,7 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const { logInfo, logError, logSuccess } = require('./utils');
+const { logInfo, logError, logSuccess } = require('../utils');
 const db = require('./connectDB');
 const { config } = require('./config/globals');
 

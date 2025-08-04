@@ -1,7 +1,7 @@
 
 const { MongoClient } = require('mongodb');
-const { logInfo, logError, logSuccess } = require('../utils');
-const config = require('../config.json');
+const { logInfo, logError, logSuccess } = require('../../utils');
+const config = require('../../config.json');
 
 class MongoDB {
     constructor() {

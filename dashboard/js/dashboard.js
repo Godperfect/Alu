@@ -618,6 +618,7 @@ function cleanupMessages() {
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
+    const dashboard = new LunaDashboard();
     loadStats();
     statsInterval = setInterval(loadStats, 30000); // Refresh every 30 seconds
 });

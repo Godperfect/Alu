@@ -1,6 +1,6 @@
 
 const { logInfo, logError, getSenderName } = require('../../utils');
-const db = require('../../connectDB');
+const db = require('../../dashboard/connectDB');
 const { config } = require('../../config/globals');
 
 class DataHandler {
