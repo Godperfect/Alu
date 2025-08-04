@@ -1,4 +1,3 @@
-
 const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
@@ -104,73 +103,52 @@ const logGoatBotStyle = (type, data = {}) => {
 
     switch (type) {
         case 'startup':
-            console.log(chalk.cyan('┌' + '─'.repeat(58) + '┐'));
-            console.log(chalk.cyan('│') + chalk.white.bold('                    🚀 LUNA BOT STARTING                    ') + chalk.cyan('│'));
-            console.log(chalk.cyan('│') + chalk.gray(`                    ${date}, ${timestamp}                    `) + chalk.cyan('│'));
-            console.log(chalk.cyan('└' + '─'.repeat(58) + '┘'));
+            console.clear();
+            console.log(chalk.blue.bold('\n╔══════════════════════════════════════════════════════════╗'));
+            console.log(chalk.blue.bold('║') + chalk.white.bold('                      LUNA BOT v1.3                      ') + chalk.blue.bold('║'));
+            console.log(chalk.blue.bold('║') + chalk.cyan('                   Professional WhatsApp Bot              ') + chalk.blue.bold('║'));
+            console.log(chalk.blue.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.blue.bold('║'));
+            console.log(chalk.blue.bold('╚══════════════════════════════════════════════════════════╝\n'));
             break;
 
         case 'ready':
-            console.log(chalk.green('┌' + '─'.repeat(58) + '┐'));
-            console.log(chalk.green('│') + chalk.white.bold('                     ✅ BOT READY!                         ') + chalk.green('│'));
-            console.log(chalk.green('│') + chalk.white(`                Connected as: ${data.name || 'Luna'}                 `) + chalk.green('│'));
-            console.log(chalk.green('│') + chalk.gray(`                    ${date}, ${timestamp}                    `) + chalk.green('│'));
-            console.log(chalk.green('└' + '─'.repeat(58) + '┘'));
+            console.log(chalk.green.bold('\n╔══════════════════════════════════════════════════════════╗'));
+            console.log(chalk.green.bold('║') + chalk.white.bold('                    ✅ BOT ONLINE                        ') + chalk.green.bold('║'));
+            console.log(chalk.green.bold('║') + chalk.white(`                   Connected as: ${data.name || 'Luna'}                   `) + chalk.green.bold('║'));
+            console.log(chalk.green.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.green.bold('║'));
+            console.log(chalk.green.bold('╚══════════════════════════════════════════════════════════╝\n'));
             break;
 
         case 'command_load':
-            console.log(chalk.blue(`[ LOAD ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                       chalk.white(`Command: `) + chalk.yellow(data.name) + 
-                       chalk.gray(` (${data.category || 'general'})`));
+            console.log(chalk.blue(`●`) + chalk.white(` Command loaded: `) + chalk.yellow.bold(data.name) + 
+                       (data.category ? chalk.gray(` [${data.category}]`) : ''));
             break;
 
         case 'event_load':
-            console.log(chalk.blue(`[ LOAD ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                       chalk.white(`Event: `) + chalk.yellow(data.name));
-            break;
-
-        case 'connection':
-            if (data.status === 'connecting') {
-                console.log(chalk.yellow(`[ CONNECT ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white('Connecting to WhatsApp...'));
-            } else if (data.status === 'open') {
-                console.log(chalk.green(`[ CONNECT ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white('Successfully connected to WhatsApp!'));
-            } else if (data.status === 'close') {
-                console.log(chalk.red(`[ CONNECT ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white('Connection closed'));
-            } else if (data.status === 'reconnecting') {
-                console.log(chalk.yellow(`[ CONNECT ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white('Reconnecting to WhatsApp...'));
-            }
-            break;
-
-        case 'auth':
-            if (data.type === 'pairing') {
-                console.log(chalk.magenta(`[ AUTH ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white(`Pairing code: `) + chalk.green.bold(data.code));
-            } else if (data.type === 'success') {
-                console.log(chalk.green(`[ AUTH ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white('Authentication successful!'));
-            } else if (data.type === 'unauthorized') {
-                console.log(chalk.red(`[ AUTH ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white('Unauthorized access attempt!'));
-            }
+            console.log(chalk.magenta(`●`) + chalk.white(` Event loaded: `) + chalk.cyan.bold(data.name));
             break;
 
         case 'database':
             if (data.status === 'connected') {
-                console.log(chalk.green(`[ DATABASE ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white(`Database (${data.type}) initialized successfully`));
+                console.log(chalk.green(`✓`) + chalk.white(` Database connected: `) + chalk.green.bold(data.type.toUpperCase()));
             } else if (data.status === 'error') {
-                console.log(chalk.red(`[ DATABASE ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                           chalk.white(`Database error: ${data.error}`));
+                console.log(chalk.red(`✗`) + chalk.white(` Database error: `) + chalk.red(data.error));
             }
             break;
 
+        case 'connection':
+            const statusIcons = {
+                'open': chalk.green('●'),
+                'close': chalk.red('●'),
+                'connecting': chalk.yellow('●'),
+                'reconnecting': chalk.blue('●')
+            };
+            const icon = statusIcons[data.status] || chalk.white('●');
+            console.log(icon + chalk.white(` Connection status: `) + chalk.bold(data.status.toUpperCase()));
+            break;
+
         case 'uptime':
-            console.log(chalk.blue(`[ UPTIME ]`) + chalk.gray(` [${date}, ${timestamp}] `) + 
-                       chalk.white(`Server started on port ${data.port}`));
+            console.log(chalk.cyan(`●`) + chalk.white(` Uptime server: `) + chalk.cyan.bold(`http://localhost:${data.port}`));
             break;
     }
 };

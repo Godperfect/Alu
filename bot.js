@@ -51,7 +51,7 @@ async function startBotz() {
         initializeGlobals();
         languageManager.initialize(config);
         
-        // Startup banner
+        // Clean startup display
         const { logGoatBotStyle } = require('./utils/logger');
         logGoatBotStyle('startup');
         
