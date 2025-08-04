@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { logError, getSenderName } = require('../../utils');
+const { logError, getSenderName, logMessage } = require('../../utils');
 const { config } = require('../../config/globals');
 const { getTextContent } = require('../../utils/messageParser');
 const handlerAction = require('./handlerAction');
