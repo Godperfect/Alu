@@ -9,7 +9,7 @@ const { config } = require('./config/globals');
 class WebServer {
     constructor() {
         this.app = express();
-        this.port = process.env.PORT || 5000;
+        this.port = 5000;
         this.startTime = Date.now();
         this.setupMiddleware();
         this.setupRoutes();
@@ -45,10 +45,11 @@ class WebServer {
         this.app.get('/api/stats', async (req, res) => {
             try {
                 const stats = await this.getStats();
+                const botStatus = global.botConnected ? 'online' : 'offline';
                 res.json({
                     success: true,
                     stats,
-                    status: global.botStatus || 'offline',
+                    status: botStatus,
                     timestamp: new Date().toISOString()
                 });
             } catch (error) {
@@ -176,9 +177,24 @@ class WebServer {
     async getStats() {
         const uptime = Math.floor((Date.now() - this.startTime) / 1000);
         
+        // Get user and group counts from database
+        let userCount = 0;
+        let groupCount = 0;
+        
+        try {
+            const db = require('./connectDB');
+            if (db.getStatus().connected) {
+                // You can implement these queries based on your database schema
+                // userCount = await db.getUserCount();
+                // groupCount = await db.getGroupCount();
+            }
+        } catch (error) {
+            // Ignore database errors for stats
+        }
+        
         return {
-            users: 0, // This would come from your database
-            groups: 0, // This would come from your database
+            users: userCount,
+            groups: groupCount,
             commands: global.commands ? global.commands.size : 0,
             uptime,
             memory: process.memoryUsage(),
