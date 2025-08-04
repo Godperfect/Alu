@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luna Bot Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/png" href="/images/luna-icon.png">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🌙 Luna Bot Dashboard</h1>
+            <p>Advanced WhatsApp Bot Management System</p>
+            <div class="status-card">
+                <span class="status-indicator status-offline"></span>
+                <span id="status-text">Checking Status...</span>
+                <button id="refresh-btn" style="margin-left: 20px; padding: 5px 15px; border-radius: 5px; border: none; background: rgba(255,255,255,0.2); color: white; cursor: pointer;">Refresh</button>
+            </div>
+        </header>
+
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="user-count">0</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="group-count">0</div>
+                <div class="stat-label">Active Groups</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="command-count">0</div>
+                <div class="stat-label">Commands Executed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uptime">0m</div>
+                <div class="stat-label">Uptime</div>
+            </div>
+        </section>
+
+        <section class="commands-section">
+            <h2>Available Commands</h2>
+            <div class="command-list" id="command-list">
+                <div class="command-item">
+                    <div class="command-name">+ping</div>
+                    <div class="command-description">Check bot response time</div>
+                </div>
+                <div class="command-item">
+                    <div class="command-name">+help</div>
+                    <div class="command-description">Show all available commands</div>
+                </div>
+                <div class="command-item">
+                    <div class="command-name">+ai</div>
+                    <div class="command-description">AI-powered conversation</div>
+                </div>
+                <div class="command-item">
+                    <div class="command-name">+mistral</div>
+                    <div class="command-description">Mistral AI integration</div>
+                </div>
+                <div class="command-item">
+                    <div class="command-name">+ytb</div>
+                    <div class="command-description">YouTube downloader</div>
+                </div>
+                <div class="command-item">
+                    <div class="command-name">+meme</div>
+                    <div class="command-description">Random meme generator</div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>&copy; 2024 Luna Bot - Advanced WhatsApp Bot Framework</p>
+            <p>Developed with ❤️ for seamless messaging automation</p>
+        </footer>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

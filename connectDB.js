@@ -1,0 +1,101 @@
+
+const mongoDB = require('./database/mongodb');
+const sqliteDB = require('./database/sqlite');
+const { logInfo, logError, logSuccess } = require('./utils');
+const config = require('./config.json');
+
+class DatabaseManager {
+    constructor() {
+        this.mongodb = mongoDB;
+        this.sqlite = sqliteDB;
+        this.primaryDB = null;
+        this.isConnected = false;
+    }
+
+    async connect() {
+        try {
+            // Always connect to SQLite as fallback
+            await this.sqlite.connect();
+            this.primaryDB = this.sqlite;
+
+            // Try to connect to MongoDB if configured
+            if (config.database.type === 'mongodb' && config.database.uriMongodb) {
+                const mongoConnected = await this.mongodb.connect();
+                if (mongoConnected) {
+                    this.primaryDB = this.mongodb;
+                    logInfo('Using MongoDB as primary database');
+                } else {
+                    logInfo('Using SQLite as primary database (MongoDB failed)');
+                }
+            } else {
+                logInfo('Using SQLite as primary database');
+            }
+
+            this.isConnected = true;
+            logSuccess('Database connection established');
+            return true;
+        } catch (error) {
+            logError(`Database connection failed: ${error.message}`);
+            return false;
+        }
+    }
+
+    async disconnect() {
+        if (this.mongodb.isConnected) {
+            await this.mongodb.disconnect();
+        }
+        if (this.sqlite.isConnected) {
+            await this.sqlite.close();
+        }
+        this.isConnected = false;
+        logInfo('All database connections closed');
+    }
+
+    // Wrapper methods that use the primary database
+    async saveUser(userData) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.saveUser(userData);
+    }
+
+    async getUser(phoneNumber) {
+        if (!this.isConnected) return null;
+        return await this.primaryDB.getUser(phoneNumber);
+    }
+
+    async saveGroup(groupData) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.saveGroup(groupData);
+    }
+
+    async getGroup(groupId) {
+        if (!this.isConnected) return null;
+        return await this.primaryDB.getGroup(groupId);
+    }
+
+    async logCommand(commandData) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.logCommand(commandData);
+    }
+
+    async saveBotSetting(key, value) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.saveBotSetting(key, value);
+    }
+
+    async getBotSetting(key) {
+        if (!this.isConnected) return null;
+        return await this.primaryDB.getBotSetting(key);
+    }
+
+    // Health check
+    getStatus() {
+        return {
+            isConnected: this.isConnected,
+            primaryDB: this.primaryDB === this.mongodb ? 'MongoDB' : 'SQLite',
+            mongodb: this.mongodb.isConnected,
+            sqlite: this.sqlite.isConnected
+        };
+    }
+}
+
+module.exports = new DatabaseManager();

@@ -15,6 +15,8 @@ const { startUptimeServer } = require('./bot/sentainal');
 const { initializeGlobals, config: globalConfig } = require('./config/globals');
 const CommandManager = require('./bot/managers/cmdPulse');
 const EventManager = require('./bot/managers/eventPulse');
+const db = require('./connectDB');
+const dataHandler = require('./bot/handler/handlerCheckdata');
 
 // Import the language manager
 const languageManager = require('./language/language.js');
@@ -46,6 +48,9 @@ let isLoggedIn = false;
 async function startBotz() {
     try {
         initializeGlobals();
+
+        // Initialize database connection
+        await db.connect();
 
         // Initialize language manager with config
         languageManager.initialize(config);
