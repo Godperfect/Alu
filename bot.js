@@ -43,10 +43,6 @@ const store = (() => {
 const commandManager = new CommandManager();
 const eventManager = new EventManager();
 
-// Load commands and events
-commandManager.loadCommands();
-eventManager.loadEvents();
-
 let isLoggedIn = false;
 
 async function startBotz() {
@@ -104,6 +100,10 @@ async function startBotz() {
                 global.botConnected = true;
                 logSuccess('BOT IS SUCCESSFULLY CONNECTED');
                 console.log('─────────────────────────────────────────');
+                
+                // Load commands and events after successful connection
+                commandManager.loadCommands();
+                eventManager.loadEvents();
             }
         });
 
