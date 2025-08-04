@@ -1,4 +1,3 @@
-
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
@@ -193,21 +192,80 @@ class SQLiteDB {
     }
 
     async close() {
-        return new Promise((resolve) => {
-            if (this.db) {
-                this.db.close((err) => {
-                    if (err) {
-                        logError(`Error closing SQLite: ${err.message}`);
-                    } else {
-                        logInfo('SQLite connection closed');
-                    }
-                    this.isConnected = false;
-                    resolve();
-                });
-            } else {
-                resolve();
-            }
-        });
+        if (this.db) {
+            await this.db.close();
+            this.db = null;
+        }
+    }
+
+    async getUserCount() {
+        if (!this.db) return 0;
+
+        try {
+            const result = await this.db.get('SELECT COUNT(*) as count FROM users');
+            return result ? result.count : 0;
+        } catch (error) {
+            console.error('Error getting user count:', error);
+            return 0;
+        }
+    }
+
+    async getGroupCount() {
+        if (!this.db) return 0;
+
+        try {
+            const result = await this.db.get('SELECT COUNT(*) as count FROM groups WHERE isActive = 1');
+            return result ? result.count : 0;
+        } catch (error) {
+            console.error('Error getting group count:', error);
+            return 0;
+        }
+    }
+
+    async getAllUsers() {
+        if (!this.db) return [];
+
+        try {
+            const users = await this.db.all(`
+                SELECT 
+                    phoneNumber,
+                    name,
+                    isAdmin,
+                    isBanned,
+                    commandCount,
+                    lastSeen,
+                    createdAt
+                FROM users 
+                ORDER BY lastSeen DESC
+            `);
+            return users || [];
+        } catch (error) {
+            console.error('Error getting all users:', error);
+            return [];
+        }
+    }
+
+    async getAllGroups() {
+        if (!this.db) return [];
+
+        try {
+            const groups = await this.db.all(`
+                SELECT 
+                    groupId,
+                    groupName,
+                    description,
+                    memberCount,
+                    isActive,
+                    lastActivity,
+                    createdAt
+                FROM groups 
+                ORDER BY lastActivity DESC
+            `);
+            return groups || [];
+        } catch (error) {
+            console.error('Error getting all groups:', error);
+            return [];
+        }
     }
 }
 

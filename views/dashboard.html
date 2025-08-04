@@ -39,32 +39,84 @@
             </div>
         </section>
 
-        <section class="commands-section">
-            <h2>Available Commands</h2>
-            <div class="command-list" id="command-list">
-                <div class="command-item">
-                    <div class="command-name">+ping</div>
-                    <div class="command-description">Check bot response time</div>
+        <section class="data-section">
+            <div class="section-tabs">
+                <button class="tab-btn active" data-tab="commands">Commands</button>
+                <button class="tab-btn" data-tab="users">Users</button>
+                <button class="tab-btn" data-tab="groups">Groups</button>
+            </div>
+
+            <div class="tab-content active" id="commands-tab">
+                <h2>Available Commands</h2>
+                <div class="command-list" id="command-list">
+                    <div class="command-item">
+                        <div class="command-name">+ping</div>
+                        <div class="command-description">Check bot response time</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">+help</div>
+                        <div class="command-description">Show all available commands</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">+ai</div>
+                        <div class="command-description">AI-powered conversation</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">+mistral</div>
+                        <div class="command-description">Mistral AI integration</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">+ytb</div>
+                        <div class="command-description">YouTube downloader</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">+meme</div>
+                        <div class="command-description">Random meme generator</div>
+                    </div>
                 </div>
-                <div class="command-item">
-                    <div class="command-name">+help</div>
-                    <div class="command-description">Show all available commands</div>
+            </div>
+
+            <div class="tab-content" id="users-tab">
+                <h2>Active Users</h2>
+                <div class="table-container">
+                    <table class="data-table" id="users-table">
+                        <thead>
+                            <tr>
+                                <th>Phone Number</th>
+                                <th>Name</th>
+                                <th>Commands Used</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr>
+                                <td colspan="5" class="loading">Loading users...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="command-item">
-                    <div class="command-name">+ai</div>
-                    <div class="command-description">AI-powered conversation</div>
-                </div>
-                <div class="command-item">
-                    <div class="command-name">+mistral</div>
-                    <div class="command-description">Mistral AI integration</div>
-                </div>
-                <div class="command-item">
-                    <div class="command-name">+ytb</div>
-                    <div class="command-description">YouTube downloader</div>
-                </div>
-                <div class="command-item">
-                    <div class="command-name">+meme</div>
-                    <div class="command-description">Random meme generator</div>
+            </div>
+
+            <div class="tab-content" id="groups-tab">
+                <h2>Active Groups</h2>
+                <div class="table-container">
+                    <table class="data-table" id="groups-table">
+                        <thead>
+                            <tr>
+                                <th>Group Name</th>
+                                <th>Group ID</th>
+                                <th>Members</th>
+                                <th>Status</th>
+                                <th>Last Activity</th>
+                            </tr>
+                        </thead>
+                        <tbody id="groups-table-body">
+                            <tr>
+                                <td colspan="5" class="loading">Loading groups...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>
