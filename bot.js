@@ -55,23 +55,7 @@ async function startBotz() {
         const { logGoatBotStyle } = require('./utils/logger');
         logGoatBotStyle('startup');
         
-        // Initialize database
-        if (config.database.autoSyncWhenStart) {
-            try {
-                await databaseManager.initialize();
-                const { logGoatBotStyle } = require('./utils/logger');
-                logGoatBotStyle('database', { 
-                    status: 'connected', 
-                    type: config.database.type 
-                });
-            } catch (error) {
-                const { logGoatBotStyle } = require('./utils/logger');
-                logGoatBotStyle('database', { 
-                    status: 'error', 
-                    error: error.message 
-                });
-            }
-        }
+        
 
         
 
@@ -103,7 +87,7 @@ async function startBotz() {
             }
         });
 
-        ptz.ev.on('connection.update', ({ connection }) => {
+        ptz.ev.on('connection.update', async ({ connection }) => {
             const { logGoatBotStyle } = require('./utils/logger');
             
             if (connection === 'open' && !isLoggedIn) {
@@ -112,6 +96,22 @@ async function startBotz() {
                 // Log successful connection
                 logGoatBotStyle('ready', { name: config.botSettings.botName });
                 logGoatBotStyle('connection', { status: 'open' });
+                
+                // Initialize database after successful login
+                if (config.database.autoSyncWhenStart) {
+                    try {
+                        await databaseManager.initialize();
+                        logGoatBotStyle('database', { 
+                            status: 'connected', 
+                            type: config.database.type 
+                        });
+                    } catch (error) {
+                        logGoatBotStyle('database', { 
+                            status: 'error', 
+                            error: error.message 
+                        });
+                    }
+                }
                 
                 logInfo('Loading commands and events...');
                 commandManager.loadCommands();
