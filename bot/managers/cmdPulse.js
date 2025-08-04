@@ -1,161 +1,109 @@
-const { execSync } = require('child_process');
-const path = require('path');
 const fs = require('fs');
-
-// Safe require with auto-install
-function safeRequire(moduleName) {
-    try {
-        return require(moduleName);
-    } catch (err) {
-        if (err.code === 'MODULE_NOT_FOUND') {
-            console.log(`[AUTO-INSTALL] Module "${moduleName}" not found. Installing...`);
-            try {
-                execSync(`npm install ${moduleName}`, { stdio: 'inherit' });
-                return require(moduleName);
-            } catch (installErr) {
-                console.error(`Failed to install module "${moduleName}":`, installErr);
-                throw installErr;
-            }
-        } else {
-            throw err;
-        }
-    }
-}
-
-// External utilities (assumed to be local files, not external modules)
-const { logSuccess, logCommand } = require('../../utils/logger');
-const { config } = require('../../config/globals');
+const path = require('path');
+const { logSuccess, logError, logGoatBotStyle } = require('../../utils/logger');
 
 class CommandManager {
     constructor() {
+        this.commands = new Map();
+        this.aliases = new Map();
+        this.categories = new Map();
         this.cooldowns = new Map();
-        this.commandsFolder = path.resolve(__dirname, '../../scripts/cmds');
-        this.cooldownTime = config.antiSpam.cooldownTime || 5; // seconds
     }
 
-    // Load all command files from the commands folder
     loadCommands() {
-        if (!global.commands) global.commands = new Map();
+        const commandDir = path.join(__dirname, '../../scripts/cmds');
 
-        const commandFiles = fs.readdirSync(this.commandsFolder).filter(file => file.endsWith('.js'));
+        if (!fs.existsSync(commandDir)) {
+            logError('Commands directory not found');
+            return;
+        }
 
-        commandFiles.forEach(file => {
-            const commandPath = path.join(this.commandsFolder, file);
+        const commandFiles = fs.readdirSync(commandDir).filter(file => file.endsWith('.js'));
 
+        for (const file of commandFiles) {
             try {
-                let command;
-                try {
-                    command = require(commandPath);
-                } catch (err) {
-                    if (err.code === 'MODULE_NOT_FOUND') {
-                        const missingModule = err.message.match(/'(.+?)'/)?.[1];
-                        if (missingModule) {
-                            console.log(`[AUTO-INSTALL] Missing dependency "${missingModule}" in ${file}. Installing...`);
-                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
-                            command = require(commandPath);
-                        } else {
-                            throw err;
-                        }
-                    } else {
-                        throw err;
+                delete require.cache[require.resolve(path.join(commandDir, file))];
+                const command = require(path.join(commandDir, file));
+
+                if (!command.config || !command.config.name) {
+                    logError(`Invalid command file: ${file}`);
+                    continue;
+                }
+
+                // Register command
+                this.commands.set(command.config.name, command);
+                global.commands.set(command.config.name, command);
+
+                // Register aliases
+                if (command.config.aliases) {
+                    for (const alias of command.config.aliases) {
+                        this.aliases.set(alias, command.config.name);
+                        global.aliases.set(alias, command.config.name);
                     }
                 }
 
-                if (command && command.config && command.config.name) {
-                    // GoatBot style command structure
-                    const cmd = {
-                        name: command.config.name,
-                        description: command.config.description || "No description available",
-                        category: command.config.category || "general",
-                        permission: command.config.role || 0,
-                        cooldown: command.config.cooldown || 0,
-                        aliases: command.config.aliases || [],
-                        run: command.onStart,
-                        onChat: command.onChat,
-                        onReply: command.onReply,
-                        onReaction: command.onReaction,
-                        onEvent: command.onEvent
-                    };
-
-                    global.commands.set(cmd.name, cmd);
-
-                    if (cmd.aliases && Array.isArray(cmd.aliases)) {
-                        cmd.aliases.forEach(alias => {
-                            global.aliases.set(alias, cmd.name);
-                        });
-                    }
-
-                    logSuccess(`Loaded GoatBot command: ${cmd.name}`);
-                } else if (command && command.name) {
-                    // Original Luna style command structure
-                    global.commands.set(command.name, command);
-
-                    if (command.aliases && Array.isArray(command.aliases)) {
-                        command.aliases.forEach(alias => {
-                            global.aliases.set(alias, command.name);
-                        });
-                    }
-
-                    logSuccess(`Loaded command: ${command.name}`);
-                } else {
-                    console.warn(`Invalid command structure in ${file}`);
+                // Categorize
+                const category = command.config.category || 'general';
+                if (!this.categories.has(category)) {
+                    this.categories.set(category, []);
                 }
+                this.categories.get(category).push(command.config.name);
 
-            } catch (err) {
-                console.error(`Failed to load command "${file}":`, err);
+                logGoatBotStyle('command_load', {
+                    name: command.config.name,
+                    category: category
+                });
+
+            } catch (error) {
+                logError(`Failed to load command ${file}: ${error.message}`);
             }
-        });
+        }
+
+        logSuccess(`Loaded ${this.commands.size} commands in ${this.categories.size} categories`);
     }
 
-    // Check if the command is on cooldown for the sender
-    checkCooldown(command, sender) {
-        if (!config.antiSpam.enable) return false;
+    getCommand(name) {
+        return this.commands.get(name) || this.commands.get(this.aliases.get(name));
+    }
 
+    getAllCommands() {
+        return Array.from(this.commands.values());
+    }
+
+    getCommandsByCategory(category) {
+        const commands = this.categories.get(category) || [];
+        return commands.map(name => this.commands.get(name));
+    }
+
+    getCategories() {
+        return Array.from(this.categories.keys());
+    }
+
+    checkCooldown(userId, commandName, cooldownTime) {
+        const key = `${userId}-${commandName}`;
         const now = Date.now();
-        if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
 
-        const timestamps = this.cooldowns.get(command);
-        const cmd = global.commands.get(command);
-        const cooldownAmount = (cmd.cooldown || this.cooldownTime) * 1000;
-
-        if (timestamps.has(sender)) {
-            const expirationTime = timestamps.get(sender) + cooldownAmount;
+        if (this.cooldowns.has(key)) {
+            const expirationTime = this.cooldowns.get(key) + (cooldownTime * 1000);
             if (now < expirationTime) {
-                return ((expirationTime - now) / 1000).toFixed(1);
+                const timeLeft = (expirationTime - now) / 1000;
+                return Math.ceil(timeLeft);
             }
         }
 
-        return false;
+        this.cooldowns.set(key, now);
+        return 0;
     }
 
-    // Apply cooldown to a command for a specific sender
-    applyCooldown(command, sender) {
-        if (!config.antiSpam.enable) return;
-
-        const now = Date.now();
-        if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
-
-        const timestamps = this.cooldowns.get(command);
-        const cmd = global.commands.get(command);
-        const cooldownAmount = (cmd.cooldown || this.cooldownTime) * 1000;
-
-        timestamps.set(sender, now);
-        setTimeout(() => timestamps.delete(sender), cooldownAmount);
+    hasPermission(userId, requiredRole) {
+        const userRole = this.getUserRole(userId);
+        return userRole >= requiredRole;
     }
 
-    // Check if sender is allowed to execute the command
-    canExecuteCommand(sender) {
-        const senderId = sender.replace(/[^0-9]/g, '');
-
-        if (config.adminOnly.enable && !global.adminList.includes(senderId)) {
-            return false;
-        }
-
-        if (config.whiteListMode.enable && !global.whiteList.includes(senderId)) {
-            return false;
-        }
-
-        return true;
+    getUserRole(userId) {
+        if (global.owner.includes(userId)) return 2;
+        if (global.adminList.includes(userId)) return 1;
+        return 0;
     }
 }
 
