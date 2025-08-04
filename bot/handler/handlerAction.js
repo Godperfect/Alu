@@ -146,6 +146,46 @@ const handlerAction = {
                 global.Luna.onChat = new Map();
             }
 
+            // Check for GoatBot-style command onChat functions
+            for (const [commandName, command] of global.commands.entries()) {
+                if (typeof command.onChat === 'function') {
+                    try {
+                        // Check permission for onChat commands
+                        if (command.permission !== undefined) {
+                            const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
+                            if (userPermission < command.permission) {
+                                continue; // Skip this command if user doesn't have permission
+                            }
+                        }
+
+                        // Execute onChat function
+                        const result = await command.onChat({
+                            sock,
+                            m: mek,
+                            args: messageText.trim().split(/\s+/),
+                            sender,
+                            messageInfo,
+                            isGroup,
+                            messageText,
+                            event: {
+                                body: messageText,
+                                senderID: userNumber,
+                                threadID: threadID,
+                                isGroup: isGroup
+                            }
+                        });
+
+                        // If onChat returns true, stop processing other commands
+                        if (result === true) {
+                            logInfo(`OnChat command executed: ${commandName} by ${userNumber}`);
+                            return;
+                        }
+                    } catch (err) {
+                        logError(`Error in onChat for ${commandName}: ${err.message}`);
+                    }
+                }
+            }
+
             
             for (const [pattern, handler] of global.Luna.onChat.entries()) {
                 

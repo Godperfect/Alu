@@ -6,6 +6,7 @@ const initializeGlobals = () => {
     global.prefix = config.botSettings.prefix || '+';
     global.botName = config.botSettings.botName || 'Luna';
     global.commands = new Map();
+    global.aliases = new Map();
     global.events = new Map();
     global.cc = {};
     global.adminList = config.adminOnly.adminNumbers || [];
