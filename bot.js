@@ -61,18 +61,6 @@ async function startBotz() {
         
         const { state, saveCreds } = await getAuthState();
 
-        // Step 3: Database connection
-        logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
-        const dbConnected = await db.connect();
-        
-        if (dbConnected) {
-            const dbType = db.getStatus().primaryDB;
-            logSuccess(`Successfully connected to: ${dbType}`);
-        } else {
-            logError('Can\'t connect to database sqlite or mongodb');
-            return;
-        }
-
         const ptz = makeWASocket({
             logger: pino({ level: config.waSocket.logLevel || "silent" }),
             printQRInTerminal: config.whatsappAccount.printQRInTerminal,
@@ -122,6 +110,18 @@ async function startBotz() {
         });
 
         await authenticateSession(ptz);
+
+        // Step 3: Database connection (after authentication)
+        logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
+        const dbConnected = await db.connect();
+        
+        if (dbConnected) {
+            const dbType = db.getStatus().primaryDB;
+            logSuccess(`Successfully connected to: ${dbType}`);
+        } else {
+            logError('Can\'t connect to database sqlite or mongodb');
+            return;
+        }
 
         store.bind(ptz.ev);
         eventHandler.initializeMessageListener(ptz, store);
