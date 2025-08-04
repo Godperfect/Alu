@@ -23,6 +23,8 @@ class CommandManager {
         const categories = new Set();
         const failedCommands = [];
 
+        logGoatBotStyle('command_load_start');
+
         for (const file of commandFiles) {
             try {
                 delete require.cache[require.resolve(path.join(commandsPath, file))];
@@ -45,17 +47,16 @@ class CommandManager {
                         category: command.config.category
                     });
                 } else {
-                    logError(`Invalid command file: ${file}`);
                     failedCommands.push(file);
                 }
             } catch (error) {
                 if (error.code === 'MODULE_NOT_FOUND') {
                     const missingModule = error.message.match(/Cannot find module '([^']+)'/)?.[1];
                     if (missingModule && !missingModule.startsWith('.')) {
-                        logInfo(`Installing missing dependency: ${missingModule}`);
+                        logGoatBotStyle('command_install', { package: missingModule });
                         try {
                             const { execSync } = require('child_process');
-                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
+                            execSync(`npm install ${missingModule}`, { stdio: 'pipe' });
 
                             // Retry loading the command
                             delete require.cache[require.resolve(path.join(commandsPath, file))];
@@ -79,24 +80,22 @@ class CommandManager {
                                 });
                             }
                         } catch (installError) {
-                            logError(`Failed to install ${missingModule}: ${installError.message}`);
                             failedCommands.push(file);
                         }
                     } else {
-                        logError(`Error loading command ${file}: ${error.message}`);
                         failedCommands.push(file);
                     }
                 } else {
-                    logError(`Error loading command ${file}: ${error.message}`);
                     failedCommands.push(file);
                 }
             }
         }
 
-        logSuccess(`Loaded ${loadedCount} commands in ${categories.size} categories`);
-        if (failedCommands.length > 0) {
-            logWarning(`Failed to load ${failedCommands.length} commands: ${failedCommands.join(', ')}`);
-        }
+        logGoatBotStyle('command_load_complete', {
+            loaded: loadedCount,
+            categories: categories.size,
+            failed: failedCommands.length
+        });
     }
 
     getCommand(name) {

@@ -90,11 +90,11 @@ async function startBotz() {
                 isLoggedIn = true;
 
                 // Log successful connection
-                logGoatBotStyle('ready', { name: config.botSettings.botName });
-                logGoatBotStyle('connection', { status: 'open' });
+                logGoatBotStyle('connection', { status: 'open', name: config.botSettings.botName });
 
                 // Initialize database after successful login
                 if (config.database.autoSyncWhenStart) {
+                    logGoatBotStyle('database_connecting', { type: config.database.type });
                     try {
                         await databaseManager.initialize();
                         logGoatBotStyle('database', { 
@@ -109,15 +109,19 @@ async function startBotz() {
                     }
                 }
 
-                logInfo('Loading commands and events...');
-                commandManager.loadCommands();
-                eventManager.loadEvents();
+                // Load commands and events
+                logGoatBotStyle('loading_modules');
+                await commandManager.loadCommands();
+                await eventManager.loadEvents();
 
+                // Start uptime server
                 if (config.serverUptime && config.serverUptime.enable) {
-                    logInfo(languageManager.get('bot.startingUptimeServer'));
                     startUptimeServer(config.serverUptime.port || 3001);
                     logGoatBotStyle('uptime', { port: config.serverUptime.port || 3001 });
                 }
+
+                // Show completion message
+                logGoatBotStyle('loading_complete');
             } else if (connection === 'close') {
                 logGoatBotStyle('connection', { status: 'close' });
             } else if (connection === 'connecting') {

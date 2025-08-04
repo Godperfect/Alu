@@ -6,6 +6,7 @@ const { config } = require('../../config/globals');
 class EventManager {
     constructor() {
         this.eventsFolder = path.resolve(__dirname, '../../scripts/events');
+        this.events = new Map();
     }
 
     async loadEvents() {
@@ -20,6 +21,8 @@ class EventManager {
         let loadedCount = 0;
         const failedEvents = [];
 
+        logGoatBotStyle('event_load_start');
+
         for (const file of eventFiles) {
             try {
                 delete require.cache[require.resolve(path.join(eventsPath, file))];
@@ -33,17 +36,15 @@ class EventManager {
                         name: event.config.name
                     });
                 } else {
-                    logError(`Invalid event file: ${file}`);
                     failedEvents.push(file);
                 }
             } catch (error) {
                 if (error.code === 'MODULE_NOT_FOUND') {
                     const missingModule = error.message.match(/Cannot find module '([^']+)'/)?.[1];
                     if (missingModule && !missingModule.startsWith('.')) {
-                        logInfo(`Installing missing dependency for event: ${missingModule}`);
                         try {
                             const { execSync } = require('child_process');
-                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
+                            execSync(`npm install ${missingModule}`, { stdio: 'pipe' });
 
                             // Retry loading the event
                             delete require.cache[require.resolve(path.join(eventsPath, file))];
@@ -58,24 +59,33 @@ class EventManager {
                                 });
                             }
                         } catch (installError) {
-                            logError(`Failed to install ${missingModule}: ${installError.message}`);
                             failedEvents.push(file);
                         }
                     } else {
-                        logError(`Error loading event ${file}: ${error.message}`);
                         failedEvents.push(file);
                     }
                 } else {
-                    logError(`Error loading event ${file}: ${error.message}`);
                     failedEvents.push(file);
                 }
             }
         }
 
-        logSuccess(`Loaded ${loadedCount} events`);
-        if (failedEvents.length > 0) {
-            logWarning(`Failed to load ${failedEvents.length} events: ${failedEvents.join(', ')}`);
+        logGoatBotStyle('event_load_complete', {
+            loaded: loadedCount,
+            failed: failedEvents.length
+        });
+    }
+
+    validateEvent(event) {
+        if (!event || !event.config || !event.run) {
+            return false;
         }
+
+        if (typeof event.config.name !== 'string' || event.config.name.trim() === '') {
+            return false;
+        }
+
+        return true;
     }
 
     handleEvents({ sock, m = null, sender }) {
