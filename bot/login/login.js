@@ -210,7 +210,8 @@ const authenticateSession = async (ptz) => {
 
                 const { logGoatBotStyle } = require('../../utils/logger');
                 logGoatBotStyle('auth', { type: 'pairing', code: code });
-                console.log(chalk.blue(`[ INFO ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Please enter this code in your WhatsApp mobile app'));
+                console.log(chalk.yellow(`⚡`) + chalk.white(` Pairing code: `) + chalk.yellow.bold(code));
+                console.log(chalk.gray(`   Enter this code in WhatsApp mobile app`));
 
                 // Set up connection update listener to detect when user is linked
                 ptz.ev.on('connection.update', (update) => {
@@ -259,7 +260,8 @@ const authenticateSession = async (ptz) => {
                 console.log(chalk.green('              LOGIN SUCCESSFUL'));
                 console.log(chalk.yellow(line));
             } else {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('LOGIN SUCCESSFUL')}`);
+                console.log(chalk.green(`✓`) + chalk.white(` Authentication successful`));
+                console.log(chalk.blue(`●`) + chalk.white(` Phone: `) + chalk.cyan.bold(phoneNumber));
             }
         }
     } catch (err) {
