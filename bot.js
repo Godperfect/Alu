@@ -57,12 +57,7 @@ async function startBotz() {
             logError(languageManager.get('error.unexpected', reason));
         });
 
-        // Step 1: Authorization
-        logInfo('AUTHORIZED USER');
         
-        // Step 2: Login process
-        logInfo('LOGGING IN: ' + (config.botSettings.ownerNumber || ''));
-        logInfo('CHECKING SESSIONS');
         
         const { state, saveCreds } = await getAuthState();
 
