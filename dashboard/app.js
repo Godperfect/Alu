@@ -299,6 +299,30 @@ class WebServer {
         };
     }
 
+    async getStats() {
+        try {
+            const userCount = await db.getUserCount();
+            const groupCount = await db.getGroupCount();
+            const commandCount = global.commands ? global.commands.size : 0;
+            const uptime = process.uptime() || 0;
+
+            return {
+                users: userCount,
+                groups: groupCount,
+                commands: commandCount,
+                uptime: Math.floor(uptime)
+            };
+        } catch (error) {
+            logError(`Error getting stats: ${error.message}`);
+            return {
+                users: 0,
+                groups: 0,
+                commands: 0,
+                uptime: 0
+            };
+        }
+    }
+
     start() {
         this.app.listen(this.port, '0.0.0.0', () => {
             // Web server started silently for cleaner console output
