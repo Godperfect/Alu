@@ -160,5 +160,5 @@ module.exports = {
     logWarning,
     logCommand,
     logMessage,
-    logGoatBotStyle
+    logLunaStyle
 };
