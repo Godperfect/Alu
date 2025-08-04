@@ -23,7 +23,7 @@ function safeRequire(moduleName) {
 }
 
 // External utilities (assumed to be local files, not external modules)
-const { logSuccess, logCommand } = require('../../utils');
+const { logSuccess, logCommand, logError } = require('../../utils');
 const { config } = require('../../config/globals');
 
 class CommandManager {
@@ -38,6 +38,8 @@ class CommandManager {
         if (!global.commands) global.commands = new Map();
 
         const commandFiles = fs.readdirSync(this.commandsFolder).filter(file => file.endsWith('.js'));
+        let totalCommands = 0;
+        let failedCommands = 0;
 
         commandFiles.forEach(file => {
             const commandPath = path.join(this.commandsFolder, file);
@@ -61,31 +63,32 @@ class CommandManager {
                     }
                 }
 
+                // Check for newer Luna command structure (with config object)
                 if (command && command.config && command.config.name) {
-                    // Luna style command structure
                     const cmd = {
                         name: command.config.name,
-                        description: command.config.description || "No description available",
-                        category: command.config.category || "general",
-                        permission: command.config.role || 0,
-                        cooldown: command.config.cooldown || 0,
+                        description: command.config.description || 'No description provided',
+                        usage: command.config.guide?.en || `${global.prefix}${command.config.name}`,
+                        category: command.config.category || 'general',
+                        role: command.config.role || 0,
+                        cooldown: command.config.cooldown || this.cooldownTime,
                         aliases: command.config.aliases || [],
                         run: command.onStart,
-                        onChat: command.onChat,
-                        onReply: command.onReply,
-                        onReaction: command.onReaction,
-                        onEvent: command.onEvent
+                        onChat: command.onChat || null,
+                        onReply: command.onReply || null,
+                        onReaction: command.onReaction || null
                     };
 
                     global.commands.set(cmd.name, cmd);
 
-                    if (cmd.aliases && Array.isArray(cmd.aliases)) {
+                    if (cmd.aliases && cmd.aliases.length > 0) {
                         cmd.aliases.forEach(alias => {
                             global.aliases.set(alias, cmd.name);
                         });
                     }
 
                     logSuccess(`Loaded command: ${cmd.name}`);
+                    totalCommands++;
                 } else if (command && command.name) {
                     // Original Luna style command structure
                     global.commands.set(command.name, command);
@@ -97,14 +100,25 @@ class CommandManager {
                     }
 
                     logSuccess(`Loaded command: ${command.name}`);
+                    totalCommands++;
                 } else {
-                    console.warn(`Invalid command structure in ${file}`);
+                    logError(`Invalid command structure in file: ${file}`);
+                    failedCommands++;
                 }
 
+                // Clear the require cache to allow for hot reloading during development
+                delete require.cache[require.resolve(commandPath)];
+
             } catch (err) {
-                console.error(`Failed to load command "${file}":`, err);
+                logError(`Failed to load command from ${file}: ${err.message}`);
+                failedCommands++;
             }
         });
+
+        if (failedCommands > 0) {
+            logError(`Failed to load ${failedCommands} commands`);
+        }
+        logSuccess(`Commands loaded: ${totalCommands}/${commandFiles.length}`);
     }
 
     // Check if the command is on cooldown for the sender

@@ -47,21 +47,36 @@ let isLoggedIn = false;
 
 async function startBotz() {
     try {
+        // Initialize globals first
         initializeGlobals();
-
-        // Initialize database connection
-        await db.connect();
 
         // Initialize language manager with config
         languageManager.initialize(config);
-
-        
 
         process.on('unhandledRejection', (reason, promise) => {
             logError(languageManager.get('error.unexpected', reason));
         });
 
+        // Step 1: Authorization
+        logInfo('AUTHORIZED USER');
+        
         const { state, saveCreds } = await getAuthState();
+        
+        // Step 2: Login process
+        logInfo('LOGGING IN: ' + config.botSettings.ownerNumber);
+        logInfo('CHECKING SESSIONS');
+
+        // Step 3: Database connection
+        logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
+        const dbConnected = await db.connect();
+        
+        if (dbConnected) {
+            const dbType = db.getStatus().primaryDB;
+            logSuccess(`Successfully connected to: ${dbType}`);
+        } else {
+            logError('Can\'t connect to database sqlite or mongodb');
+            return;
+        }
 
         const ptz = makeWASocket({
             logger: pino({ level: config.waSocket.logLevel || "silent" }),
@@ -90,21 +105,24 @@ async function startBotz() {
                 isLoggedIn = true;
                 
                 console.log(chalk.red('─────────────────────────────────────────'));
+                logSuccess('BOT IS SUCCESSFULLY CONNECTED');
                 
-                logInfo(languageManager.get('bot.loadingCommandsEvents'));
+                // Step 4: Load commands and events
+                logInfo('Checking commands & events...');
+                logInfo('Loading modules (installing if missing)...');
                 commandManager.loadCommands();
                 eventManager.loadEvents();
 
                 if (config.serverUptime && config.serverUptime.enable) {
-                    logInfo(languageManager.get('bot.startingUptimeServer'));
+                    logInfo('Starting uptime server...');
                     startUptimeServer(config.serverUptime.port || 3001);
                 }
             } else if (connection === 'close') {
-                logInfo(languageManager.get('connection.disconnected'));
+                logInfo('Bot disconnected');
             } else if (connection === 'connecting') {
-                
+                logInfo('Connecting to WhatsApp...');
             } else if (connection === 'reconnecting') {
-                logInfo(languageManager.get('connection.reconnecting'));
+                logInfo('Reconnecting to WhatsApp...');
             }
         });
 
@@ -128,7 +146,7 @@ async function startBotz() {
 
         return ptz;
     } catch (err) {
-        logError(languageManager.get('error.unexpected', err));
+        logError('Bot startup failed: ' + err.message);
     }
 }
 
