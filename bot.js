@@ -5,12 +5,11 @@ const main = require('bytenode');
 const pino = require('pino');
 const fs = require('fs');
 const chalk = require('chalk'); 
-const { logInfo, logError } = require('./utils/logger');
+const { logInfo, logError, logGoatBotStyle, initializeMediaHandlers } = require('./utils');
 const config = require('./config.json');
 const { authenticateSession, getAuthState } = require('./bot/login/login.js');
 const eventHandler = require('./bot/handler/eventHandler');
 const { handleConnection } = require('./bot/login/plug');
-const { initializeMediaHandlers } = require('./utils/mediaHandler');
 const { startUptimeServer } = require('./bot/sentainal');
 const { initializeGlobals, config: globalConfig } = require('./config/globals');
 const CommandManager = require('./bot/managers/cmdPulse');
@@ -52,26 +51,9 @@ async function startBotz() {
         languageManager.initialize(config);
         
         // Clean startup display
-        const { logGoatBotStyle } = require('./utils/logger');
         logGoatBotStyle('startup');
         
-        // Initialize database
-        if (config.database.autoSyncWhenStart) {
-            try {
-                await databaseManager.initialize();
-                const { logGoatBotStyle } = require('./utils/logger');
-                logGoatBotStyle('database', { 
-                    status: 'connected', 
-                    type: config.database.type 
-                });
-            } catch (error) {
-                const { logGoatBotStyle } = require('./utils/logger');
-                logGoatBotStyle('database', { 
-                    status: 'error', 
-                    error: error.message 
-                });
-            }
-        }
+        
 
         
 
@@ -103,8 +85,7 @@ async function startBotz() {
             }
         });
 
-        ptz.ev.on('connection.update', ({ connection }) => {
-            const { logGoatBotStyle } = require('./utils/logger');
+        ptz.ev.on('connection.update', async ({ connection }) => {
             
             if (connection === 'open' && !isLoggedIn) {
                 isLoggedIn = true;
@@ -112,6 +93,22 @@ async function startBotz() {
                 // Log successful connection
                 logGoatBotStyle('ready', { name: config.botSettings.botName });
                 logGoatBotStyle('connection', { status: 'open' });
+                
+                // Initialize database after successful login
+                if (config.database.autoSyncWhenStart) {
+                    try {
+                        await databaseManager.initialize();
+                        logGoatBotStyle('database', { 
+                            status: 'connected', 
+                            type: config.database.type 
+                        });
+                    } catch (error) {
+                        logGoatBotStyle('database', { 
+                            status: 'error', 
+                            error: error.message 
+                        });
+                    }
+                }
                 
                 logInfo('Loading commands and events...');
                 commandManager.loadCommands();
