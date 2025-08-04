@@ -100,6 +100,10 @@ async function startBotz() {
                 global.botConnected = true;
                 logSuccess('BOT IS SUCCESSFULLY CONNECTED');
                 console.log('─────────────────────────────────────────');
+                
+                // Load commands and events after successful connection
+                commandManager.loadCommands();
+                eventManager.loadEvents();
             }
         });
 
