@@ -186,10 +186,12 @@ const authenticateSession = async (ptz) => {
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
             if (!phoneNumber) {
-                console.log(chalk.yellow(`[ INPUT ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Enter your phone number:'));
+                const { logGoatBotStyle } = require('../../utils');
+                logGoatBotStyle('enter_number');
                 phoneNumber = await question('> ');
             } else {
-                console.log(chalk.blue(`[ INFO ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Phone Number: ') + chalk.green(phoneNumber));
+                const { logGoatBotStyle } = require('../../utils');
+                logGoatBotStyle('requesting_pairing', { phoneNumber });
             }
 
             // Clean the phone number
@@ -209,23 +211,15 @@ const authenticateSession = async (ptz) => {
                 // Format code with dashes for readability
                 code = code?.match(/.{1,3}/g)?.join("-") || code;
 
-                const { logGoatBotStyle } = require('../../utils/logger');
-                logGoatBotStyle('auth', { type: 'pairing', code: code });
-                console.log(chalk.yellow(`⚡`) + chalk.white(` Pairing code: `) + chalk.yellow.bold(code));
-                console.log(chalk.gray(`   Enter this code in WhatsApp mobile app`));
+                const { logGoatBotStyle } = require('../../utils');
+                logGoatBotStyle('pairing_code', { code: code });
 
                 // Set up connection update listener to detect when user is linked
                 ptz.ev.on('connection.update', (update) => {
                     const { connection, lastDisconnect } = update;
                     if (connection === 'open') {
-                        // Print login success message when connected
-                        if (line) {
-                            console.log(chalk.yellow(line));
-                            console.log(chalk.green('              LOGIN SUCCESSFUL'));
-                            console.log(chalk.yellow(line));
-                        } else {
-                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('LOGIN SUCCESSFUL')}`);
-                        }
+                        const { logGoatBotStyle } = require('../../utils');
+                        logGoatBotStyle('auth_success');
                     }
                 });
 

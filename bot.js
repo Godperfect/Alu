@@ -49,13 +49,12 @@ async function startBotz() {
         // Initialize globals and systems
         initializeGlobals();
         languageManager.initialize(config);
-        
+
         // Clean startup display
         logGoatBotStyle('startup');
-        
-        
 
-        
+        // Show connecting status
+        logGoatBotStyle('connecting');
 
         process.on('unhandledRejection', (reason, promise) => {
             logError(languageManager.get('error.unexpected', reason));
@@ -86,14 +85,14 @@ async function startBotz() {
         });
 
         ptz.ev.on('connection.update', async ({ connection }) => {
-            
+
             if (connection === 'open' && !isLoggedIn) {
                 isLoggedIn = true;
-                
+
                 // Log successful connection
                 logGoatBotStyle('ready', { name: config.botSettings.botName });
                 logGoatBotStyle('connection', { status: 'open' });
-                
+
                 // Initialize database after successful login
                 if (config.database.autoSyncWhenStart) {
                     try {
@@ -109,7 +108,7 @@ async function startBotz() {
                         });
                     }
                 }
-                
+
                 logInfo('Loading commands and events...');
                 commandManager.loadCommands();
                 eventManager.loadEvents();

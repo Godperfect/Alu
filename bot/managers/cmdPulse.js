@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { logSuccess, logError, logGoatBotStyle } = require('../../utils/logger');
+const { logSuccess, logError, logGoatBotStyle, logInfo, logWarning } = require('../../utils/logger');
 
 class CommandManager {
     constructor() {
@@ -10,56 +10,93 @@ class CommandManager {
         this.cooldowns = new Map();
     }
 
-    loadCommands() {
-        const commandDir = path.join(__dirname, '../../scripts/cmds');
+    async loadCommands() {
+        const commandsPath = path.join(__dirname, '../../scripts/cmds');
 
-        if (!fs.existsSync(commandDir)) {
+        if (!fs.existsSync(commandsPath)) {
             logError('Commands directory not found');
             return;
         }
 
-        const commandFiles = fs.readdirSync(commandDir).filter(file => file.endsWith('.js'));
+        const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+        let loadedCount = 0;
+        const categories = new Set();
+        const failedCommands = [];
 
         for (const file of commandFiles) {
             try {
-                delete require.cache[require.resolve(path.join(commandDir, file))];
-                const command = require(path.join(commandDir, file));
+                delete require.cache[require.resolve(path.join(commandsPath, file))];
+                const command = require(path.join(commandsPath, file));
 
-                if (!command.config || !command.config.name) {
-                    logError(`Invalid command file: ${file}`);
-                    continue;
-                }
+                if (this.validateCommand(command)) {
+                    this.commands.set(command.config.name, command);
 
-                // Register command
-                this.commands.set(command.config.name, command);
-                global.commands.set(command.config.name, command);
-
-                // Register aliases
-                if (command.config.aliases) {
-                    for (const alias of command.config.aliases) {
-                        this.aliases.set(alias, command.config.name);
-                        global.aliases.set(alias, command.config.name);
+                    if (command.config.aliases) {
+                        command.config.aliases.forEach(alias => {
+                            this.aliases.set(alias, command.config.name);
+                        });
                     }
+
+                    categories.add(command.config.category || 'uncategorized');
+                    loadedCount++;
+
+                    logGoatBotStyle('command_load', {
+                        name: command.config.name,
+                        category: command.config.category
+                    });
+                } else {
+                    logError(`Invalid command file: ${file}`);
+                    failedCommands.push(file);
                 }
-
-                // Categorize
-                const category = command.config.category || 'general';
-                if (!this.categories.has(category)) {
-                    this.categories.set(category, []);
-                }
-                this.categories.get(category).push(command.config.name);
-
-                logGoatBotStyle('command_load', {
-                    name: command.config.name,
-                    category: category
-                });
-
             } catch (error) {
-                logError(`Failed to load command ${file}: ${error.message}`);
+                if (error.code === 'MODULE_NOT_FOUND') {
+                    const missingModule = error.message.match(/Cannot find module '([^']+)'/)?.[1];
+                    if (missingModule && !missingModule.startsWith('.')) {
+                        logInfo(`Installing missing dependency: ${missingModule}`);
+                        try {
+                            const { execSync } = require('child_process');
+                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
+
+                            // Retry loading the command
+                            delete require.cache[require.resolve(path.join(commandsPath, file))];
+                            const command = require(path.join(commandsPath, file));
+
+                            if (this.validateCommand(command)) {
+                                this.commands.set(command.config.name, command);
+
+                                if (command.config.aliases) {
+                                    command.config.aliases.forEach(alias => {
+                                        this.aliases.set(alias, command.config.name);
+                                    });
+                                }
+
+                                categories.add(command.config.category || 'uncategorized');
+                                loadedCount++;
+
+                                logGoatBotStyle('command_load', {
+                                    name: command.config.name,
+                                    category: command.config.category
+                                });
+                            }
+                        } catch (installError) {
+                            logError(`Failed to install ${missingModule}: ${installError.message}`);
+                            failedCommands.push(file);
+                        }
+                    } else {
+                        logError(`Error loading command ${file}: ${error.message}`);
+                        failedCommands.push(file);
+                    }
+                } else {
+                    logError(`Error loading command ${file}: ${error.message}`);
+                    failedCommands.push(file);
+                }
             }
         }
 
-        logSuccess(`Loaded ${this.commands.size} commands in ${this.categories.size} categories`);
+        logSuccess(`Loaded ${loadedCount} commands in ${categories.size} categories`);
+        if (failedCommands.length > 0) {
+            logWarning(`Failed to load ${failedCommands.length} commands: ${failedCommands.join(', ')}`);
+        }
     }
 
     getCommand(name) {
@@ -104,6 +141,26 @@ class CommandManager {
         if (global.owner.includes(userId)) return 2;
         if (global.adminList.includes(userId)) return 1;
         return 0;
+    }
+
+    validateCommand(command) {
+        if (!command || !command.config || !command.run) {
+            return false;
+        }
+
+        if (typeof command.config.name !== 'string' || command.config.name.trim() === '') {
+            return false;
+        }
+
+        if (command.config.aliases && (!Array.isArray(command.config.aliases) || command.config.aliases.some(alias => typeof alias !== 'string'))) {
+            return false;
+        }
+
+        if (command.config.category && typeof command.config.category !== 'string') {
+            return false;
+        }
+
+        return true;
     }
 }
 
