@@ -32,7 +32,7 @@ class EventManager {
                     this.events.set(event.config.name, event);
                     loadedCount++;
 
-                    logGoatBotStyle('event_load', {
+                    logLunaStyle('event_load', {
                         name: event.config.name
                     });
                 } else {
@@ -54,7 +54,7 @@ class EventManager {
                                 this.events.set(event.config.name, event);
                                 loadedCount++;
 
-                                logGoatBotStyle('event_load', {
+                                logLunaStyle('event_load', {
                                     name: event.config.name
                                 });
                             }
@@ -70,7 +70,7 @@ class EventManager {
             }
         }
 
-        logGoatBotStyle('event_load_complete', {
+        logLunaStyle('event_load_complete', {
             loaded: loadedCount,
             failed: failedEvents.length
         });

@@ -22,7 +22,12 @@ const languageManager = require('./language/language.js');
 const store = (() => {
     const messages = {};
     return {
-
+        loadMessage: async (jid, id) => {
+            if (messages[jid] && messages[jid][id]) return messages[jid][id];
+            return undefined;
+        },
+    };
+})();
 
 // Function to load modules with detailed feedback
 async function loadModulesWithFeedback() {
@@ -30,33 +35,33 @@ async function loadModulesWithFeedback() {
         // Check and load commands
         const fs = require('fs');
         const path = require('path');
-        
+
         const commandsPath = path.join(__dirname, 'scripts', 'cmds');
         const eventsPath = path.join(__dirname, 'scripts', 'events');
-        
+
         // Load commands
         if (fs.existsSync(commandsPath)) {
             const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-            
+
             if (commandFiles.length === 0) {
                 console.log(chalk.yellow('⚠️ NO COMMAND MODULES FOUND'));
             } else {
                 console.log(chalk.cyan(`🔄 LOADING ${commandFiles.length} COMMAND MODULES...`));
-                
+
                 for (const file of commandFiles) {
                     try {
                         // Simulate loading with spinner effect
                         process.stdout.write(chalk.yellow(`⏳ INSTALLING MODULE: ${file.replace('.js', '')} `));
                         await new Promise(resolve => setTimeout(resolve, 100));
-                        
+
                         process.stdout.write(chalk.yellow('█'));
                         await new Promise(resolve => setTimeout(resolve, 50));
                         process.stdout.write(chalk.yellow('█'));
                         await new Promise(resolve => setTimeout(resolve, 50));
                         process.stdout.write(chalk.yellow('█\n'));
-                        
+
                         console.log(chalk.green(`✅ LOADING COMMAND: ${file.replace('.js', '')}`));
-                        
+
                     } catch (error) {
                         console.log(chalk.red(`❌ ERROR LOADING ${file}: ${error.message}`));
                         // Don't stop the bot, just log the error
@@ -64,30 +69,30 @@ async function loadModulesWithFeedback() {
                 }
             }
         }
-        
+
         // Load events
         if (fs.existsSync(eventsPath)) {
             const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-            
+
             if (eventFiles.length === 0) {
                 console.log(chalk.yellow('⚠️ NO EVENT MODULES FOUND'));
             } else {
                 console.log(chalk.cyan(`🔄 LOADING ${eventFiles.length} EVENT MODULES...`));
-                
+
                 for (const file of eventFiles) {
                     try {
                         // Simulate loading with spinner effect
                         process.stdout.write(chalk.yellow(`⏳ INSTALLING MODULE: ${file.replace('.js', '')} `));
                         await new Promise(resolve => setTimeout(resolve, 100));
-                        
+
                         process.stdout.write(chalk.yellow('█'));
                         await new Promise(resolve => setTimeout(resolve, 50));
                         process.stdout.write(chalk.yellow('█'));
                         await new Promise(resolve => setTimeout(resolve, 50));
                         process.stdout.write(chalk.yellow('█\n'));
-                        
+
                         console.log(chalk.green(`✅ LOADING EVENT: ${file.replace('.js', '')}`));
-                        
+
                     } catch (error) {
                         console.log(chalk.red(`❌ ERROR LOADING ${file}: ${error.message}`));
                         // Don't stop the bot, just log the error
@@ -95,32 +100,16 @@ async function loadModulesWithFeedback() {
                 }
             }
         }
-        
+
         // Actually load the modules after visual feedback
         await commandManager.loadCommands();
         await eventManager.loadEvents();
-        
+
     } catch (error) {
         console.log(chalk.red(`❌ MODULE LOADING ERROR: ${error.message}`));
         // Don't stop the bot, continue execution
     }
 }
-
-        bind: (sock) => {
-            // You can implement message binding here if needed
-        },
-        loadMessage: async (jid, id) => {
-            if (messages[jid] && messages[jid][id]) return messages[jid][id];
-            return undefined;
-        },
-        writeToFile: (path) => {
-            // Implement if needed
-        },
-        readFromFile: (path) => {
-            // Implement if needed
-        }
-    };
-})();
 
 const commandManager = new CommandManager();
 const eventManager = new EventManager();
@@ -210,7 +199,6 @@ async function startBotz() {
 
         await authenticateSession(ptz);
 
-        store.bind(ptz.ev);
         eventHandler.initializeMessageListener(ptz, store);
 
         handleConnection(ptz, startBotz);
