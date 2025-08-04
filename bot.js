@@ -57,7 +57,20 @@ async function startBotz() {
         
         // Initialize database
         if (config.database.autoSyncWhenStart) {
-            await databaseManager.initialize();
+            try {
+                await databaseManager.initialize();
+                const { logGoatBotStyle } = require('./utils/logger');
+                logGoatBotStyle('database', { 
+                    status: 'connected', 
+                    type: config.database.type 
+                });
+            } catch (error) {
+                const { logGoatBotStyle } = require('./utils/logger');
+                logGoatBotStyle('database', { 
+                    status: 'error', 
+                    error: error.message 
+                });
+            }
         }
 
         
@@ -91,12 +104,14 @@ async function startBotz() {
         });
 
         ptz.ev.on('connection.update', ({ connection }) => {
+            const { logGoatBotStyle } = require('./utils/logger');
+            
             if (connection === 'open' && !isLoggedIn) {
                 isLoggedIn = true;
                 
                 // Log successful connection
-                const { logGoatBotStyle } = require('./utils/logger');
                 logGoatBotStyle('ready', { name: config.botSettings.botName });
+                logGoatBotStyle('connection', { status: 'open' });
                 
                 logInfo('Loading commands and events...');
                 commandManager.loadCommands();
@@ -105,13 +120,14 @@ async function startBotz() {
                 if (config.serverUptime && config.serverUptime.enable) {
                     logInfo(languageManager.get('bot.startingUptimeServer'));
                     startUptimeServer(config.serverUptime.port || 3001);
+                    logGoatBotStyle('uptime', { port: config.serverUptime.port || 3001 });
                 }
             } else if (connection === 'close') {
-                logInfo(languageManager.get('connection.disconnected'));
+                logGoatBotStyle('connection', { status: 'close' });
             } else if (connection === 'connecting') {
-                
+                logGoatBotStyle('connection', { status: 'connecting' });
             } else if (connection === 'reconnecting') {
-                logInfo(languageManager.get('connection.reconnecting'));
+                logGoatBotStyle('connection', { status: 'reconnecting' });
             }
         });
 
