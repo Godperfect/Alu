@@ -65,6 +65,13 @@ const logWarning = (message) => {
     writeToFile('WARNING', message);
 };
 
+const logWarning = (message) => {
+    const timestamp = getTimestamp();
+    const date = getDate();
+    console.log(chalk.yellow(`[ WARNING ]`) + chalk.gray(` [${date}, ${timestamp}] `) + chalk.white(message));
+    writeToFile('WARNING', message);
+};
+
 const logCommand = (commandName, userId, chatType, groupName = null) => {
     const timestamp = getTimestamp();
     const date = getDate();
@@ -153,7 +160,17 @@ const logGoatBotStyle = (type, data = {}) => {
     switch (type) {
         case 'startup':
             console.clear();
-            console.log(chalk.gray(`Starting Luna Bot at ${date} ${timestamp}`));
+            console.log(chalk.magenta.bold('\n╔══════════════════════════════════════════════════════════╗'));
+            console.log(chalk.magenta.bold('║') + chalk.white.bold('  _    _   _ _   _    _     __     __  _ ') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.white.bold(' | |  | | | | \\ | |  / \\    \\ \\   / / / |') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.white.bold(' | |  | | | |  \\| | / _ \\    \\ \\ / /  | |') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.white.bold(' | |__| |_| | |\\  |/ ___ \\    \\ V /   | |') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.white.bold(' |_____\\___/|_| \\_/_/   \\_\\    \\_/    |_|') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + ' '.repeat(56) + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.cyan.bold('                Luna Bot version 1.3                     ') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.blue('              Created by Mr perfect with 💗              ') + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('║') + chalk.gray(`                   ${date} ${timestamp}                    `) + chalk.magenta.bold('║'));
+            console.log(chalk.magenta.bold('╚══════════════════════════════════════════════════════════╝\n'));
             break;
 
         case 'connecting':
@@ -165,29 +182,17 @@ const logGoatBotStyle = (type, data = {}) => {
             break;
 
         case 'enter_number':
-            console.log(chalk.yellow('📞') + chalk.white(' Please enter your phone number:'));
+            console.log(chalk.yellow('📞') + chalk.white(' ENTER A NUMBER....'));
+            console.log(chalk.gray('> '), { newline: false });
             break;
 
         case 'pairing_code':
-            console.log(chalk.green('🔑') + chalk.white(' PAIRING CODE: ') + chalk.yellow.bold(data.code));
-            console.log(chalk.gray('   Enter this code in WhatsApp mobile app'));
+            console.log('\n' + chalk.green('🔑') + chalk.white(' PAIRING CODE: ') + chalk.yellow.bold(data.code));
+            console.log(chalk.gray('   Enter this code in WhatsApp mobile app\n'));
             break;
 
         case 'auth_success':
-            console.log(chalk.green('✅') + chalk.white(' SUCCESSFULLY CONNECTED WITH WHATSAPP'));
-            break;
-
-        case 'ready':
-            console.log(chalk.green('🤖') + chalk.white(' BOT ONLINE - Connected as: ') + chalk.cyan.bold(data.name || 'Luna'));
-            break;
-
-        case 'command_load':
-            console.log(chalk.blue(`●`) + chalk.white(` Command loaded: `) + chalk.yellow.bold(data.name) + 
-                       (data.category ? chalk.gray(` [${data.category}]`) : ''));
-            break;
-
-        case 'event_load':
-            console.log(chalk.magenta(`●`) + chalk.white(` Event loaded: `) + chalk.cyan.bold(data.name));
+            console.log(chalk.green('✅') + chalk.white(' SUCCESSFULLY CONNECTED WITH WHATSAPP\n'));
             break;
 
         case 'database_connecting':
@@ -196,9 +201,57 @@ const logGoatBotStyle = (type, data = {}) => {
 
         case 'database':
             if (data.status === 'connected') {
-                console.log(chalk.green(`✓`) + chalk.white(` Database connected: `) + chalk.green.bold(data.type.toUpperCase()));
+                console.log(chalk.green('✓') + chalk.white(' Database connected: ') + chalk.green.bold(data.type.toUpperCase()));
             } else if (data.status === 'error') {
-                console.log(chalk.red(`✗`) + chalk.white(` Database error: `) + chalk.red(data.error));
+                console.log(chalk.red('✗') + chalk.white(' Database error: ') + chalk.red(data.error));
+            }
+            break;
+
+        case 'loading_modules':
+            console.log(chalk.cyan('📦') + chalk.white(' Loading commands and events...'));
+            break;
+
+        case 'command_load_start':
+            console.log(chalk.blue('📋') + chalk.white(' Loading Commands:'));
+            break;
+
+        case 'command_load':
+            console.log(chalk.blue('  ●') + chalk.white(' ') + chalk.yellow.bold(data.name) + 
+                       (data.category ? chalk.gray(` [${data.category}]`) : ''));
+            break;
+
+        case 'command_install':
+            console.log(chalk.yellow('  📦') + chalk.white(' Installing: ') + chalk.cyan(data.package));
+            break;
+
+        case 'command_load_complete':
+            if (data.loaded > 0) {
+                console.log(chalk.green('✓') + chalk.white(' Commands loaded: ') + chalk.green.bold(data.loaded) + 
+                           chalk.gray(` in ${data.categories} categories`));
+            } else {
+                console.log(chalk.yellow('⚠') + chalk.white(' No valid commands found'));
+            }
+            if (data.failed > 0) {
+                console.log(chalk.red('✗') + chalk.white(' Failed to load: ') + chalk.red.bold(data.failed) + chalk.gray(' commands'));
+            }
+            break;
+
+        case 'event_load_start':
+            console.log(chalk.magenta('🎯') + chalk.white(' Loading Events:'));
+            break;
+
+        case 'event_load':
+            console.log(chalk.magenta('  ●') + chalk.white(' ') + chalk.cyan.bold(data.name));
+            break;
+
+        case 'event_load_complete':
+            if (data.loaded > 0) {
+                console.log(chalk.green('✓') + chalk.white(' Events loaded: ') + chalk.green.bold(data.loaded));
+            } else {
+                console.log(chalk.yellow('⚠') + chalk.white(' No valid events found'));
+            }
+            if (data.failed > 0) {
+                console.log(chalk.red('✗') + chalk.white(' Failed to load: ') + chalk.red.bold(data.failed) + chalk.gray(' events'));
             }
             break;
 
@@ -210,15 +263,32 @@ const logGoatBotStyle = (type, data = {}) => {
                 'reconnecting': chalk.blue('●')
             };
             const icon = statusIcons[data.status] || chalk.white('●');
-            console.log(icon + chalk.white(` Connection status: `) + chalk.bold(data.status.toUpperCase()));
+            // Only show important status changes
+            if (data.status === 'open') {
+                console.log('\n' + chalk.green.bold('╔══════════════════════════════════════════════════════════╗'));
+                console.log(chalk.green.bold('║') + chalk.white.bold('                    🤖 BOT ONLINE                        ') + chalk.green.bold('║'));
+                console.log(chalk.green.bold('║') + chalk.white(`                   Connected as: ${data.name || 'Luna'}                   `) + chalk.green.bold('║'));
+                console.log(chalk.green.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.green.bold('║'));
+                console.log(chalk.green.bold('╚══════════════════════════════════════════════════════════╝'));
+            }
             break;
 
         case 'uptime':
-            console.log(chalk.cyan(`🌐`) + chalk.white(` Uptime server: `) + chalk.cyan.bold(`http://0.0.0.0:${data.port}`));
+            console.log(chalk.cyan('🌐') + chalk.white(' Uptime server: ') + chalk.cyan.bold(`http://0.0.0.0:${data.port}`));
             break;
 
         case 'loading_complete':
-            console.log(chalk.green('🎉') + chalk.white(' All systems loaded successfully!'));
+            console.log('\n' + chalk.green('🎉') + chalk.white(' All systems loaded successfully!\n'));
+            console.log(chalk.gray('═'.repeat(60)));
+            console.log(chalk.white.bold('                        BOT IS READY                        '));
+            console.log(chalk.gray('═'.repeat(60)) + '\n');
+            break;
+
+        case 'error_summary':
+            if (data.errors > 0) {
+                console.log(chalk.red('\n⚠ ') + chalk.yellow('Some components failed to load:'));
+                console.log(chalk.gray('  Check logs above for details\n'));
+            }
             break;
     }
 };
