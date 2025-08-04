@@ -159,7 +159,8 @@ const getAuthState = async () => {
         const line = displayLunaBotTitle();
 
         ensureAuthDirectory();
-        const { state, saveCreds } = await useMultiFileAuthState('./auth/session');
+        const sessionPath = config.whatsappAccount.sessionPath || './auth/session';
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
         return { state, saveCreds, line };
     } catch (err) {
         logError(`Error getting auth state: ${err.message}`);
