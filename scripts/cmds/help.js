@@ -23,7 +23,7 @@ module.exports = {
             
             if (args.length === 0) {
                 let categories = {};
-                let msg = "╔══════════════╗\n *GOAT BOT STYLE💐*\n╚══════════════╝\n";
+                let msg = "╔══════════════╗\n *LUNA BOT STYLE💐*\n╚══════════════╝\n";
 
                 for (const [name, command] of commands.entries()) {
                     const permission = command.permission || command.config?.role || 0;
@@ -49,7 +49,7 @@ module.exports = {
                 const totalCommands = commands.size;
                 msg += `\n\nCurrently, I have *${totalCommands}* commands available. More commands will be added soon!\n`;
                 msg += `\n_Type *${prefix}help commandName* to view details of a specific command._\n`;
-                msg += `\n💫 *GOAT BOT STYLE* 💫\n`;
+                msg += `\n💫 *LUNA BOT STYLE* 💫\n`;
                 msg += `\n🤖 Commands with onChat work without prefix too!`;
 
                 // Random help images/gifs
@@ -66,7 +66,7 @@ module.exports = {
                 await sock.sendMessage(m.key.remoteJid, {
                     text: msg,
                     image: { url: helpListImage },
-                    footer: "GoatBot Style Bot",
+                    footer: "Luna Bot Style",
                 });
 
             } else {

@@ -146,7 +146,7 @@ const handlerAction = {
                 global.Luna.onChat = new Map();
             }
 
-            // Check for GoatBot-style command onChat functions
+            // Check for Luna-style command onChat functions
             for (const [commandName, command] of global.commands.entries()) {
                 if (typeof command.onChat === 'function') {
                     try {

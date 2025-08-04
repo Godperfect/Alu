@@ -62,7 +62,7 @@ class CommandManager {
                 }
 
                 if (command && command.config && command.config.name) {
-                    // GoatBot style command structure
+                    // Luna style command structure
                     const cmd = {
                         name: command.config.name,
                         description: command.config.description || "No description available",
@@ -85,7 +85,7 @@ class CommandManager {
                         });
                     }
 
-                    logSuccess(`Loaded GoatBot command: ${cmd.name}`);
+                    logSuccess(`Loaded Luna command: ${cmd.name}`);
                 } else if (command && command.name) {
                     // Original Luna style command structure
                     global.commands.set(command.name, command);
