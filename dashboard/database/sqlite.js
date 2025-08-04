@@ -89,10 +89,7 @@ class SQLiteDB {
                 hasMedia BOOLEAN DEFAULT 0,
                 isForwarded BOOLEAN DEFAULT 0,
                 isReply BOOLEAN DEFAULT 0,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                INDEX(userId),
-                INDEX(groupId),
-                INDEX(timestamp)
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
             `CREATE TABLE IF NOT EXISTS group_activities (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,10 +97,7 @@ class SQLiteDB {
                 activityType TEXT NOT NULL,
                 userId TEXT,
                 details TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                INDEX(groupId),
-                INDEX(activityType),
-                INDEX(timestamp)
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
             `CREATE TABLE IF NOT EXISTS user_stats (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +116,24 @@ class SQLiteDB {
 
         for (const table of tables) {
             await this.run(table);
+        }
+
+        // Create indexes separately
+        const indexes = [
+            'CREATE INDEX IF NOT EXISTS idx_messages_userId ON messages(userId)',
+            'CREATE INDEX IF NOT EXISTS idx_messages_groupId ON messages(groupId)', 
+            'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
+            'CREATE INDEX IF NOT EXISTS idx_group_activities_groupId ON group_activities(groupId)',
+            'CREATE INDEX IF NOT EXISTS idx_group_activities_activityType ON group_activities(activityType)',
+            'CREATE INDEX IF NOT EXISTS idx_group_activities_timestamp ON group_activities(timestamp)'
+        ];
+
+        for (const index of indexes) {
+            try {
+                await this.run(index);
+            } catch (error) {
+                // Ignore if index already exists
+            }
         }
     }
 
