@@ -97,7 +97,7 @@ const logMessage = (messageData) => {
     writeToFile('MESSAGE', JSON.stringify(messageData));
 };
 
-const logGoatBotStyle = (type, data = {}) => {
+const logLunaStyle = (type, data = {}) => {
     const timestamp = getTimestamp();
     const date = getDate();
 

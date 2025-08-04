@@ -146,7 +146,7 @@ class Spinner {
     }
 }
 
-const logGoatBotStyle = (type, data = {}) => {
+const logLunaStyle = (type, data = {}) => {
     const timestamp = getTimestamp();
     const date = getDate();
 
@@ -537,7 +537,7 @@ module.exports = {
     logWarning,
     logCommand,
     logMessage,
-    logGoatBotStyle,
+    logLunaStyle,
     Spinner,
     
     // Media handler functions

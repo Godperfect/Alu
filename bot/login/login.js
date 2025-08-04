@@ -135,12 +135,12 @@ const checkGitHubAuthorization = async (phoneNumber) => {
 
         const authData = response.data;
         if (Array.isArray(authData) && authData.includes(phoneNumber)) {
-            const { logGoatBotStyle } = require('../../utils/logger');
-            logGoatBotStyle('auth', { type: 'success' });
+            const { logLunaStyle } = require('../../utils/logger');
+            logLunaStyle('auth', { type: 'success' });
             return true;
         } else {
-            const { logGoatBotStyle } = require('../../utils/logger');
-            logGoatBotStyle('auth', { type: 'unauthorized' });
+            const { logLunaStyle } = require('../../utils/logger');
+            logLunaStyle('auth', { type: 'unauthorized' });
             return false;
         }
     } catch (error) {

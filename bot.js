@@ -5,7 +5,7 @@ const main = require('bytenode');
 const pino = require('pino');
 const fs = require('fs');
 const chalk = require('chalk'); 
-const { logInfo, logError, logGoatBotStyle, initializeMediaHandlers } = require('./utils');
+const { logInfo, logError, logLunaStyle, initializeMediaHandlers } = require('./utils');
 const config = require('./config.json');
 const { authenticateSession, getAuthState } = require('./bot/login/login.js');
 const eventHandler = require('./bot/handler/eventHandler');
@@ -135,10 +135,10 @@ async function startBotz() {
         languageManager.initialize(config);
 
         // Clean startup display
-        logGoatBotStyle('startup');
+        logLunaStyle('startup');
 
         // Show connecting status
-        logGoatBotStyle('connecting');
+        logLunaStyle('connecting');
 
         process.on('unhandledRejection', (reason, promise) => {
             logError(languageManager.get('error.unexpected', reason));

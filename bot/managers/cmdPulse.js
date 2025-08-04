@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { logSuccess, logError, logGoatBotStyle, logInfo, logWarning } = require('../../utils/logger');
+const { logSuccess, logError, logLunaStyle, logInfo, logWarning } = require('../../utils/logger');
 
 class CommandManager {
     constructor() {
@@ -23,7 +23,7 @@ class CommandManager {
         const categories = new Set();
         const failedCommands = [];
 
-        logGoatBotStyle('command_load_start');
+        logLunaStyle('command_load_start');
 
         for (const file of commandFiles) {
             try {

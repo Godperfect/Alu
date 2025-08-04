@@ -21,7 +21,7 @@ class EventManager {
         let loadedCount = 0;
         const failedEvents = [];
 
-        logGoatBotStyle('event_load_start');
+        logLunaStyle('event_load_start');
 
         for (const file of eventFiles) {
             try {
