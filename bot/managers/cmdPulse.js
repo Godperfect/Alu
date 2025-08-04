@@ -61,11 +61,44 @@ class CommandManager {
                     }
                 }
 
-                if (command.name && typeof command.run === 'function') {
+                if (command && command.config && command.config.name) {
+                    // GoatBot style command structure
+                    const cmd = {
+                        name: command.config.name,
+                        description: command.config.description || "No description available",
+                        category: command.config.category || "general",
+                        permission: command.config.role || 0,
+                        cooldown: command.config.cooldown || 0,
+                        aliases: command.config.aliases || [],
+                        run: command.onStart,
+                        onChat: command.onChat,
+                        onReply: command.onReply,
+                        onReaction: command.onReaction,
+                        onEvent: command.onEvent
+                    };
+
+                    global.commands.set(cmd.name, cmd);
+
+                    if (cmd.aliases && Array.isArray(cmd.aliases)) {
+                        cmd.aliases.forEach(alias => {
+                            global.aliases.set(alias, cmd.name);
+                        });
+                    }
+
+                    logSuccess(`Loaded GoatBot command: ${cmd.name}`);
+                } else if (command && command.name) {
+                    // Original Luna style command structure
                     global.commands.set(command.name, command);
+
+                    if (command.aliases && Array.isArray(command.aliases)) {
+                        command.aliases.forEach(alias => {
+                            global.aliases.set(alias, command.name);
+                        });
+                    }
+
                     logSuccess(`Loaded command: ${command.name}`);
                 } else {
-                    console.warn(`Invalid command format in ${file}. Skipping.`);
+                    console.warn(`Invalid command structure in ${file}`);
                 }
 
             } catch (err) {
