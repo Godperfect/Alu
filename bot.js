@@ -133,14 +133,13 @@ async function startBotz() {
             }, config.autoRestart.time * 1000 * 60);
         }
 
-        // Start web dashboard
+        // Start web dashboard silently
         try {
             const WebServer = require('./app');
             const webServer = new WebServer();
             webServer.start();
-            logSuccess('Web dashboard started successfully');
         } catch (error) {
-            logError(`Failed to start web dashboard: ${error.message}`);
+            // Dashboard startup failed silently
         }
 
         return ptz;

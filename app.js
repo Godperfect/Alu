@@ -28,11 +28,11 @@ class WebServer {
         this.app.use('/js', express.static(path.join(__dirname, 'js')));
         this.app.use('/images', express.static(path.join(__dirname, 'images')));
         
-        // Request logging middleware
-        this.app.use((req, res, next) => {
-            logInfo(`${req.method} ${req.path} - ${req.ip}`);
-            next();
-        });
+        // Request logging middleware (disabled for cleaner console)
+        // this.app.use((req, res, next) => {
+        //     logInfo(`${req.method} ${req.path} - ${req.ip}`);
+        //     next();
+        // });
     }
 
     setupRoutes() {
@@ -157,7 +157,7 @@ class WebServer {
         });
 
         // 404 handler
-        this.app.use('*', (req, res) => {
+        this.app.use((req, res) => {
             res.status(404).json({
                 success: false,
                 error: 'Endpoint not found'
@@ -205,8 +205,7 @@ class WebServer {
 
     start() {
         this.app.listen(this.port, '0.0.0.0', () => {
-            logSuccess(`Web server started on port ${this.port}`);
-            logInfo(`Dashboard available at: http://0.0.0.0:${this.port}`);
+            // Web server started silently for cleaner console output
         });
     }
 
