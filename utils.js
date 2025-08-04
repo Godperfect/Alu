@@ -152,18 +152,7 @@ const logGoatBotStyle = (type, data = {}) => {
 
     switch (type) {
         case 'startup':
-            console.clear();
-            console.log(chalk.magenta.bold('\n╔══════════════════════════════════════════════════════════╗'));
-            console.log(chalk.magenta.bold('║') + chalk.white.bold('  _    _   _ _   _    _     __     __  _ ') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.white.bold(' | |  | | | | \\ | |  / \\    \\ \\   / / / |') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.white.bold(' | |  | | | |  \\| | / _ \\    \\ \\ / /  | |') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.white.bold(' | |__| |_| | |\\  |/ ___ \\    \\ V /   | |') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.white.bold(' |_____\\___/|_| \\_/_/   \\_\\    \\_/    |_|') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + ' '.repeat(56) + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.cyan.bold('                Luna Bot version 1.3                     ') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.blue('              Created by Mr perfect with 💗              ') + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('║') + chalk.gray(`                   ${date} ${timestamp}                    `) + chalk.magenta.bold('║'));
-            console.log(chalk.magenta.bold('╚══════════════════════════════════════════════════════════╝\n'));
+            // Startup banner is handled elsewhere
             break;
 
         case 'connecting':
