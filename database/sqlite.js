@@ -199,11 +199,9 @@ class SQLiteDB {
     }
 
     async getUserCount() {
-        if (!this.db) return 0;
-
         try {
             const result = await this.db.get('SELECT COUNT(*) as count FROM users');
-            return result ? result.count : 0;
+            return result.count || 0;
         } catch (error) {
             console.error('Error getting user count:', error);
             return 0;
@@ -211,11 +209,9 @@ class SQLiteDB {
     }
 
     async getGroupCount() {
-        if (!this.db) return 0;
-
         try {
-            const result = await this.db.get('SELECT COUNT(*) as count FROM groups WHERE isActive = 1');
-            return result ? result.count : 0;
+            const result = await this.db.get('SELECT COUNT(*) as count FROM groups');
+            return result.count || 0;
         } catch (error) {
             console.error('Error getting group count:', error);
             return 0;
@@ -223,21 +219,8 @@ class SQLiteDB {
     }
 
     async getAllUsers() {
-        if (!this.db) return [];
-
         try {
-            const users = await this.db.all(`
-                SELECT 
-                    phoneNumber,
-                    name,
-                    isAdmin,
-                    isBanned,
-                    commandCount,
-                    lastSeen,
-                    createdAt
-                FROM users 
-                ORDER BY lastSeen DESC
-            `);
+            const users = await this.db.all('SELECT * FROM users ORDER BY lastSeen DESC');
             return users || [];
         } catch (error) {
             console.error('Error getting all users:', error);
@@ -246,25 +229,43 @@ class SQLiteDB {
     }
 
     async getAllGroups() {
-        if (!this.db) return [];
-
         try {
-            const groups = await this.db.all(`
-                SELECT 
-                    groupId,
-                    groupName,
-                    description,
-                    memberCount,
-                    isActive,
-                    lastActivity,
-                    createdAt
-                FROM groups 
-                ORDER BY lastActivity DESC
-            `);
+            const groups = await this.db.all('SELECT * FROM groups ORDER BY lastActivity DESC');
             return groups || [];
         } catch (error) {
             console.error('Error getting all groups:', error);
             return [];
+        }
+    }
+
+    async updateUserActivity(userNumber, userName = null) {
+        try {
+            const now = new Date().toISOString();
+            await this.db.run(`
+                INSERT OR REPLACE INTO users (userNumber, userName, lastSeen, messageCount, joinDate)
+                VALUES (?, ?, ?, 
+                    COALESCE((SELECT messageCount FROM users WHERE userNumber = ?), 0) + 1,
+                    COALESCE((SELECT joinDate FROM users WHERE userNumber = ?), ?)
+                )
+            `, [userNumber, userName, now, userNumber, userNumber, now]);
+        } catch (error) {
+            console.error('Error updating user activity:', error);
+        }
+    }
+
+    async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
+        try {
+            const now = new Date().toISOString();
+            await this.db.run(`
+                INSERT OR REPLACE INTO groups (groupId, groupName, lastActivity, messageCount, participantCount, joinDate)
+                VALUES (?, ?, ?, 
+                    COALESCE((SELECT messageCount FROM groups WHERE groupId = ?), 0) + 1,
+                    ?,
+                    COALESCE((SELECT joinDate FROM groups WHERE groupId = ?), ?)
+                )
+            `, [groupId, groupName, now, groupId, participantCount, groupId, now]);
+        } catch (error) {
+            console.error('Error updating group activity:', error);
         }
     }
 }

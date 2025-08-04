@@ -189,6 +189,7 @@ class EventHandler {
             const messageText = getTextContent(mek.message);
 
 
+            // Log message details
             logMessage({
                 messageType,
                 chatName,
@@ -205,6 +206,29 @@ class EventHandler {
                 timestamp,
                 fromMe: mek.key.fromMe
             });
+
+            // Update database with user/group activity
+            try {
+                const db = require('../../connectDB');
+                if (db.getStatus().connected) {
+                    const senderName = await getSenderName(sock, sender);
+
+                    // Update user activity
+                    await db.updateUserActivity(senderNumber, senderName);
+
+                    // Update group activity if in group
+                    if (isGroup && groupMetadata) {
+                        await db.updateGroupActivity(
+                            mek.key.remoteJid, 
+                            groupMetadata.subject, 
+                            groupMetadata.participants ? groupMetadata.participants.length : 0
+                        );
+                    }
+                }
+            } catch (dbError) {
+                // Don't let database errors stop message processing
+                console.error('Database update error:', dbError.message);
+            }
 
 
             if (config.adminOnly?.enable && 

@@ -59,7 +59,7 @@ const handlerAction = {
 
 
                 if (cmd.permission !== undefined) {
-                    const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
+                    const userPermission = getPermissionLevel(userNumber, isGroup ? messageInfo.groupMetadata : null);
 
                     if (userPermission < cmd.permission) {
                         logWarning(lang.get('log.permissionDenied', command, cmd.permission, userPermission));
@@ -152,7 +152,7 @@ const handlerAction = {
                     try {
                         // Check permission for onChat commands
                         if (command.permission !== undefined) {
-                            const userPermission = getPermissionLevel(userNumber, isGroup ? threadID : null);
+                            const userPermission = getPermissionLevel(userNumber, isGroup ? messageInfo.groupMetadata : null);
                             if (userPermission < command.permission) {
                                 continue; // Skip this command if user doesn't have permission
                             }

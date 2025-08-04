@@ -1,4 +1,3 @@
-
 class LunaDashboard {
     constructor() {
         this.socket = null;
@@ -42,21 +41,21 @@ class LunaDashboard {
     createStar(container) {
         const star = document.createElement('div');
         star.className = 'star';
-        
+
         // Random properties for each star
         const size = Math.random() * 4 + 2; // 2-6px
         const left = Math.random() * 100; // 0-100%
         const duration = Math.random() * 3 + 4; // 4-7 seconds
         const delay = Math.random() * 2; // 0-2 seconds delay
-        
+
         star.style.width = `${size}px`;
         star.style.height = `${size}px`;
         star.style.left = `${left}%`;
         star.style.animationDuration = `${duration}s`;
         star.style.animationDelay = `${delay}s`;
-        
+
         container.appendChild(star);
-        
+
         // Remove star after animation completes
         setTimeout(() => {
             if (star.parentNode) {
@@ -71,7 +70,7 @@ class LunaDashboard {
         statCards.forEach((card, index) => {
             card.style.opacity = '0';
             card.style.transform = 'translateY(30px)';
-            
+
             setTimeout(() => {
                 card.style.transition = 'all 0.6s ease';
                 card.style.opacity = '1';
@@ -84,7 +83,7 @@ class LunaDashboard {
         commandItems.forEach((item, index) => {
             item.style.opacity = '0';
             item.style.transform = 'translateY(20px)';
-            
+
             setTimeout(() => {
                 item.style.transition = 'all 0.5s ease';
                 item.style.opacity = '1';
@@ -112,11 +111,11 @@ class LunaDashboard {
             refreshBtn.addEventListener('click', async () => {
                 refreshBtn.style.transform = 'scale(0.95)';
                 refreshBtn.textContent = 'Refreshing...';
-                
+
                 await this.loadInitialData();
                 await this.loadUsersData();
                 await this.loadGroupsData();
-                
+
                 setTimeout(() => {
                     refreshBtn.style.transform = 'scale(1)';
                     refreshBtn.textContent = 'Refresh';
@@ -131,7 +130,7 @@ class LunaDashboard {
             item.addEventListener('mouseenter', () => {
                 item.style.transform = 'translateY(-5px) scale(1.02)';
             });
-            
+
             item.addEventListener('mouseleave', () => {
                 item.style.transform = 'translateY(0) scale(1)';
             });
@@ -145,15 +144,15 @@ class LunaDashboard {
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabName = btn.getAttribute('data-tab');
-                
+
                 // Remove active class from all tabs
                 tabBtns.forEach(b => b.classList.remove('active'));
                 tabContents.forEach(c => c.classList.remove('active'));
-                
+
                 // Add active class to clicked tab
                 btn.classList.add('active');
                 document.getElementById(`${tabName}-tab`).classList.add('active');
-                
+
                 // Load data based on tab
                 if (tabName === 'users') {
                     this.loadUsersData();
@@ -172,7 +171,7 @@ class LunaDashboard {
         try {
             const response = await fetch('/api/users');
             const data = await response.json();
-            
+
             if (data.success) {
                 this.renderUsersTable(data.users);
             }
@@ -186,7 +185,7 @@ class LunaDashboard {
         try {
             const response = await fetch('/api/groups');
             const data = await response.json();
-            
+
             if (data.success) {
                 this.renderGroupsTable(data.groups);
             }
@@ -198,7 +197,7 @@ class LunaDashboard {
 
     renderUsersTable(users) {
         const tbody = document.getElementById('users-table-body');
-        
+
         if (users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="loading">No users found</td></tr>';
             return;
@@ -208,7 +207,7 @@ class LunaDashboard {
             const status = user.isBanned ? 'banned' : user.isAdmin ? 'admin' : 'active';
             const statusClass = user.isBanned ? 'status-banned' : user.isAdmin ? 'status-admin' : 'status-active';
             const lastSeen = new Date(user.lastSeen).toLocaleDateString();
-            
+
             return `
                 <tr>
                     <td>${user.phoneNumber}</td>
@@ -223,7 +222,7 @@ class LunaDashboard {
 
     renderGroupsTable(groups) {
         const tbody = document.getElementById('groups-table-body');
-        
+
         if (groups.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="loading">No groups found</td></tr>';
             return;
@@ -233,7 +232,7 @@ class LunaDashboard {
             const status = group.isActive ? 'active' : 'inactive';
             const statusClass = group.isActive ? 'status-active' : 'status-banned';
             const lastActivity = new Date(group.lastActivity).toLocaleDateString();
-            
+
             return `
                 <tr>
                     <td>${group.groupName || 'Unknown Group'}</td>
@@ -249,7 +248,7 @@ class LunaDashboard {
     updateStats(data) {
         if (data.stats) {
             this.stats = { ...this.stats, ...data.stats };
-            
+
             // Animate number changes
             this.animateNumber('user-count', this.stats.users);
             this.animateNumber('group-count', this.stats.groups);
@@ -279,23 +278,23 @@ class LunaDashboard {
     updateStatus(status) {
         const statusIndicator = document.querySelector('.status-indicator');
         const statusText = document.getElementById('status-text');
-        
+
         if (statusIndicator && statusText) {
             // Add transition effect
             statusIndicator.style.transition = 'all 0.3s ease';
-            
+
             if (status === 'online') {
                 statusIndicator.className = 'status-indicator status-online';
                 statusText.textContent = 'Bot is Online';
                 this.isConnected = true;
-                
+
                 // Add success glow effect
                 statusIndicator.style.boxShadow = '0 0 30px rgba(0, 255, 136, 0.8)';
             } else {
                 statusIndicator.className = 'status-indicator status-offline';
                 statusText.textContent = 'Bot is Offline';
                 this.isConnected = false;
-                
+
                 // Add error glow effect
                 statusIndicator.style.boxShadow = '0 0 30px rgba(255, 71, 87, 0.8)';
             }
@@ -313,7 +312,7 @@ class LunaDashboard {
         const days = Math.floor(seconds / 86400);
         const hours = Math.floor((seconds % 86400) / 3600);
         const mins = Math.floor((seconds % 3600) / 60);
-        
+
         if (days > 0) {
             return `${days}d ${hours}h ${mins}m`;
         } else if (hours > 0) {
@@ -340,14 +339,14 @@ class LunaDashboard {
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.textContent = message;
-        
+
         document.body.appendChild(notification);
-        
+
         // Add entrance animation
         setTimeout(() => {
             notification.classList.add('show');
         }, 100);
-        
+
         // Add exit animation
         setTimeout(() => {
             notification.classList.remove('show');
@@ -363,7 +362,7 @@ class LunaDashboard {
     async executeCommand(command) {
         try {
             this.showNotification(`Executing command: ${command}`, 'info');
-            
+
             const response = await fetch('/api/execute', {
                 method: 'POST',
                 headers: {
@@ -371,9 +370,9 @@ class LunaDashboard {
                 },
                 body: JSON.stringify({ command })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 this.showNotification('Command executed successfully', 'success');
             } else {
@@ -396,17 +395,17 @@ class LunaDashboard {
             particle.style.borderRadius = '50%';
             particle.style.pointerEvents = 'none';
             particle.style.zIndex = '1000';
-            
+
             const angle = (i * 360) / particles;
             const velocity = 50;
             const x = event.clientX + Math.cos(angle * Math.PI / 180) * velocity;
             const y = event.clientY + Math.sin(angle * Math.PI / 180) * velocity;
-            
+
             particle.style.left = event.clientX + 'px';
             particle.style.top = event.clientY + 'px';
-            
+
             document.body.appendChild(particle);
-            
+
             // Animate particle
             particle.animate([
                 { transform: 'translate(0, 0) scale(1)', opacity: 1 },
@@ -421,10 +420,101 @@ class LunaDashboard {
     }
 }
 
+async function loadCommands() {
+        try {
+            const response = await fetch('/api/commands');
+            const data = await response.json();
+
+            if (data.success) {
+                displayCommands(data.commands);
+            } else {
+                document.getElementById('commands-grid').innerHTML = '<div class="error">Failed to load commands</div>';
+            }
+        } catch (error) {
+            console.error('Error loading commands:', error);
+            document.getElementById('commands-grid').innerHTML = '<div class="error">Error loading commands</div>';
+        }
+    }
+
+    async function loadUsers() {
+        try {
+            const response = await fetch('/api/users');
+            const data = await response.json();
+
+            if (data.success) {
+                displayUsers(data.users);
+            } else {
+                document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" class="error">Failed to load users</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+            document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" class="error">Error loading users</td></tr>';
+        }
+    }
+
+    async function loadGroups() {
+        try {
+            const response = await fetch('/api/groups');
+            const data = await response.json();
+
+            if (data.success) {
+                displayGroups(data.groups);
+            } else {
+                document.getElementById('groups-tbody').innerHTML = '<tr><td colspan="5" class="error">Failed to load groups</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            document.getElementById('groups-tbody').innerHTML = '<tr><td colspan="5" class="error">Error loading groups</td></tr>';
+        }
+    }
+
+    function displayUsers(users) {
+        const tbody = document.getElementById('users-tbody');
+
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="no-data">No users found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(user => `
+            <tr>
+                <td>${user.userNumber || 'N/A'}</td>
+                <td>${user.userName || 'Unknown'}</td>
+                <td>${user.messageCount || 0}</td>
+                <td>${user.lastSeen ? formatDate(user.lastSeen) : 'Never'}</td>
+                <td>${user.joinDate ? formatDate(user.joinDate) : 'Unknown'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function displayGroups(groups) {
+        const tbody = document.getElementById('groups-tbody');
+
+        if (groups.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="no-data">No groups found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = groups.map(group => `
+            <tr>
+                <td>${group.groupName || 'Unknown Group'}</td>
+                <td>${group.participantCount || 0}</td>
+                <td>${group.messageCount || 0}</td>
+                <td>${group.lastActivity ? formatDate(group.lastActivity) : 'Never'}</td>
+                <td>${group.joinDate ? formatDate(group.joinDate) : 'Unknown'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString();
+    }
+
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.lunaDashboard = new LunaDashboard();
-    
+
     // Add click effects to interactive elements
     document.addEventListener('click', (event) => {
         if (event.target.matches('.stat-card, .command-item, #refresh-btn')) {
@@ -432,6 +522,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Initialize dashboard
+    loadStats();
+    loadCommands();
+    loadUsers();
+    loadGroups();
+
+    // Refresh all data every 30 seconds
+    setInterval(() => {
+        loadStats();
+        loadUsers();
+        loadGroups();
+    }, 30000);
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {

@@ -47,7 +47,7 @@ const getPermissionLevel = (userNumber, groupMetadata = null) => {
     if (isBotAdmin(userNumber)) return 2;
     
     // Level 1: Group Admin privileges (in groups only)
-    if (groupMetadata && isGroupAdmin(userNumber, groupMetadata)) return 1;
+    if (groupMetadata && groupMetadata.participants && isGroupAdmin(userNumber, groupMetadata)) return 1;
     
     // Level 0: Regular user - lowest privilege level
     return 0;

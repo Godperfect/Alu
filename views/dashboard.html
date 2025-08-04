@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,12 +21,18 @@
 
         <section class="stats-grid">
             <div class="stat-card">
-                <div class="stat-number" id="user-count">0</div>
-                <div class="stat-label">Total Users</div>
+                <div class="stat-icon">👥</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="user-count">0</div>
+                    <div class="stat-label">Active Users</div>
+                </div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="group-count">0</div>
-                <div class="stat-label">Active Groups</div>
+                <div class="stat-icon">💬</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="group-count">0</div>
+                    <div class="stat-label">Active Groups</div>
+                </div>
             </div>
             <div class="stat-card">
                 <div class="stat-number" id="command-count">0</div>
@@ -120,6 +125,55 @@
                 </div>
             </div>
         </section>
+
+        <div class="data-tables">
+                    <div class="table-container">
+                        <h3>Active Users</h3>
+                        <div class="table-wrapper">
+                            <table class="data-table" id="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>User Number</th>
+                                        <th>User Name</th>
+                                        <th>Messages</th>
+                                        <th>Last Seen</th>
+                                        <th>Join Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-tbody">
+                                    <tr><td colspan="5" class="loading">Loading users...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <h3>Active Groups</h3>
+                        <div class="table-wrapper">
+                            <table class="data-table" id="groups-table">
+                                <thead>
+                                    <tr>
+                                        <th>Group Name</th>
+                                        <th>Participants</th>
+                                        <th>Messages</th>
+                                        <th>Last Activity</th>
+                                        <th>Join Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="groups-tbody">
+                                    <tr><td colspan="5" class="loading">Loading groups...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="commands-container">
+                    <h3>Available Commands</h3>
+                    <div class="commands-grid" id="commands-grid">
+                        <div class="loading">Loading commands...</div>
+                    </div>
+                </div>
 
         <footer class="footer">
             <p>&copy; 2024 Luna Bot - Advanced WhatsApp Bot Framework</p>
