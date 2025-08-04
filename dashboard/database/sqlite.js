@@ -78,6 +78,45 @@ class SQLiteDB {
                 commandName TEXT NOT NULL,
                 expiresAt DATETIME NOT NULL,
                 UNIQUE(userId, commandName)
+            )`,
+            `CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                messageId TEXT UNIQUE NOT NULL,
+                userId TEXT NOT NULL,
+                groupId TEXT,
+                messageType TEXT DEFAULT 'text',
+                messageLength INTEGER DEFAULT 0,
+                hasMedia BOOLEAN DEFAULT 0,
+                isForwarded BOOLEAN DEFAULT 0,
+                isReply BOOLEAN DEFAULT 0,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX(userId),
+                INDEX(groupId),
+                INDEX(timestamp)
+            )`,
+            `CREATE TABLE IF NOT EXISTS group_activities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                groupId TEXT NOT NULL,
+                activityType TEXT NOT NULL,
+                userId TEXT,
+                details TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX(groupId),
+                INDEX(activityType),
+                INDEX(timestamp)
+            )`,
+            `CREATE TABLE IF NOT EXISTS user_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                userId TEXT UNIQUE NOT NULL,
+                totalMessages INTEGER DEFAULT 0,
+                totalMediaSent INTEGER DEFAULT 0,
+                totalGroupsJoined INTEGER DEFAULT 0,
+                lastActivityType TEXT,
+                lastActivityTime DATETIME DEFAULT CURRENT_TIMESTAMP,
+                weeklyMessageCount INTEGER DEFAULT 0,
+                monthlyMessageCount INTEGER DEFAULT 0,
+                lastWeekReset DATETIME DEFAULT CURRENT_TIMESTAMP,
+                lastMonthReset DATETIME DEFAULT CURRENT_TIMESTAMP
             )`
         ];
 
@@ -266,6 +305,158 @@ class SQLiteDB {
             `, [groupId, groupName, now, groupId, participantCount, groupId, now]);
         } catch (error) {
             console.error('Error updating group activity:', error);
+        }
+    }
+
+    // Message tracking methods
+    async logMessage(messageData) {
+        try {
+            const { messageId, userId, groupId, messageType, messageLength, hasMedia, isForwarded, isReply } = messageData;
+            
+            await this.db.run(`
+                INSERT OR IGNORE INTO messages 
+                (messageId, userId, groupId, messageType, messageLength, hasMedia, isForwarded, isReply)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [messageId, userId, groupId, messageType || 'text', messageLength || 0, hasMedia || 0, isForwarded || 0, isReply || 0]);
+
+            // Update user stats
+            await this.updateUserMessageStats(userId, hasMedia);
+            
+            return true;
+        } catch (error) {
+            console.error('Error logging message:', error);
+            return false;
+        }
+    }
+
+    async updateUserMessageStats(userId, hasMedia = false) {
+        try {
+            const now = new Date();
+            const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            await this.db.run(`
+                INSERT OR REPLACE INTO user_stats 
+                (userId, totalMessages, totalMediaSent, lastActivityTime, lastActivityType,
+                 weeklyMessageCount, monthlyMessageCount, lastWeekReset, lastMonthReset)
+                VALUES (?, 
+                    COALESCE((SELECT totalMessages FROM user_stats WHERE userId = ?), 0) + 1,
+                    COALESCE((SELECT totalMediaSent FROM user_stats WHERE userId = ?), 0) + ?,
+                    CURRENT_TIMESTAMP,
+                    'message',
+                    CASE 
+                        WHEN COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
+                        THEN 1 
+                        ELSE COALESCE((SELECT weeklyMessageCount FROM user_stats WHERE userId = ?), 0) + 1 
+                    END,
+                    CASE 
+                        WHEN COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
+                        THEN 1 
+                        ELSE COALESCE((SELECT monthlyMessageCount FROM user_stats WHERE userId = ?), 0) + 1 
+                    END,
+                    CASE 
+                        WHEN COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
+                        THEN ? 
+                        ELSE COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), ?) 
+                    END,
+                    CASE 
+                        WHEN COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
+                        THEN ? 
+                        ELSE COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), ?) 
+                    END
+                )
+            `, [
+                userId, userId, userId, hasMedia ? 1 : 0, userId, weekStart.toISOString(), 
+                userId, userId, monthStart.toISOString(), userId, userId, weekStart.toISOString(), 
+                weekStart.toISOString(), userId, weekStart.toISOString(), userId, monthStart.toISOString(), 
+                monthStart.toISOString(), userId, monthStart.toISOString()
+            ]);
+
+            return true;
+        } catch (error) {
+            console.error('Error updating user message stats:', error);
+            return false;
+        }
+    }
+
+    async logGroupActivity(groupId, activityType, userId = null, details = null) {
+        try {
+            await this.db.run(`
+                INSERT INTO group_activities (groupId, activityType, userId, details)
+                VALUES (?, ?, ?, ?)
+            `, [groupId, activityType, userId, details]);
+            return true;
+        } catch (error) {
+            console.error('Error logging group activity:', error);
+            return false;
+        }
+    }
+
+    async getUserMessageStats(userId) {
+        try {
+            return await this.db.get('SELECT * FROM user_stats WHERE userId = ?', [userId]);
+        } catch (error) {
+            console.error('Error getting user message stats:', error);
+            return null;
+        }
+    }
+
+    async getGroupMessageStats(groupId, days = 7) {
+        try {
+            const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+            
+            const stats = await this.db.get(`
+                SELECT 
+                    COUNT(*) as totalMessages,
+                    COUNT(DISTINCT userId) as activeUsers,
+                    SUM(CASE WHEN hasMedia = 1 THEN 1 ELSE 0 END) as mediaMessages,
+                    SUM(CASE WHEN isForwarded = 1 THEN 1 ELSE 0 END) as forwardedMessages
+                FROM messages 
+                WHERE groupId = ? AND timestamp >= ?
+            `, [groupId, since]);
+
+            const topUsers = await this.db.all(`
+                SELECT userId, COUNT(*) as messageCount
+                FROM messages 
+                WHERE groupId = ? AND timestamp >= ?
+                GROUP BY userId 
+                ORDER BY messageCount DESC 
+                LIMIT 5
+            `, [groupId, since]);
+
+            return { ...stats, topUsers };
+        } catch (error) {
+            console.error('Error getting group message stats:', error);
+            return null;
+        }
+    }
+
+    async getRecentGroupActivities(groupId, limit = 10) {
+        try {
+            return await this.db.all(`
+                SELECT * FROM group_activities 
+                WHERE groupId = ? 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            `, [groupId, limit]);
+        } catch (error) {
+            console.error('Error getting recent group activities:', error);
+            return [];
+        }
+    }
+
+    async cleanOldMessages(daysToKeep = 30) {
+        try {
+            const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
+            
+            const result = await this.db.run(`
+                DELETE FROM messages WHERE timestamp < ?
+            `, [cutoffDate]);
+
+            return result.changes || 0;
+        } catch (error) {
+            console.error('Error cleaning old messages:', error);
+            return 0;
         }
     }
 }

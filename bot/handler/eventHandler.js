@@ -32,6 +32,10 @@ class EventHandler {
                 let mek = chatUpdate.messages[0];
                 if (!mek.message) return;
 
+                // Log message to database
+                const dataHandler = require('./handlerCheckdata');
+                await dataHandler.logMessage(mek);
+
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
                 logError(lang.get('eventHandler.error.messageListener', err.message));
@@ -41,7 +45,20 @@ class EventHandler {
 
 
         sock.ev.on('group-participants.update', async (update) => {
-            await this.handleGroupUpdate(sock, update);
+            try {
+                // Log group activity
+                const dataHandler = require('./handlerCheckdata');
+                await dataHandler.logGroupActivity(
+                    update.id,
+                    update.action,
+                    update.participants?.[0],
+                    JSON.stringify({ participants: update.participants, action: update.action })
+                );
+                
+                await this.handleGroupUpdate(sock, update);
+            } catch (error) {
+                logError(`Error handling group update: ${error.message}`);
+            }
         });
 
         sock.ev.on('call', async (callUpdate) => {

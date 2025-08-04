@@ -90,6 +90,62 @@ class DatabaseManager {
             sqlite: this.sqlite.isConnected
         };
     }
+
+    // Message tracking wrapper methods
+    async logMessage(messageData) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.logMessage(messageData);
+    }
+
+    async updateUserMessageStats(userId, hasMedia = false) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.updateUserMessageStats(userId, hasMedia);
+    }
+
+    async logGroupActivity(groupId, activityType, userId = null, details = null) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.logGroupActivity(groupId, activityType, userId, details);
+    }
+
+    async getUserMessageStats(userId) {
+        if (!this.isConnected) return null;
+        return await this.primaryDB.getUserMessageStats(userId);
+    }
+
+    async getGroupMessageStats(groupId, days = 7) {
+        if (!this.isConnected) return null;
+        return await this.primaryDB.getGroupMessageStats(groupId, days);
+    }
+
+    async getRecentGroupActivities(groupId, limit = 10) {
+        if (!this.isConnected) return [];
+        return await this.primaryDB.getRecentGroupActivities(groupId, limit);
+    }
+
+    async cleanOldMessages(daysToKeep = 30) {
+        if (!this.isConnected) return 0;
+        return await this.primaryDB.cleanOldMessages(daysToKeep);
+    }
+
+    async getUserCount() {
+        if (!this.isConnected) return 0;
+        return await this.primaryDB.getUserCount();
+    }
+
+    async getGroupCount() {
+        if (!this.isConnected) return 0;
+        return await this.primaryDB.getGroupCount();
+    }
+
+    async getAllUsers() {
+        if (!this.isConnected) return [];
+        return await this.primaryDB.getAllUsers();
+    }
+
+    async getAllGroups() {
+        if (!this.isConnected) return [];
+        return await this.primaryDB.getAllGroups();
+    }
 }
 
 module.exports = new DatabaseManager();
