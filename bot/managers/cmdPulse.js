@@ -1,161 +1,157 @@
-const fs = require('fs');
+const { execSync } = require('child_process');
 const path = require('path');
-const { logSuccess, logError, logLunaStyle, logInfo, logWarning } = require('../../utils/logger');
+const fs = require('fs');
+
+// Safe require with auto-install
+function safeRequire(moduleName) {
+    try {
+        return require(moduleName);
+    } catch (err) {
+        if (err.code === 'MODULE_NOT_FOUND') {
+            console.log(`[AUTO-INSTALL] Module "${moduleName}" not found. Installing...`);
+            try {
+                execSync(`npm install ${moduleName}`, { stdio: 'inherit' });
+                return require(moduleName);
+            } catch (installErr) {
+                console.error(`Failed to install module "${moduleName}":`, installErr);
+                throw installErr;
+            }
+        } else {
+            throw err;
+        }
+    }
+}
+
+// External utilities (assumed to be local files, not external modules)
+const { logSuccess, logCommand } = require('../../utils/logger');
+const { config } = require('../../config/globals');
 
 class CommandManager {
     constructor() {
-        this.commands = new Map();
-        this.aliases = new Map();
-        this.categories = new Map();
         this.cooldowns = new Map();
+        this.commandsFolder = path.resolve(__dirname, '../../scripts/cmds');
+        this.cooldownTime = config.antiSpam.cooldownTime || 5; // seconds
     }
 
-    async loadCommands() {
-        const commandsPath = path.join(__dirname, '../../scripts/cmds');
+    // Load all command files from the commands folder
+    loadCommands() {
+        if (!global.commands) global.commands = new Map();
 
-        if (!fs.existsSync(commandsPath)) {
-            logError('Commands directory not found');
-            return;
-        }
+        const commandFiles = fs.readdirSync(this.commandsFolder).filter(file => file.endsWith('.js'));
 
-        const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-        let loadedCount = 0;
-        const categories = new Set();
-        const failedCommands = [];
+        commandFiles.forEach(file => {
+            const commandPath = path.join(this.commandsFolder, file);
 
-        logLunaStyle('command_load_start');
-
-        for (const file of commandFiles) {
             try {
-                delete require.cache[require.resolve(path.join(commandsPath, file))];
-                const command = require(path.join(commandsPath, file));
+                let command;
+                try {
+                    command = require(commandPath);
+                } catch (err) {
+                    if (err.code === 'MODULE_NOT_FOUND') {
+                        const missingModule = err.message.match(/'(.+?)'/)?.[1];
+                        if (missingModule) {
+                            console.log(`[AUTO-INSTALL] Missing dependency "${missingModule}" in ${file}. Installing...`);
+                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
+                            command = require(commandPath);
+                        } else {
+                            throw err;
+                        }
+                    } else {
+                        throw err;
+                    }
+                }
 
-                if (this.validateCommand(command)) {
-                    this.commands.set(command.config.name, command);
+                if (command && command.config && command.config.name) {
+                    // GoatBot style command structure
+                    const cmd = {
+                        name: command.config.name,
+                        description: command.config.description || "No description available",
+                        category: command.config.category || "general",
+                        permission: command.config.role || 0,
+                        cooldown: command.config.cooldown || 0,
+                        aliases: command.config.aliases || [],
+                        run: command.onStart,
+                        onChat: command.onChat,
+                        onReply: command.onReply,
+                        onReaction: command.onReaction,
+                        onEvent: command.onEvent
+                    };
 
-                    if (command.config.aliases) {
-                        command.config.aliases.forEach(alias => {
-                            this.aliases.set(alias, command.config.name);
+                    global.commands.set(cmd.name, cmd);
+
+                    if (cmd.aliases && Array.isArray(cmd.aliases)) {
+                        cmd.aliases.forEach(alias => {
+                            global.aliases.set(alias, cmd.name);
                         });
                     }
 
-                    categories.add(command.config.category || 'uncategorized');
-                    loadedCount++;
+                    logSuccess(`Loaded GoatBot command: ${cmd.name}`);
+                } else if (command && command.name) {
+                    // Original Luna style command structure
+                    global.commands.set(command.name, command);
 
-                    logGoatBotStyle('command_load', {
-                        name: command.config.name,
-                        category: command.config.category
-                    });
-                } else {
-                    failedCommands.push(file);
-                }
-            } catch (error) {
-                if (error.code === 'MODULE_NOT_FOUND') {
-                    const missingModule = error.message.match(/Cannot find module '([^']+)'/)?.[1];
-                    if (missingModule && !missingModule.startsWith('.')) {
-                        logGoatBotStyle('command_install', { package: missingModule });
-                        try {
-                            const { execSync } = require('child_process');
-                            execSync(`npm install ${missingModule}`, { stdio: 'pipe' });
-
-                            // Retry loading the command
-                            delete require.cache[require.resolve(path.join(commandsPath, file))];
-                            const command = require(path.join(commandsPath, file));
-
-                            if (this.validateCommand(command)) {
-                                this.commands.set(command.config.name, command);
-
-                                if (command.config.aliases) {
-                                    command.config.aliases.forEach(alias => {
-                                        this.aliases.set(alias, command.config.name);
-                                    });
-                                }
-
-                                categories.add(command.config.category || 'uncategorized');
-                                loadedCount++;
-
-                                logGoatBotStyle('command_load', {
-                                    name: command.config.name,
-                                    category: command.config.category
-                                });
-                            }
-                        } catch (installError) {
-                            failedCommands.push(file);
-                        }
-                    } else {
-                        failedCommands.push(file);
+                    if (command.aliases && Array.isArray(command.aliases)) {
+                        command.aliases.forEach(alias => {
+                            global.aliases.set(alias, command.name);
+                        });
                     }
-                } else {
-                    failedCommands.push(file);
-                }
-            }
-        }
 
-        logGoatBotStyle('command_load_complete', {
-            loaded: loadedCount,
-            categories: categories.size,
-            failed: failedCommands.length
+                    logSuccess(`Loaded command: ${command.name}`);
+                } else {
+                    console.warn(`Invalid command structure in ${file}`);
+                }
+
+            } catch (err) {
+                console.error(`Failed to load command "${file}":`, err);
+            }
         });
     }
 
-    getCommand(name) {
-        return this.commands.get(name) || this.commands.get(this.aliases.get(name));
-    }
+    // Check if the command is on cooldown for the sender
+    checkCooldown(command, sender) {
+        if (!config.antiSpam.enable) return false;
 
-    getAllCommands() {
-        return Array.from(this.commands.values());
-    }
-
-    getCommandsByCategory(category) {
-        const commands = this.categories.get(category) || [];
-        return commands.map(name => this.commands.get(name));
-    }
-
-    getCategories() {
-        return Array.from(this.categories.keys());
-    }
-
-    checkCooldown(userId, commandName, cooldownTime) {
-        const key = `${userId}-${commandName}`;
         const now = Date.now();
+        if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
 
-        if (this.cooldowns.has(key)) {
-            const expirationTime = this.cooldowns.get(key) + (cooldownTime * 1000);
+        const timestamps = this.cooldowns.get(command);
+        const cmd = global.commands.get(command);
+        const cooldownAmount = (cmd.cooldown || this.cooldownTime) * 1000;
+
+        if (timestamps.has(sender)) {
+            const expirationTime = timestamps.get(sender) + cooldownAmount;
             if (now < expirationTime) {
-                const timeLeft = (expirationTime - now) / 1000;
-                return Math.ceil(timeLeft);
+                return ((expirationTime - now) / 1000).toFixed(1);
             }
         }
 
-        this.cooldowns.set(key, now);
-        return 0;
+        return false;
     }
 
-    hasPermission(userId, requiredRole) {
-        const userRole = this.getUserRole(userId);
-        return userRole >= requiredRole;
+    // Apply cooldown to a command for a specific sender
+    applyCooldown(command, sender) {
+        if (!config.antiSpam.enable) return;
+
+        const now = Date.now();
+        if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
+
+        const timestamps = this.cooldowns.get(command);
+        const cmd = global.commands.get(command);
+        const cooldownAmount = (cmd.cooldown || this.cooldownTime) * 1000;
+
+        timestamps.set(sender, now);
+        setTimeout(() => timestamps.delete(sender), cooldownAmount);
     }
 
-    getUserRole(userId) {
-        if (global.owner.includes(userId)) return 2;
-        if (global.adminList.includes(userId)) return 1;
-        return 0;
-    }
+    // Check if sender is allowed to execute the command
+    canExecuteCommand(sender) {
+        const senderId = sender.replace(/[^0-9]/g, '');
 
-    validateCommand(command) {
-        if (!command || !command.config || !command.run) {
+        if (config.adminOnly.enable && !global.adminList.includes(senderId)) {
             return false;
         }
 
-        if (typeof command.config.name !== 'string' || command.config.name.trim() === '') {
-            return false;
-        }
-
-        if (command.config.aliases && (!Array.isArray(command.config.aliases) || command.config.aliases.some(alias => typeof alias !== 'string'))) {
-            return false;
-        }
-
-        if (command.config.category && typeof command.config.category !== 'string') {
+        if (config.whiteListMode.enable && !global.whiteList.includes(senderId)) {
             return false;
         }
 

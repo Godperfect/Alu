@@ -6,86 +6,19 @@ const { config } = require('../../config/globals');
 class EventManager {
     constructor() {
         this.eventsFolder = path.resolve(__dirname, '../../scripts/events');
-        this.events = new Map();
     }
 
-    async loadEvents() {
-        const eventsPath = path.join(__dirname, '../../scripts/events');
+    loadEvents() {
+        if (!config.logEvents.enable) return;
 
-        if (!fs.existsSync(eventsPath)) {
-            logError('Events directory not found');
-            return;
-        }
-
-        const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-        let loadedCount = 0;
-        const failedEvents = [];
-
-        logLunaStyle('event_load_start');
-
-        for (const file of eventFiles) {
-            try {
-                delete require.cache[require.resolve(path.join(eventsPath, file))];
-                const event = require(path.join(eventsPath, file));
-
-                if (this.validateEvent(event)) {
-                    this.events.set(event.config.name, event);
-                    loadedCount++;
-
-                    logLunaStyle('event_load', {
-                        name: event.config.name
-                    });
-                } else {
-                    failedEvents.push(file);
-                }
-            } catch (error) {
-                if (error.code === 'MODULE_NOT_FOUND') {
-                    const missingModule = error.message.match(/Cannot find module '([^']+)'/)?.[1];
-                    if (missingModule && !missingModule.startsWith('.')) {
-                        try {
-                            const { execSync } = require('child_process');
-                            execSync(`npm install ${missingModule}`, { stdio: 'pipe' });
-
-                            // Retry loading the event
-                            delete require.cache[require.resolve(path.join(eventsPath, file))];
-                            const event = require(path.join(eventsPath, file));
-
-                            if (this.validateEvent(event)) {
-                                this.events.set(event.config.name, event);
-                                loadedCount++;
-
-                                logLunaStyle('event_load', {
-                                    name: event.config.name
-                                });
-                            }
-                        } catch (installError) {
-                            failedEvents.push(file);
-                        }
-                    } else {
-                        failedEvents.push(file);
-                    }
-                } else {
-                    failedEvents.push(file);
-                }
+        const eventFiles = fs.readdirSync(this.eventsFolder).filter(file => file.endsWith('.js'));
+        eventFiles.forEach(file => {
+            const event = require(path.join(this.eventsFolder, file));
+            if (event.name && typeof event.event === 'function') {
+                global.events.set(event.name, event);
+                logSuccess(`Loaded event: ${event.name}`);
             }
-        }
-
-        logLunaStyle('event_load_complete', {
-            loaded: loadedCount,
-            failed: failedEvents.length
         });
-    }
-
-    validateEvent(event) {
-        if (!event || !event.config || !event.run) {
-            return false;
-        }
-
-        if (typeof event.config.name !== 'string' || event.config.name.trim() === '') {
-            return false;
-        }
-
-        return true;
     }
 
     handleEvents({ sock, m = null, sender }) {
