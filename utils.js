@@ -112,19 +112,13 @@ const logGoatBotStyle = (type, data = {}) => {
     switch (type) {
         case 'startup':
             console.clear();
-            console.log(chalk.blue.bold('\n╔══════════════════════════════════════════════════════════╗'));
-            console.log(chalk.blue.bold('║') + chalk.white.bold('                      LUNA BOT v1.3                      ') + chalk.blue.bold('║'));
-            console.log(chalk.blue.bold('║') + chalk.cyan('                   Professional WhatsApp Bot              ') + chalk.blue.bold('║'));
-            console.log(chalk.blue.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.blue.bold('║'));
-            console.log(chalk.blue.bold('╚══════════════════════════════════════════════════════════╝\n'));
+            console.log(chalk.blue.bold('LUNA BOT v1.3'));
+            console.log(chalk.gray(`Starting at ${date} ${timestamp}`));
             break;
 
         case 'ready':
-            console.log(chalk.green.bold('\n╔══════════════════════════════════════════════════════════╗'));
-            console.log(chalk.green.bold('║') + chalk.white.bold('                    ✅ BOT ONLINE                        ') + chalk.green.bold('║'));
-            console.log(chalk.green.bold('║') + chalk.white(`                   Connected as: ${data.name || 'Luna'}                   `) + chalk.green.bold('║'));
-            console.log(chalk.green.bold('║') + chalk.gray(`                     ${date} ${timestamp}                     `) + chalk.green.bold('║'));
-            console.log(chalk.green.bold('╚══════════════════════════════════════════════════════════╝\n'));
+            console.log(chalk.green('✅ BOT ONLINE'));
+            console.log(chalk.white(`Connected as: ${data.name || 'Luna'}`));
             break;
 
         case 'command_load':
