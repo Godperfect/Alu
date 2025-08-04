@@ -23,16 +23,10 @@ class DatabaseManager {
                 const mongoConnected = await this.mongodb.connect();
                 if (mongoConnected) {
                     this.primaryDB = this.mongodb;
-                    logInfo('Using MongoDB as primary database');
-                } else {
-                    logInfo('Using SQLite as primary database (MongoDB failed)');
                 }
-            } else {
-                logInfo('Using SQLite as primary database');
             }
 
             this.isConnected = true;
-            logSuccess('Database connection established');
             return true;
         } catch (error) {
             logError(`Database connection failed: ${error.message}`);
