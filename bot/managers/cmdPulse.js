@@ -85,7 +85,7 @@ class CommandManager {
                         });
                     }
 
-                    logSuccess(`Loaded Luna command: ${cmd.name}`);
+                    logSuccess(`Loaded command: ${cmd.name}`);
                 } else if (command && command.name) {
                     // Original Luna style command structure
                     global.commands.set(command.name, command);
