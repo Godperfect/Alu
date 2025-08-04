@@ -25,7 +25,6 @@ class SQLiteDB {
                     reject(false);
                 } else {
                     this.isConnected = true;
-                    logSuccess('Connected to SQLite successfully');
                     this.initializeTables();
                     resolve(true);
                 }
@@ -86,7 +85,6 @@ class SQLiteDB {
         for (const table of tables) {
             await this.run(table);
         }
-        logInfo('SQLite tables initialized');
     }
 
     async run(sql, params = []) {
