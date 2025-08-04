@@ -1,3 +1,4 @@
+
 class LunaDashboard {
     constructor() {
         this.socket = null;
@@ -18,6 +19,7 @@ class LunaDashboard {
         this.setupTabs();
         this.startStatsUpdate();
         this.animateElements();
+        this.loadCommands();
     }
 
     createFallingStars() {
@@ -115,6 +117,7 @@ class LunaDashboard {
                 await this.loadInitialData();
                 await this.loadUsersData();
                 await this.loadGroupsData();
+                await this.loadCommands();
 
                 setTimeout(() => {
                     refreshBtn.style.transform = 'scale(1)';
@@ -151,7 +154,10 @@ class LunaDashboard {
 
                 // Add active class to clicked tab
                 btn.classList.add('active');
-                document.getElementById(`${tabName}-tab`).classList.add('active');
+                const tabContent = document.getElementById(`${tabName}-tab`);
+                if (tabContent) {
+                    tabContent.classList.add('active');
+                }
 
                 // Load data based on tab
                 if (tabName === 'users') {
@@ -195,8 +201,52 @@ class LunaDashboard {
         }
     }
 
+    async loadCommands() {
+        try {
+            const response = await fetch('/api/commands');
+            const data = await response.json();
+
+            if (data.success) {
+                this.displayCommands(data.commands);
+            } else {
+                const commandsGrid = document.getElementById('commands-grid');
+                if (commandsGrid) {
+                    commandsGrid.innerHTML = '<div class="error">Failed to load commands</div>';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading commands:', error);
+            const commandsGrid = document.getElementById('commands-grid');
+            if (commandsGrid) {
+                commandsGrid.innerHTML = '<div class="error">Error loading commands</div>';
+            }
+        }
+    }
+
+    displayCommands(commands) {
+        const commandsGrid = document.getElementById('commands-grid');
+        if (!commandsGrid) return;
+
+        if (commands.length === 0) {
+            commandsGrid.innerHTML = '<div class="no-data">No commands found</div>';
+            return;
+        }
+
+        commandsGrid.innerHTML = commands.map(cmd => `
+            <div class="command-item">
+                <h4>${cmd.name}</h4>
+                <p>${cmd.description}</p>
+                <div class="command-meta">
+                    <span class="category">${cmd.category}</span>
+                    <span class="role">Role: ${cmd.role}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
     renderUsersTable(users) {
-        const tbody = document.getElementById('users-table-body');
+        const tbody = document.getElementById('users-table-body') || document.getElementById('users-tbody');
+        if (!tbody) return;
 
         if (users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="loading">No users found</td></tr>';
@@ -206,13 +256,13 @@ class LunaDashboard {
         tbody.innerHTML = users.map(user => {
             const status = user.isBanned ? 'banned' : user.isAdmin ? 'admin' : 'active';
             const statusClass = user.isBanned ? 'status-banned' : user.isAdmin ? 'status-admin' : 'status-active';
-            const lastSeen = new Date(user.lastSeen).toLocaleDateString();
+            const lastSeen = user.lastSeen ? this.formatDate(user.lastSeen) : 'Never';
 
             return `
                 <tr>
-                    <td>${user.phoneNumber}</td>
-                    <td>${user.name || 'Unknown'}</td>
-                    <td>${user.commandCount || 0}</td>
+                    <td>${user.phoneNumber || user.userNumber || 'N/A'}</td>
+                    <td>${user.name || user.userName || 'Unknown'}</td>
+                    <td>${user.commandCount || user.messageCount || 0}</td>
                     <td><span class="status-badge ${statusClass}">${status}</span></td>
                     <td>${lastSeen}</td>
                 </tr>
@@ -221,7 +271,8 @@ class LunaDashboard {
     }
 
     renderGroupsTable(groups) {
-        const tbody = document.getElementById('groups-table-body');
+        const tbody = document.getElementById('groups-table-body') || document.getElementById('groups-tbody');
+        if (!tbody) return;
 
         if (groups.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="loading">No groups found</td></tr>';
@@ -231,13 +282,13 @@ class LunaDashboard {
         tbody.innerHTML = groups.map(group => {
             const status = group.isActive ? 'active' : 'inactive';
             const statusClass = group.isActive ? 'status-active' : 'status-banned';
-            const lastActivity = new Date(group.lastActivity).toLocaleDateString();
+            const lastActivity = group.lastActivity ? this.formatDate(group.lastActivity) : 'Never';
 
             return `
                 <tr>
                     <td>${group.groupName || 'Unknown Group'}</td>
                     <td>${group.groupId}</td>
-                    <td>${group.memberCount || 0}</td>
+                    <td>${group.memberCount || group.participantCount || 0}</td>
                     <td><span class="status-badge ${statusClass}">${status}</span></td>
                     <td>${lastActivity}</td>
                 </tr>
@@ -322,9 +373,16 @@ class LunaDashboard {
         }
     }
 
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString();
+    }
+
     startStatsUpdate() {
         setInterval(() => {
             this.loadInitialData();
+            this.loadUsersData();
+            this.loadGroupsData();
         }, 30000); // Update every 30 seconds
     }
 
@@ -420,97 +478,6 @@ class LunaDashboard {
     }
 }
 
-async function loadCommands() {
-        try {
-            const response = await fetch('/api/commands');
-            const data = await response.json();
-
-            if (data.success) {
-                displayCommands(data.commands);
-            } else {
-                document.getElementById('commands-grid').innerHTML = '<div class="error">Failed to load commands</div>';
-            }
-        } catch (error) {
-            console.error('Error loading commands:', error);
-            document.getElementById('commands-grid').innerHTML = '<div class="error">Error loading commands</div>';
-        }
-    }
-
-    async function loadUsers() {
-        try {
-            const response = await fetch('/api/users');
-            const data = await response.json();
-
-            if (data.success) {
-                displayUsers(data.users);
-            } else {
-                document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" class="error">Failed to load users</td></tr>';
-            }
-        } catch (error) {
-            console.error('Error loading users:', error);
-            document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" class="error">Error loading users</td></tr>';
-        }
-    }
-
-    async function loadGroups() {
-        try {
-            const response = await fetch('/api/groups');
-            const data = await response.json();
-
-            if (data.success) {
-                displayGroups(data.groups);
-            } else {
-                document.getElementById('groups-tbody').innerHTML = '<tr><td colspan="5" class="error">Failed to load groups</td></tr>';
-            }
-        } catch (error) {
-            console.error('Error loading groups:', error);
-            document.getElementById('groups-tbody').innerHTML = '<tr><td colspan="5" class="error">Error loading groups</td></tr>';
-        }
-    }
-
-    function displayUsers(users) {
-        const tbody = document.getElementById('users-tbody');
-
-        if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="no-data">No users found</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = users.map(user => `
-            <tr>
-                <td>${user.userNumber || 'N/A'}</td>
-                <td>${user.userName || 'Unknown'}</td>
-                <td>${user.messageCount || 0}</td>
-                <td>${user.lastSeen ? formatDate(user.lastSeen) : 'Never'}</td>
-                <td>${user.joinDate ? formatDate(user.joinDate) : 'Unknown'}</td>
-            </tr>
-        `).join('');
-    }
-
-    function displayGroups(groups) {
-        const tbody = document.getElementById('groups-tbody');
-
-        if (groups.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="no-data">No groups found</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = groups.map(group => `
-            <tr>
-                <td>${group.groupName || 'Unknown Group'}</td>
-                <td>${group.participantCount || 0}</td>
-                <td>${group.messageCount || 0}</td>
-                <td>${group.lastActivity ? formatDate(group.lastActivity) : 'Never'}</td>
-                <td>${group.joinDate ? formatDate(group.joinDate) : 'Unknown'}</td>
-            </tr>
-        `).join('');
-    }
-
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-    }
-
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.lunaDashboard = new LunaDashboard();
@@ -522,19 +489,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-// Initialize dashboard
-    loadStats();
-    loadCommands();
-    loadUsers();
-    loadGroups();
-
-    // Refresh all data every 30 seconds
-    setInterval(() => {
-        loadStats();
-        loadUsers();
-        loadGroups();
-    }, 30000);
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
