@@ -1,0 +1,209 @@
+
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const { logInfo, logError, logSuccess } = require('./utils');
+const db = require('./connectDB');
+const { config } = require('./config/globals');
+
+class WebServer {
+    constructor() {
+        this.app = express();
+        this.port = process.env.PORT || 5000;
+        this.startTime = Date.now();
+        this.setupMiddleware();
+        this.setupRoutes();
+    }
+
+    setupMiddleware() {
+        // CORS middleware
+        this.app.use(cors());
+        
+        // JSON parsing middleware
+        this.app.use(express.json());
+        this.app.use(express.urlencoded({ extended: true }));
+        
+        // Static files
+        this.app.use('/css', express.static(path.join(__dirname, 'css')));
+        this.app.use('/js', express.static(path.join(__dirname, 'js')));
+        this.app.use('/images', express.static(path.join(__dirname, 'images')));
+        
+        // Request logging middleware
+        this.app.use((req, res, next) => {
+            logInfo(`${req.method} ${req.path} - ${req.ip}`);
+            next();
+        });
+    }
+
+    setupRoutes() {
+        // Dashboard route
+        this.app.get('/', (req, res) => {
+            res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
+        });
+
+        // API Routes
+        this.app.get('/api/stats', async (req, res) => {
+            try {
+                const stats = await this.getStats();
+                res.json({
+                    success: true,
+                    stats,
+                    status: global.botStatus || 'offline',
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                logError(`Stats API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch stats'
+                });
+            }
+        });
+
+        this.app.get('/api/commands', (req, res) => {
+            try {
+                const commands = Array.from(global.commands.values()).map(cmd => ({
+                    name: cmd.config?.name || cmd.name,
+                    description: cmd.config?.description || cmd.description || 'No description',
+                    category: cmd.config?.category || 'general',
+                    role: cmd.config?.role || 0
+                }));
+
+                res.json({
+                    success: true,
+                    commands,
+                    total: commands.length
+                });
+            } catch (error) {
+                logError(`Commands API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch commands'
+                });
+            }
+        });
+
+        this.app.get('/api/users', async (req, res) => {
+            try {
+                // This would need to be implemented in your database layer
+                res.json({
+                    success: true,
+                    users: [],
+                    message: 'User listing not implemented yet'
+                });
+            } catch (error) {
+                logError(`Users API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch users'
+                });
+            }
+        });
+
+        this.app.get('/api/groups', async (req, res) => {
+            try {
+                // This would need to be implemented in your database layer
+                res.json({
+                    success: true,
+                    groups: [],
+                    message: 'Group listing not implemented yet'
+                });
+            } catch (error) {
+                logError(`Groups API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch groups'
+                });
+            }
+        });
+
+        this.app.post('/api/execute', async (req, res) => {
+            try {
+                const { command } = req.body;
+                
+                if (!command) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Command is required'
+                    });
+                }
+
+                // Here you would implement command execution logic
+                // For security, only allow specific admin commands
+                
+                res.json({
+                    success: true,
+                    message: 'Command execution not implemented yet',
+                    command
+                });
+            } catch (error) {
+                logError(`Execute API error: ${error.message}`);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to execute command'
+                });
+            }
+        });
+
+        // Health check endpoint
+        this.app.get('/health', (req, res) => {
+            res.json({
+                status: 'healthy',
+                uptime: Date.now() - this.startTime,
+                timestamp: new Date().toISOString(),
+                database: db.getStatus()
+            });
+        });
+
+        // 404 handler
+        this.app.use('*', (req, res) => {
+            res.status(404).json({
+                success: false,
+                error: 'Endpoint not found'
+            });
+        });
+
+        // Error handler
+        this.app.use((error, req, res, next) => {
+            logError(`Server error: ${error.message}`);
+            res.status(500).json({
+                success: false,
+                error: 'Internal server error'
+            });
+        });
+    }
+
+    async getStats() {
+        const uptime = Math.floor((Date.now() - this.startTime) / 1000);
+        
+        return {
+            users: 0, // This would come from your database
+            groups: 0, // This would come from your database
+            commands: global.commands ? global.commands.size : 0,
+            uptime,
+            memory: process.memoryUsage(),
+            nodeVersion: process.version,
+            platform: process.platform
+        };
+    }
+
+    start() {
+        this.app.listen(this.port, '0.0.0.0', () => {
+            logSuccess(`Web server started on port ${this.port}`);
+            logInfo(`Dashboard available at: http://0.0.0.0:${this.port}`);
+        });
+    }
+
+    stop() {
+        // Graceful shutdown logic would go here
+        logInfo('Web server stopped');
+    }
+}
+
+module.exports = WebServer;
+
+// Start server if this file is run directly
+if (require.main === module) {
+    const server = new WebServer();
+    server.start();
+}
