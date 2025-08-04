@@ -57,21 +57,9 @@ async function startBotz() {
             logError(languageManager.get('error.unexpected', reason));
         });
 
-        
-        
-        const { state, saveCreds } = await getAuthState();
 
-        // Step 3: Database connection
-        logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
-        const dbConnected = await db.connect();
-        
-        if (dbConnected) {
-            const dbType = db.getStatus().primaryDB;
-            logSuccess(`Successfully connected to: ${dbType}`);
-        } else {
-            logError('Can\'t connect to database sqlite or mongodb');
-            return;
-        }
+
+        const { state, saveCreds } = await getAuthState();
 
         const ptz = makeWASocket({
             logger: pino({ level: config.waSocket.logLevel || "silent" }),
@@ -95,33 +83,39 @@ async function startBotz() {
             }
         });
 
-        ptz.ev.on('connection.update', ({ connection }) => {
-            if (connection === 'open' && !isLoggedIn) {
-                isLoggedIn = true;
-                
-                console.log(chalk.red('─────────────────────────────────────────'));
-                logSuccess('BOT IS SUCCESSFULLY CONNECTED');
-                
-                // Step 4: Load commands and events
-                logInfo('Loading commands and events...');
-                commandManager.loadCommands();
-                eventManager.loadEvents();
+        ptz.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
 
-                if (config.serverUptime && config.serverUptime.enable) {
-                    logInfo('Starting uptime server...');
-                    const server = startUptimeServer(config.serverUptime.port || 3001);
-                    logSuccess(`Uptime server running on port ${config.serverUptime.port || 3001}`);
+            if (connection === 'close') {
+                global.botConnected = false;
+                const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+
+                if (shouldReconnect) {
+                    logInfo('Reconnecting...');
+                    startBot();
+                } else {
+                    logError('Connection closed permanently');
                 }
-            } else if (connection === 'close') {
-                logInfo('Bot disconnected');
-            } else if (connection === 'connecting') {
-                logInfo('Connecting to WhatsApp...');
-            } else if (connection === 'reconnecting') {
-                logInfo('Reconnecting to WhatsApp...');
+            } else if (connection === 'open') {
+                global.botConnected = true;
+                logSuccess('BOT IS SUCCESSFULLY CONNECTED');
+                console.log('─────────────────────────────────────────');
             }
         });
 
         await authenticateSession(ptz);
+
+        // Step 3: Database connection (after authentication)
+        logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
+        const dbConnected = await db.connect();
+
+        if (dbConnected) {
+            const dbType = db.getStatus().primaryDB;
+            logSuccess(`Successfully connected to: ${dbType}`);
+        } else {
+            logError('Can\'t connect to database sqlite or mongodb');
+            return;
+        }
 
         store.bind(ptz.ev);
         eventHandler.initializeMessageListener(ptz, store);
@@ -137,6 +131,15 @@ async function startBotz() {
                 logInfo(languageManager.get('bot.restartScheduled', config.autoRestart.time));
                 process.exit();
             }, config.autoRestart.time * 1000 * 60);
+        }
+
+        // Start web dashboard silently
+        try {
+            const WebServer = require('./app');
+            const webServer = new WebServer();
+            webServer.start();
+        } catch (error) {
+            // Dashboard startup failed silently
         }
 
         return ptz;
