@@ -71,6 +71,13 @@ async function startBotz() {
             generateHighQualityLinkPreview: config.waSocket.generateHighQualityLinkPreview,
             syncFullHistory: config.waSocket.syncFullHistory,
             markOnlineOnConnect: config.waSocket.markOnlineOnConnect,
+            getMessage: async (key) => {
+                if (store) {
+                    const msg = await store.loadMessage(key.remoteJid, key.id);
+                    return msg?.message || undefined;
+                }
+                return undefined;
+            }
         });
 
         ptz.ev.on('connection.update', ({ connection }) => {
