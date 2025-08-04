@@ -105,6 +105,47 @@ const logMessage = (messageData) => {
     writeToFile('MESSAGE', JSON.stringify(messageData));
 };
 
+// Spinner utility
+class Spinner {
+    constructor(text) {
+        this.text = text;
+        this.chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        this.index = 0;
+        this.interval = null;
+    }
+
+    start() {
+        this.interval = setInterval(() => {
+            process.stdout.write(`\r${chalk.cyan(this.chars[this.index])} ${chalk.white(this.text)}`);
+            this.index = (this.index + 1) % this.chars.length;
+        }, 100);
+        return this;
+    }
+
+    stop(symbol = '✓', message = '') {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+        process.stdout.write(`\r${chalk.green(symbol)} ${chalk.white(message || this.text)}\n`);
+        return this;
+    }
+
+    fail(symbol = '✗', message = '') {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+        process.stdout.write(`\r${chalk.red(symbol)} ${chalk.white(message || this.text)}\n`);
+        return this;
+    }
+
+    update(text) {
+        this.text = text;
+        return this;
+    }
+}
+
 const logGoatBotStyle = (type, data = {}) => {
     const timestamp = getTimestamp();
     const date = getDate();
@@ -112,12 +153,32 @@ const logGoatBotStyle = (type, data = {}) => {
     switch (type) {
         case 'startup':
             console.clear();
-            console.log(chalk.gray(`Starting at ${date} ${timestamp}`));
+            console.log(chalk.gray(`Starting Luna Bot at ${date} ${timestamp}`));
+            break;
+
+        case 'connecting':
+            console.log(chalk.yellow('⚡') + chalk.white(' CONNECTING STATUS: ') + chalk.yellow.bold('CONNECTING'));
+            break;
+
+        case 'requesting_pairing':
+            console.log(chalk.blue('📱') + chalk.white(' REQUESTING PAIRING CODE FROM: ') + chalk.cyan.bold(data.phoneNumber));
+            break;
+
+        case 'enter_number':
+            console.log(chalk.yellow('📞') + chalk.white(' Please enter your phone number:'));
+            break;
+
+        case 'pairing_code':
+            console.log(chalk.green('🔑') + chalk.white(' PAIRING CODE: ') + chalk.yellow.bold(data.code));
+            console.log(chalk.gray('   Enter this code in WhatsApp mobile app'));
+            break;
+
+        case 'auth_success':
+            console.log(chalk.green('✅') + chalk.white(' SUCCESSFULLY CONNECTED WITH WHATSAPP'));
             break;
 
         case 'ready':
-            console.log(chalk.green('✅ BOT ONLINE'));
-            console.log(chalk.white(`Connected as: ${data.name || 'Luna'}`));
+            console.log(chalk.green('🤖') + chalk.white(' BOT ONLINE - Connected as: ') + chalk.cyan.bold(data.name || 'Luna'));
             break;
 
         case 'command_load':
@@ -127,6 +188,10 @@ const logGoatBotStyle = (type, data = {}) => {
 
         case 'event_load':
             console.log(chalk.magenta(`●`) + chalk.white(` Event loaded: `) + chalk.cyan.bold(data.name));
+            break;
+
+        case 'database_connecting':
+            console.log(chalk.blue('💾') + chalk.white(' CONNECTING WITH DATABASE: ') + chalk.cyan.bold(data.type.toUpperCase()));
             break;
 
         case 'database':
@@ -149,7 +214,11 @@ const logGoatBotStyle = (type, data = {}) => {
             break;
 
         case 'uptime':
-            console.log(chalk.cyan(`●`) + chalk.white(` Uptime server: `) + chalk.cyan.bold(`http://localhost:${data.port}`));
+            console.log(chalk.cyan(`🌐`) + chalk.white(` Uptime server: `) + chalk.cyan.bold(`http://0.0.0.0:${data.port}`));
+            break;
+
+        case 'loading_complete':
+            console.log(chalk.green('🎉') + chalk.white(' All systems loaded successfully!'));
             break;
     }
 };
@@ -417,6 +486,7 @@ module.exports = {
     logCommand,
     logMessage,
     logGoatBotStyle,
+    Spinner,
     
     // Media handler functions
     downloadMedia,
