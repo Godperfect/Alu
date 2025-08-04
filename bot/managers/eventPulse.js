@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { logSuccess, logError } = require('../../utils/logger');
+const { logSuccess, logError } = require('../../utils');
 const { config } = require('../../config/globals');
 
 class EventManager {

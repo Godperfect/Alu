@@ -23,7 +23,7 @@ function safeRequire(moduleName) {
 }
 
 // External utilities (assumed to be local files, not external modules)
-const { logSuccess, logCommand } = require('../../utils/logger');
+const { logSuccess, logCommand } = require('../../utils');
 const { config } = require('../../config/globals');
 
 class CommandManager {

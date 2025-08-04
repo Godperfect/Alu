@@ -1,7 +1,7 @@
 const fs = require('fs');
-const { logError, logMessage, logInfo } = require('../../utils/logger');
+const { logError, getSenderName } = require('../../utils');
 const { config } = require('../../config/globals');
-const { getTextContent, getSenderName } = require('../../utils/messageParser');
+const { getTextContent } = require('../../utils/messageParser');
 const handlerAction = require('./handlerAction');
 const lang = require('../../language/language');
 
@@ -39,7 +39,7 @@ class EventHandler {
             }
         });
 
-        
+
         sock.ev.on('group-participants.update', async (update) => {
             await this.handleGroupUpdate(sock, update);
         });
@@ -48,7 +48,7 @@ class EventHandler {
             await this.handleCall(sock, callUpdate);
         });
 
-        
+
         sock.ev.on('contacts.update', async (contacts) => {
             await this.handleContactsUpdate(sock, contacts);
         });
@@ -61,35 +61,35 @@ class EventHandler {
 
     async handleMessage(sock, mek, store) {
         try {
-            
+
             mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') 
                 ? mek.message.ephemeralMessage.message 
                 : mek.message;
 
-            
+
             if (mek.key && mek.key.remoteJid === 'status@broadcast') return;
 
-            
+
             const sender = mek.key.fromMe
                 ? sock.user.id.split(':')[0] + '@s.whatsapp.net'
                 : mek.key.participant || mek.key.remoteJid;
 
             const senderNumber = sender.replace(/[^0-9]/g, '');
 
-            
+
             let messageType = 'unknown';
             let chatName = '';
 
-            
+
             const isGroup = mek.key.remoteJid.endsWith('@g.us');
-            
+
             const isCommunity = isGroup && mek.message?.senderKeyDistributionMessage?.groupId;
-            
+
             const isChannel = mek.key.remoteJid.endsWith('@newsletter');
-            
+
             const isPrivate = !isGroup && !isChannel;
 
-            
+
             let groupMetadata = null;
             if (isGroup) {
                 try {
@@ -104,7 +104,7 @@ class EventHandler {
 
             if (isPrivate) {
                 messageType = 'private';
-                
+
                 try {
                     const contact = await sock.contactsStore?.contacts[sender];
                     chatName = contact?.name || contact?.notify || senderNumber;
@@ -121,54 +121,54 @@ class EventHandler {
                 }
             } else if (isGroup) {
                 messageType = 'group';
-                
+
             }
 
-            
+
             const contentType = Object.keys(mek.message)[0];
 
-            
+
             let hasAttachment = false;
             let attachmentType = null;
 
-            
+
             if (['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].includes(contentType)) {
                 hasAttachment = true;
                 attachmentType = contentType.replace('Message', '');
             } else {
-                
+
                 const contentObj = mek.message[contentType];
                 if (contentObj?.contextInfo?.quotedMessage) {
                     const quotedType = Object.keys(contentObj.contextInfo.quotedMessage)[0];
                     if (['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].includes(quotedType)) {
-                        
+
                         hasAttachment = true;
                         attachmentType = `quoted-${quotedType.replace('Message', '')}`;
                     }
                 }
             }
 
-            
+
             const isReaction = contentType === 'reactionMessage' || 
                             (mek.message[contentType]?.contextInfo?.hasOwnProperty('reactionMessage'));
 
             let reaction = null;
 
-            
+
             if (isReaction) {
                 if (contentType === 'reactionMessage') {
-                    
+
                     reaction = mek.message.reactionMessage.text;
                 } else if (mek.message[contentType]?.contextInfo?.reactionMessage) {
-                    
+
                     reaction = mek.message[contentType].contextInfo.reactionMessage.text;
                 }
             }
 
-            
+
             const isForwarded = mek.message[contentType]?.contextInfo?.isForwarded || false;
 
-            
+
             const isReply = mek.message[contentType]?.contextInfo?.quotedMessage ? true : false;
             let repliedTo = null;
             let quotedMessageId = null;
@@ -182,13 +182,13 @@ class EventHandler {
                 quotedMessageId = mek.message[contentType].contextInfo.stanzaId;
             }
 
-            
+
             const timestamp = new Date(mek.messageTimestamp * 1000).toLocaleTimeString();
 
-            
+
             const messageText = getTextContent(mek.message);
 
-            
+
             logMessage({
                 messageType,
                 chatName,
@@ -206,7 +206,7 @@ class EventHandler {
                 fromMe: mek.key.fromMe
             });
 
-            
+
             if (config.adminOnly?.enable && 
                 !config.adminOnly.adminNumbers.includes(senderNumber) && 
                 !mek.key.fromMe) {
@@ -214,7 +214,7 @@ class EventHandler {
                 return;
             }
 
-            
+
             if (config.whiteListMode?.enable && 
                 !config.whiteListMode.allowedNumbers.includes(senderNumber) && 
                 !mek.key.fromMe) {
@@ -222,7 +222,7 @@ class EventHandler {
                 return;
             }
 
-            
+
             const messageInfo = {
                 messageType, 
                 chatName, 
@@ -238,7 +238,7 @@ class EventHandler {
                 groupMetadata
             };
 
-            
+
             if (isReaction && reaction) {
                 await handlerAction.handleReaction({
                     sock,
@@ -248,7 +248,7 @@ class EventHandler {
                     messageInfo
                 });
             } else if (isReply && quotedMessageId) {
-                
+
                 await handlerAction.handleReply({
                     sock,
                     mek,
@@ -257,7 +257,7 @@ class EventHandler {
                     messageInfo
                 });
             } else {
-                
+
                 const body = messageText || '';
                 const isCmd = body.startsWith(global.prefix);
                 const command = isCmd ? body.slice(global.prefix.length).trim().split(' ').shift().toLowerCase() : '';
