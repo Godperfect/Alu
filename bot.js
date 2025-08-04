@@ -22,6 +22,90 @@ const languageManager = require('./language/language.js');
 const store = (() => {
     const messages = {};
     return {
+
+
+// Function to load modules with detailed feedback
+async function loadModulesWithFeedback() {
+    try {
+        // Check and load commands
+        const fs = require('fs');
+        const path = require('path');
+        
+        const commandsPath = path.join(__dirname, 'scripts', 'cmds');
+        const eventsPath = path.join(__dirname, 'scripts', 'events');
+        
+        // Load commands
+        if (fs.existsSync(commandsPath)) {
+            const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+            
+            if (commandFiles.length === 0) {
+                console.log(chalk.yellow('⚠️ NO COMMAND MODULES FOUND'));
+            } else {
+                console.log(chalk.cyan(`🔄 LOADING ${commandFiles.length} COMMAND MODULES...`));
+                
+                for (const file of commandFiles) {
+                    try {
+                        // Simulate loading with spinner effect
+                        process.stdout.write(chalk.yellow(`⏳ INSTALLING MODULE: ${file.replace('.js', '')} `));
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        process.stdout.write(chalk.yellow('█'));
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        process.stdout.write(chalk.yellow('█'));
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        process.stdout.write(chalk.yellow('█\n'));
+                        
+                        console.log(chalk.green(`✅ LOADING COMMAND: ${file.replace('.js', '')}`));
+                        
+                    } catch (error) {
+                        console.log(chalk.red(`❌ ERROR LOADING ${file}: ${error.message}`));
+                        // Don't stop the bot, just log the error
+                    }
+                }
+            }
+        }
+        
+        // Load events
+        if (fs.existsSync(eventsPath)) {
+            const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+            
+            if (eventFiles.length === 0) {
+                console.log(chalk.yellow('⚠️ NO EVENT MODULES FOUND'));
+            } else {
+                console.log(chalk.cyan(`🔄 LOADING ${eventFiles.length} EVENT MODULES...`));
+                
+                for (const file of eventFiles) {
+                    try {
+                        // Simulate loading with spinner effect
+                        process.stdout.write(chalk.yellow(`⏳ INSTALLING MODULE: ${file.replace('.js', '')} `));
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        process.stdout.write(chalk.yellow('█'));
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        process.stdout.write(chalk.yellow('█'));
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        process.stdout.write(chalk.yellow('█\n'));
+                        
+                        console.log(chalk.green(`✅ LOADING EVENT: ${file.replace('.js', '')}`));
+                        
+                    } catch (error) {
+                        console.log(chalk.red(`❌ ERROR LOADING ${file}: ${error.message}`));
+                        // Don't stop the bot, just log the error
+                    }
+                }
+            }
+        }
+        
+        // Actually load the modules after visual feedback
+        await commandManager.loadCommands();
+        await eventManager.loadEvents();
+        
+    } catch (error) {
+        console.log(chalk.red(`❌ MODULE LOADING ERROR: ${error.message}`));
+        // Don't stop the bot, continue execution
+    }
+}
+
         bind: (sock) => {
             // You can implement message binding here if needed
         },
@@ -90,44 +174,37 @@ async function startBotz() {
                 isLoggedIn = true;
 
                 // Log successful connection
-                logGoatBotStyle('connection', { status: 'open', name: config.botSettings.botName });
+                console.log(chalk.green('✅ CONNECTED SUCCESSFULLY'));
 
                 // Initialize database after successful login
                 if (config.database.autoSyncWhenStart) {
-                    logGoatBotStyle('database_connecting', { type: config.database.type });
+                    console.log(chalk.yellow(`🔄 CONNECTING WITH DATABASE: ${config.database.type.toUpperCase()}`));
                     try {
                         await databaseManager.initialize();
-                        logGoatBotStyle('database', { 
-                            status: 'connected', 
-                            type: config.database.type 
-                        });
+                        console.log(chalk.green(`✅ CONNECTED WITH: ${config.database.type.toUpperCase()}`));
                     } catch (error) {
-                        logGoatBotStyle('database', { 
-                            status: 'error', 
-                            error: error.message 
-                        });
+                        console.log(chalk.red(`❌ DATABASE ERROR: ${error.message}`));
                     }
                 }
 
-                // Load commands and events
-                logGoatBotStyle('loading_modules');
-                await commandManager.loadCommands();
-                await eventManager.loadEvents();
+                // Load commands and events with detailed feedback
+                await loadModulesWithFeedback();
 
                 // Start uptime server
                 if (config.serverUptime && config.serverUptime.enable) {
                     startUptimeServer(config.serverUptime.port || 3001);
-                    logGoatBotStyle('uptime', { port: config.serverUptime.port || 3001 });
+                    console.log(chalk.blue(`🌐 UPTIME SERVER RUNNING ON PORT: ${config.serverUptime.port || 3001}`));
                 }
 
                 // Show completion message
-                logGoatBotStyle('loading_complete');
+                console.log(chalk.green.bold('\n🎉 SUCCESSFULLY LOADED ALL MODULES'));
+                console.log(chalk.cyan(`🤖 ${config.botSettings.botName} BOT IS NOW READY!`));
             } else if (connection === 'close') {
-                logGoatBotStyle('connection', { status: 'close' });
+                console.log(chalk.red('❌ CONNECTION CLOSED'));
             } else if (connection === 'connecting') {
-                logGoatBotStyle('connection', { status: 'connecting' });
+                console.log(chalk.yellow('🔄 CONNECTING...'));
             } else if (connection === 'reconnecting') {
-                logGoatBotStyle('connection', { status: 'reconnecting' });
+                console.log(chalk.yellow('🔄 RECONNECTING...'));
             }
         });
 

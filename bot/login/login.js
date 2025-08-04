@@ -178,20 +178,15 @@ const authenticateSession = async (ptz) => {
         // Wait for connection to be ready
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Get line from getAuthState if available
-        const line = ptz.line;
-
         if (!ptz.authState?.creds?.registered) {
             // Get phone number from config or prompt user
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
             if (!phoneNumber) {
-                const { logGoatBotStyle } = require('../../utils');
-                logGoatBotStyle('enter_number');
+                console.log(chalk.cyan('📞 ENTER A NUMBER....'));
                 phoneNumber = await question('> ');
             } else {
-                const { logGoatBotStyle } = require('../../utils');
-                logGoatBotStyle('requesting_pairing', { phoneNumber });
+                console.log(chalk.cyan(`📞 PAIRING WITH NUMBER FOR CODE: ${phoneNumber}`));
             }
 
             // Clean the phone number
@@ -211,17 +206,7 @@ const authenticateSession = async (ptz) => {
                 // Format code with dashes for readability
                 code = code?.match(/.{1,3}/g)?.join("-") || code;
 
-                const { logGoatBotStyle } = require('../../utils');
-                logGoatBotStyle('pairing_code', { code: code });
-
-                // Set up connection update listener to detect when user is linked
-                ptz.ev.on('connection.update', (update) => {
-                    const { connection, lastDisconnect } = update;
-                    if (connection === 'open') {
-                        const { logGoatBotStyle } = require('../../utils');
-                        logGoatBotStyle('auth_success');
-                    }
-                });
+                console.log(chalk.green('🔑 PAIRING CODE: ') + chalk.bold.white(code));
 
                 // Wait for authentication
                 await new Promise(resolve => setTimeout(resolve, 5000));
@@ -231,12 +216,13 @@ const authenticateSession = async (ptz) => {
             }
         } else {
             // For already registered sessions, we still check auth
-            // Get phone number from config or prompt user
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
             if (!phoneNumber) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Enter your phone number for verification:')}`);
+                console.log(chalk.cyan('📞 ENTER YOUR NUMBER:'));
                 phoneNumber = await question('> ');
+            } else {
+                console.log(chalk.cyan(`📞 PAIRING WITH NUMBER FOR CODE: ${phoneNumber}`));
             }
 
             // Clean the phone number
@@ -245,19 +231,12 @@ const authenticateSession = async (ptz) => {
             // Check GitHub authorization
             const isAuthorized = await checkGitHubAuthorization(phoneNumber);
             if (!isAuthorized) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('ACCESS DENIED - UNAUTHORIZED')}`);
+                console.log(chalk.red(`[ ACCESS ]`) + chalk.gray(` [${getFormattedDate()}, ${getTimestamp()}] `) + chalk.white('Need access to the bot? Just reach out to the developer at +977 9863479066.'));
                 process.exit(1); // Exit if unauthorized
             }
 
-            // Already registered and authorized, show login success message
-            if (line) {
-                console.log(chalk.yellow(line));
-                console.log(chalk.green('              LOGIN SUCCESSFUL'));
-                console.log(chalk.yellow(line));
-            } else {
-                console.log(chalk.green(`✓`) + chalk.white(` Authentication successful`));
-                console.log(chalk.blue(`●`) + chalk.white(` Phone: `) + chalk.cyan.bold(phoneNumber));
-            }
+            // Show pairing code for existing sessions
+            console.log(chalk.green('🔑 PAIRING CODE: ') + chalk.bold.white('AUTO-AUTHENTICATED'));
         }
     } catch (err) {
         logError(`Authentication error: ${err.message}`);
