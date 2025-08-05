@@ -22,11 +22,31 @@ class MongoDB {
             this.db = this.client.db('lunabot');
             this.isConnected = true;
             
+            // Clean all collections on startup
+            await this.cleanAllCollections();
+            
             logSuccess('Connected to MongoDB successfully');
             return true;
         } catch (error) {
             logError(`MongoDB connection failed: ${error.message}`);
             return false;
+        }
+    }
+
+    async cleanAllCollections() {
+        try {
+            const collections = ['users', 'groups', 'commandLogs', 'botSettings', 'messages', 'groupActivities', 'userStats'];
+            
+            for (const collectionName of collections) {
+                try {
+                    await this.db.collection(collectionName).deleteMany({});
+                    logInfo(`Cleaned MongoDB collection: ${collectionName}`);
+                } catch (error) {
+                    // Ignore errors for non-existent collections
+                }
+            }
+        } catch (error) {
+            logError(`Failed to clean MongoDB collections: ${error.message}`);
         }
     }
 

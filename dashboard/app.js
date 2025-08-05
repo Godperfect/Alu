@@ -710,7 +710,7 @@ function initializeApp() {
         messagesToday: stats.messagesToday || 0,
         commandsUsed: stats.commandsUsed || 0,
         activeSessions:
-          (global.GoatBot.authTokens?.size || 0) +
+          (global.GoatBot?.authTokens?.size || 0) +
           (dashboardSessions?.size || 0),
         topCommands: stats.topCommands || [],
         userGrowth: {
@@ -776,7 +776,7 @@ function initializeApp() {
         messagesToday: stats.messagesToday || 0,
         commandsUsed: stats.commandsUsed || 0,
         activeSessions:
-          (global.GoatBot.authTokens?.size || 0) +
+          (global.GoatBot?.authTokens?.size || 0) +
           (dashboardSessions?.size || 0),
         uptime,
         errorCount: stats.errors || 0,
