@@ -573,12 +573,29 @@ function apiRequest(endpoint, options = {}) {
 }
 
 function loadDashboardData() {
+    // Add loading indicator
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'block';
+    
+    // Create timeout wrapper for API requests
+    const apiRequestWithTimeout = (url, timeout = 8000) => {
+        return Promise.race([
+            apiRequest(url),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout')), timeout)
+            )
+        ]).catch(err => {
+            console.warn(`API request to ${url} failed:`, err.message);
+            return { error: err.message };
+        });
+    };
+
     Promise.all([
-        apiRequest('/api/users').catch(err => ({ total: 0, active: 0, error: err.message })),
-        apiRequest('/api/groups').catch(err => ({ total: 0, active: 0, error: err.message })),
-        apiRequest('/api/system').catch(err => ({ error: err.message })),
-        apiRequest('/api/bot/info').catch(err => ({ name: 'Luna Bot v1', commandsLoaded: 0, error: err.message })),
-        apiRequest('/api/analytics/overview').catch(err => ({ totalMessages: 0, commandsUsed: 0, error: err.message }))
+        apiRequestWithTimeout('/api/users').catch(err => ({ total: 0, active: 0, users: [], error: err.message })),
+        apiRequestWithTimeout('/api/groups').catch(err => ({ total: 0, active: 0, groups: [], error: err.message })),
+        apiRequestWithTimeout('/api/system').catch(err => ({ error: err.message })),
+        apiRequestWithTimeout('/api/bot/info').catch(err => ({ name: 'Luna Bot v1', commandsLoaded: 0, error: err.message })),
+        apiRequestWithTimeout('/api/analytics/overview').catch(err => ({ totalMessages: 0, commandsUsed: 0, error: err.message }))
     ]).then(([users, groups, system, botInfo, analytics]) => {
         // Update stats with error handling
         const setText = (id, value) => {

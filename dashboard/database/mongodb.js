@@ -295,7 +295,8 @@ class MongoDB {
     // Add missing methods that are called from eventHandler
     async updateUserActivity(phoneNumber, userName = null) {
         try {
-            if (!phoneNumber || phoneNumber.length < 10) {
+            // Validate phone number - must be digits only and proper length
+            if (!phoneNumber || !/^\d{10,15}$/.test(phoneNumber)) {
                 console.error(`Invalid phone number in updateUserActivity: ${phoneNumber}`);
                 return false;
             }
@@ -331,8 +332,9 @@ class MongoDB {
 
     async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
         try {
-            if (!groupId) {
-                console.error('Invalid group ID in updateGroupActivity');
+            // Validate group ID - must be proper WhatsApp group format
+            if (!groupId || !groupId.endsWith('@g.us') || groupId.length < 20) {
+                console.error(`Invalid group ID in updateGroupActivity: ${groupId}`);
                 return false;
             }
 

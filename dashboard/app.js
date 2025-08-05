@@ -11,14 +11,14 @@ const OTPService = require('../libs/otpService');
 const requireAuth = (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace("Bearer ", "");
-    
+
     if (!token) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
     const authTokens = global.GoatBot.authTokens || new Map();
     const tokenData = authTokens.get(token);
-    
+
     if (!tokenData) {
       return res.status(401).json({ error: "Invalid token" });
     }
@@ -549,75 +549,91 @@ function initializeApp() {
 
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
-      const allUsers = await db.getAllUsers();
-      const users = Array.isArray(allUsers)
-        ? allUsers
-        : Object.values(allUsers || {});
-      const totalUsers = users.length;
-      const activeUsers = users.filter((u) => u && u.isActive !== false).length;
-      const bannedUsers = users.filter((u) => u && u.banned === true).length;
-      res.json({
-        total: totalUsers,
-        active: activeUsers,
-        banned: bannedUsers,
-        users: users.map((user) => ({
-          id: user.id,
-          name: user.name || "Unknown",
-          messageCount: user.messageCount || 0,
-          exp: user.exp || 0,
-          level: user.level || 1,
-          banned: user.banned || false,
-          role: user.role || 0,
-          lastSeen: user.lastSeen || null,
-        })),
-      });
+        // Add timeout to prevent hanging requests
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+
+        const getUsersPromise = (async () => {
+            const users = await db.getAllUsers();
+            const userCount = await db.getUserCount();
+
+            // Filter out invalid users
+            const validUsers = users ? users.filter(u => 
+                u.phoneNumber && /^\d{10,15}$/.test(u.phoneNumber)
+            ) : [];
+
+            return {
+                success: true,
+                users: validUsers,
+                total: userCount || 0,
+                active: validUsers.filter(u => new Date() - new Date(u.lastSeen) < 24 * 60 * 60 * 1000).length
+            };
+        })();
+
+        const result = await Promise.race([getUsersPromise, timeoutPromise]);
+        res.json(result);
     } catch (error) {
-      logError("Error fetching users:", error);
-      res.status(500).json({ error: error.message });
+        console.error('Error fetching users:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch users',
+            users: [],
+            total: 0,
+            active: 0
+        });
     }
-  });
+});
 
   app.get("/api/groups", requireAuth, async (req, res) => {
     try {
-      const allThreads = await db.getAllThreads();
-      const threads = Array.isArray(allThreads)
-        ? allThreads
-        : Object.values(allThreads || {});
-      const groups = threads.filter((thread) => thread && thread.isGroup);
-      const totalGroups = groups.length;
-      const activeGroups = groups.filter(
-        (g) => g && g.isActive !== false
-      ).length;
-      res.json({
-        total: totalGroups,
-        active: activeGroups,
-        groups: groups.map((group) => ({
-          id: group.id,
-          name: group.name || "Unknown Group",
-          memberCount: group.memberCount || 0,
-          messageCount: group.messageCount || 0,
-          isActive: group.isActive !== false,
-          settings: group.settings || {},
-          createdAt: group.createdAt || null,
-        })),
-      });
+        // Add timeout to prevent hanging requests
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+
+        const getGroupsPromise = (async () => {
+            const groups = await db.getAllGroups();
+            const groupCount = await db.getGroupCount();
+
+            // Filter out invalid groups
+            const validGroups = groups ? groups.filter(g => 
+                g.groupId && g.groupId.endsWith('@g.us')
+            ) : [];
+
+            return {
+                success: true,
+                groups: validGroups,
+                total: groupCount || 0,
+                active: validGroups.filter(g => g.isActive).length
+            };
+        })();
+
+        const result = await Promise.race([getGroupsPromise, timeoutPromise]);
+        res.json(result);
     } catch (error) {
-      logError("Error fetching groups:", error);
-      res.status(500).json({ error: error.message });
+        console.error('Error fetching groups:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch groups',
+            groups: [],
+            total: 0,
+            active: 0
+        });
     }
-  });
+});
 
   app.get("/api/system", (req, res) => {
     try {
       const token = req.headers.authorization?.replace("Bearer ", "");
-      
+
       if (!token) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
       const authTokens = global.GoatBot.authTokens || new Map();
       const tokenData = authTokens.get(token);
-      
+
       if (!tokenData || Date.now() > tokenData.expiryTime) {
         if (tokenData) authTokens.delete(token);
         return res.status(401).json({ error: "Invalid or expired token" });
@@ -717,18 +733,18 @@ function initializeApp() {
     try {
       const stats = global.GoatBot?.stats || {};
       const uptime = Date.now() - (global.GoatBot?.startTime || Date.now());
-      
+
       // Initialize default values
       let userArray = [];
       let threadArray = [];
-      
+
       try {
         const users = await db.getAllUsers();
         userArray = Array.isArray(users) ? users : Object.values(users || {});
       } catch (dbError) {
         console.error("Error fetching users for analytics:", dbError);
       }
-      
+
       try {
         const threads = await db.getAllThreads();
         threadArray = Array.isArray(threads) ? threads : Object.values(threads || {});
@@ -818,7 +834,7 @@ function initializeApp() {
     try {
       const stats = global.GoatBot?.stats || {};
       const uptime = Date.now() - (global.GoatBot?.startTime || Date.now());
-      
+
       // Initialize stats if they don't exist
       if (!global.GoatBot.stats) {
         global.GoatBot.stats = {

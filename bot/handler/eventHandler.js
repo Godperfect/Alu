@@ -230,18 +230,26 @@ class EventHandler {
                 if (db.getStatus().connected) {
                     const senderName = await getSenderName(sock, sender);
                     
-                    // Extract phone number properly (remove @s.whatsapp.net)
-                    const cleanSenderNumber = sender.replace('@s.whatsapp.net', '');
+                    // Extract phone number properly - only process valid WhatsApp user numbers
+                    let cleanSenderNumber = null;
+                    
+                    if (sender.endsWith('@s.whatsapp.net')) {
+                        cleanSenderNumber = sender.replace('@s.whatsapp.net', '');
+                        // Validate it's a proper phone number (digits only, at least 10 characters)
+                        if (!/^\d{10,15}$/.test(cleanSenderNumber)) {
+                            cleanSenderNumber = null;
+                        }
+                    }
 
                     // Only update if we have a valid sender number
-                    if (cleanSenderNumber && cleanSenderNumber.length >= 10) {
+                    if (cleanSenderNumber) {
                         console.log(`[INFO] Updating user activity for: ${cleanSenderNumber}`);
                         
                         // Update user activity
                         await db.updateUserActivity(cleanSenderNumber, senderName);
 
                         // Update group activity if in group
-                        if (isGroup && groupMetadata) {
+                        if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
                             console.log(`[INFO] Updating group activity for: ${groupMetadata.subject}`);
                             await db.updateGroupActivity(
                                 mek.key.remoteJid,
@@ -250,7 +258,7 @@ class EventHandler {
                             );
                         }
                     } else {
-                        console.log(`[WARN] Invalid sender number: ${cleanSenderNumber}`);
+                        console.log(`[WARN] Invalid sender - not a WhatsApp user: ${sender}`);
                     }
                 }
             } catch (dbError) {
