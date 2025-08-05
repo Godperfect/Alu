@@ -265,6 +265,114 @@ class MongoDB {
             return 0;
         }
     }
+
+    // Add missing methods that are called from eventHandler
+    async updateUserActivity(phoneNumber, userName = null) {
+        try {
+            if (!phoneNumber || phoneNumber.length < 10) {
+                return false;
+            }
+
+            const userData = {
+                phoneNumber: phoneNumber,
+                name: userName || 'Unknown',
+                profilePic: '',
+                isAdmin: false,
+                isBanned: false,
+                commandCount: 0
+            };
+
+            return await this.saveUser(userData);
+        } catch (error) {
+            logError(`Failed to update user activity: ${error.message}`);
+            return false;
+        }
+    }
+
+    async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
+        try {
+            if (!groupId) {
+                return false;
+            }
+
+            const groupData = {
+                groupId: groupId,
+                groupName: groupName || 'Unknown Group',
+                description: '',
+                adminNumbers: [],
+                memberCount: participantCount,
+                isActive: true,
+                customPrefix: '',
+                settings: {}
+            };
+
+            return await this.saveGroup(groupData);
+        } catch (error) {
+            logError(`Failed to update group activity: ${error.message}`);
+            return false;
+        }
+    }
+
+    // Add missing getUserCount and getGroupCount methods
+    async getUserCount() {
+        try {
+            const users = this.db.collection('users');
+            return await users.countDocuments();
+        } catch (error) {
+            logError(`Failed to get user count: ${error.message}`);
+            return 0;
+        }
+    }
+
+    async getGroupCount() {
+        try {
+            const groups = this.db.collection('groups');
+            return await groups.countDocuments();
+        } catch (error) {
+            logError(`Failed to get group count: ${error.message}`);
+            return 0;
+        }
+    }
+
+    async getAllUsers() {
+        try {
+            const users = this.db.collection('users');
+            return await users.find({}).sort({ lastSeen: -1 }).toArray();
+        } catch (error) {
+            logError(`Failed to get all users: ${error.message}`);
+            return [];
+        }
+    }
+
+    async getAllGroups() {
+        try {
+            const groups = this.db.collection('groups');
+            return await groups.find({}).sort({ lastActivity: -1 }).toArray();
+        } catch (error) {
+            logError(`Failed to get all groups: ${error.message}`);
+            return [];
+        }
+    }
+
+    // Add raw database query methods for compatibility
+    async all(sql, params = []) {
+        // MongoDB doesn't use SQL, but we need this for compatibility
+        // This method should be implemented based on the specific query
+        logError('SQL queries not supported in MongoDB. Use specific methods instead.');
+        return [];
+    }
+
+    async get(sql, params = []) {
+        // MongoDB doesn't use SQL, but we need this for compatibility
+        logError('SQL queries not supported in MongoDB. Use specific methods instead.');
+        return null;
+    }
+
+    async run(sql, params = []) {
+        // MongoDB doesn't use SQL, but we need this for compatibility
+        logError('SQL queries not supported in MongoDB. Use specific methods instead.');
+        return { changes: 0 };
+    }
 }
 
 module.exports = new MongoDB();

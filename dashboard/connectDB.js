@@ -148,6 +148,17 @@ class DatabaseManager {
         return await this.primaryDB.getAllGroups();
     }
 
+    // Add missing methods that are called from eventHandler
+    async updateUserActivity(phoneNumber, userName = null) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.updateUserActivity(phoneNumber, userName);
+    }
+
+    async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
+        if (!this.isConnected) return false;
+        return await this.primaryDB.updateGroupActivity(groupId, groupName, participantCount);
+    }
+
     // Add missing database query methods
     async all(sql, params = []) {
         if (!this.isConnected) return [];
