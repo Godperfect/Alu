@@ -31,6 +31,20 @@ class SQLiteDB {
         });
     }
 
+    async addColumnIfNotExists(tableName, columnName, columnDef) {
+        try {
+            const result = await this.get(`PRAGMA table_info(${tableName})`);
+            const columns = await this.all(`PRAGMA table_info(${tableName})`);
+            const columnExists = columns.some(col => col.name === columnName);
+            
+            if (!columnExists) {
+                await this.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+            }
+        } catch (error) {
+            // Ignore errors - column might already exist
+        }
+    }
+
     async initializeTables() {
         const tables = [
             `CREATE TABLE IF NOT EXISTS users (
@@ -121,17 +135,8 @@ class SQLiteDB {
         }
 
         // Add missing columns if they don't exist
-        try {
-            await this.run('ALTER TABLE users ADD COLUMN messageCount INTEGER DEFAULT 0');
-        } catch (error) {
-            // Column already exists, ignore
-        }
-
-        try {
-            await this.run('ALTER TABLE groups ADD COLUMN messageCount INTEGER DEFAULT 0');
-        } catch (error) {
-            // Column already exists, ignore
-        }
+        await this.addColumnIfNotExists('users', 'messageCount', 'INTEGER DEFAULT 0');
+        await this.addColumnIfNotExists('groups', 'messageCount', 'INTEGER DEFAULT 0');
 
         // Create indexes separately
         const indexes = [

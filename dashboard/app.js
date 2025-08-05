@@ -3,9 +3,9 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs-extra");
 const os = require("os");
-const { logger } = require("../libs/logger");
+const { logger } = require("../bot/login/logger");
 const config = require("../config.json");
-const db = require("../database/manager");
+const db = require("./connectDB");
 const OTPService = require("../libs/otpService");
 const connect = require("../bot/connect");
 const {
