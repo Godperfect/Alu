@@ -117,7 +117,7 @@ function initializeApp() {
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
 
-    if (password === config.dashboard.adminPassword) {
+    if (password === (config.dashboard?.adminPassword || "lunabot")) {
       const token = require("crypto").randomBytes(32).toString("hex");
       const expiryTime = Date.now() + 24 * 60 * 60 * 1000;
 
@@ -238,7 +238,7 @@ function initializeApp() {
           .json({ success: false, message: "Password is required" });
       }
 
-      if (password !== config.dashboard.adminPassword) {
+      if (password !== (config.dashboard?.adminPassword || "lunabot")) {
         return res
           .status(401)
           .json({ success: false, message: "Invalid password" });
@@ -811,7 +811,7 @@ function formatUptime(uptime) {
 
 function startServer() {
   if (server) return;
-  const PORT = process.env.PORT || config.dashboard.port || 3000;
+  const PORT = process.env.PORT || config.dashboard?.port || 3000;
   const appInstance = initializeApp();
   server = appInstance.listen(PORT, () =>
     logInfo(`📊 Dashboard available at http://localhost:${PORT}`)
