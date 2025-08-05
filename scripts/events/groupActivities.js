@@ -11,7 +11,7 @@ module.exports = {
         description: "Handle group activity notifications"
     },
 
-    onStart: async function({ api: sock }) {
+    onStart: async function({ sock }) {
         // Register event handlers
         if (!global.Luna.onEvent) {
             global.Luna.onEvent = new Map();

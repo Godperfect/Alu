@@ -103,6 +103,7 @@ async function startBotz() {
                 }
             } else if (connection === 'open') {
                 global.botConnected = true;
+                global.sock = ptz; // Make sock available globally for events
                 console.log('─────────────────────────────────────────');
 
                 // Load commands and events after successful connection

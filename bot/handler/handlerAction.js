@@ -409,6 +409,22 @@ const handlerAction = {
                 });
             }
 
+            // Process registered event handlers first
+            if (global.Luna.onEvent.has(`group.${eventType}`)) {
+                const handler = global.Luna.onEvent.get(`group.${eventType}`);
+                logInfo(`Processing registered event handler for: group.${eventType}`);
+                
+                try {
+                    await handler.callback({
+                        sock,
+                        eventType,
+                        eventData
+                    });
+                } catch (error) {
+                    logError(`Error in registered event handler: ${error.message}`);
+                }
+            }
+
             // Handle welcome message for joins
             if (eventType === 'join' && config.welcomeMessage?.enable) {
                 try {
