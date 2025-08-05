@@ -261,14 +261,31 @@ function toggleSidebar() {
 
     if (!sidebar || !mainContent) return;
 
-    sidebarCollapsed = !sidebarCollapsed;
+    // Check if we're on mobile (screen width <= 768px)
+    const isMobile = window.innerWidth <= 768;
 
-    if (sidebarCollapsed) {
-        sidebar.classList.add('collapsed');
-        mainContent.classList.add('expanded');
+    if (isMobile) {
+        // On mobile, toggle the 'open' class
+        sidebar.classList.toggle('open');
+        
+        // Add or remove overlay
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar.classList.contains('open')) {
+            if (overlay) overlay.style.display = 'block';
+        } else {
+            if (overlay) overlay.style.display = 'none';
+        }
     } else {
-        sidebar.classList.remove('collapsed');
-        mainContent.classList.remove('expanded');
+        // On desktop, use the collapsed state
+        sidebarCollapsed = !sidebarCollapsed;
+
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('expanded');
+        } else {
+            sidebar.classList.remove('collapsed');
+            mainContent.classList.remove('expanded');
+        }
     }
 }
 
@@ -1125,11 +1142,49 @@ document.getElementById('verifyBtn')?.addEventListener('click', verifyOTP);
 document.getElementById('resendOTP')?.addEventListener('click', resendOTP);
 document.getElementById('passwordLoginBtn')?.addEventListener('click', passwordLogin);
 document.getElementById('logoutBtn')?.addEventListener('click', logout);
-document.getElementById('sidebar-toggle-mobile')?.addEventListener('click', toggleSidebar);
 document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
-document.getElementById('sidebar-overlay')?.addEventListener('click', () => {
+
+// Mobile hamburger menu event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const mobileToggle = document.getElementById('sidebar-toggle-mobile');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
     const sidebar = document.getElementById('sidebar');
-    sidebar.classList.remove('open');
+
+    if (mobileToggle) {
+        mobileToggle.addEventListener('click', toggleSidebar);
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            if (sidebar) {
+                sidebar.classList.remove('open');
+                sidebarOverlay.style.display = 'none';
+            }
+        });
+    }
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile && sidebar && sidebar.classList.contains('open')) {
+            if (!sidebar.contains(e.target) && !mobileToggle?.contains(e.target)) {
+                sidebar.classList.remove('open');
+                if (sidebarOverlay) sidebarOverlay.style.display = 'none';
+            }
+        }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (window.innerWidth > 768) {
+            // Reset mobile classes when switching to desktop
+            if (sidebar) sidebar.classList.remove('open');
+            if (overlay) overlay.style.display = 'none';
+        }
+    });
 });
 
 // Handle Enter key for password login
