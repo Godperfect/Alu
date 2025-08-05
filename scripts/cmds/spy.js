@@ -255,39 +255,8 @@ module.exports = {
             restrictedData.push("❌ Story Status (24h Status)");
             restrictedData.push("❌ Read Receipts");
 
-            // Summary section
-            spyInfo += `\n🔍 *INTELLIGENCE SUMMARY*\n`;
-            spyInfo += `═══════════════════════\n\n`;
-
-            spyInfo += `📊 *Data Accessibility Report:*\n\n`;
-
-            if (accessibleData.length > 0) {
-                spyInfo += `✅ *ACCESSIBLE DATA (${accessibleData.length}):*\n`;
-                accessibleData.forEach(item => {
-                    spyInfo += `   ${item}\n`;
-                });
-                spyInfo += `\n`;
-            }
-
-            spyInfo += `❌ *RESTRICTED/UNAVAILABLE (${restrictedData.length}):*\n`;
-            restrictedData.forEach(item => {
-                spyInfo += `   ${item}\n`;
-            });
-
-            spyInfo += `\n📋 *PRIVACY NOTES:*\n`;
-            spyInfo += `• Most data depends on user's privacy settings\n`;
-            spyInfo += `• Business profiles reveal more information\n`;
-            spyInfo += `• WhatsApp protects user privacy by default\n`;
-            if (isLidUser) {
-                spyInfo += `• LID = Linked Device identifier for multi-device users\n`;
-                spyInfo += `• LID users have enhanced privacy protection\n`;
-                spyInfo += `• Limited data available for non-contact LID users\n`;
-                spyInfo += `• Profile pics may not be accessible via LID\n`;
-            }
-            spyInfo += `• Some data may be cached or outdated\n\n`;
-
-            spyInfo += `🤖 *Luna Bot Spy Module v1.0*\n`;
-            spyInfo += `⚡ *Report generated in real-time*`;
+            // End with simple footer
+            spyInfo += `\n🤖 *Luna Bot Spy Module*`;
 
             // Send the spy report
             if (profilePicUrl) {
