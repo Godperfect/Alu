@@ -251,40 +251,40 @@ class SQLiteDB {
 
     async getUserCount() {
         try {
-            const result = await this.db.get('SELECT COUNT(*) as count FROM users');
-            return result.count || 0;
+            const result = await this.get('SELECT COUNT(*) as count FROM users');
+            return result?.count || 0;
         } catch (error) {
-            console.error('Error getting user count:', error);
+            logError('Error getting user count: ' + error.message);
             return 0;
         }
     }
 
     async getGroupCount() {
         try {
-            const result = await this.db.get('SELECT COUNT(*) as count FROM groups');
-            return result.count || 0;
+            const result = await this.get('SELECT COUNT(*) as count FROM groups');
+            return result?.count || 0;
         } catch (error) {
-            console.error('Error getting group count:', error);
+            logError('Error getting group count: ' + error.message);
             return 0;
         }
     }
 
     async getAllUsers() {
         try {
-            const users = await this.db.all('SELECT * FROM users ORDER BY lastSeen DESC');
+            const users = await this.all('SELECT * FROM users ORDER BY lastSeen DESC');
             return users || [];
         } catch (error) {
-            console.error('Error getting all users:', error);
+            logError('Error getting all users: ' + error.message);
             return [];
         }
     }
 
     async getAllGroups() {
         try {
-            const groups = await this.db.all('SELECT * FROM groups ORDER BY lastActivity DESC');
+            const groups = await this.all('SELECT * FROM groups ORDER BY lastActivity DESC');
             return groups || [];
         } catch (error) {
-            console.error('Error getting all groups:', error);
+            logError('Error getting all groups: ' + error.message);
             return [];
         }
     }
