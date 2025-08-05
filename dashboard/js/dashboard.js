@@ -57,24 +57,33 @@ function passwordLogin() {
     loginBtn.disabled = true;
     loginBtn.innerHTML = '<span class="spinner"></span>Logging in...';
 
-    apiRequest('/api/auth/login', {
+    fetch('/api/auth/login', {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ password })
     })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Login failed: HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.success) {
+        if (data && data.success && data.token) {
             localStorage.setItem('authToken', data.token);
             showAlert('Login successful!', 'success');
             setTimeout(() => {
                 showDashboard();
             }, 1000);
         } else {
-            showAlert(data.error || 'Login failed', 'error');
+            throw new Error(data.error || data.message || 'Invalid login response');
         }
     })
     .catch(error => {
-        console.error('Login error:', error);
-        showAlert('Login failed. Please try again.', 'error');
+        console.error('Login error:', error.message);
+        showAlert(error.message || 'Login failed. Please check your password.', 'error');
     })
     .finally(() => {
         loginBtn.disabled = false;
@@ -618,10 +627,16 @@ function apiRequest(endpoint, options = {}) {
         .then(response => {
             if (response.status === 401) {
                 logout();
-                throw new Error('Unauthorized');
+                throw new Error('Unauthorized access - please login again');
             }
             if (response.status === 502) {
                 throw new Error('Server temporarily unavailable (502 Bad Gateway)');
+            }
+            if (response.status === 404) {
+                throw new Error('API endpoint not found (404)');
+            }
+            if (response.status === 500) {
+                throw new Error('Internal server error (500)');
             }
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -632,13 +647,21 @@ function apiRequest(endpoint, options = {}) {
             if (contentType && contentType.includes('application/json')) {
                 return response.json();
             } else {
-                throw new Error('Invalid response format - expected JSON');
+                // If no JSON content, return empty object
+                return {};
             }
         })
         .catch(error => {
-            // Handle network errors or JSON parsing errors
-            console.error(`API request to ${endpoint} failed:`, error);
-            throw error;
+            // Create a more detailed error object
+            const errorDetails = {
+                message: error.message || 'Unknown error occurred',
+                endpoint: endpoint,
+                status: error.status || 'Network Error',
+                timestamp: new Date().toISOString()
+            };
+            
+            console.error(`API request to ${endpoint} failed:`, errorDetails);
+            throw new Error(errorDetails.message);
         });
 }
 
@@ -1086,20 +1109,30 @@ function checkAuth() {
     const token = localStorage.getItem('authToken');
     if (token) {
         fetch('/api/auth/verify', {
+            method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + token
-            }
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.valid) {
+            if (data && data.valid) {
                 showDashboard();
             } else {
+                console.warn('Token validation failed:', data);
                 localStorage.removeItem('authToken');
                 showLogin();
             }
         })
-        .catch(() => {
+        .catch(error => {
+            console.error('Auth verification failed:', error.message);
             localStorage.removeItem('authToken');
             showLogin();
         });
@@ -1183,19 +1216,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const token = localStorage.getItem('authToken');
     if (token) {
         // Verify token is still valid
-        apiRequest('/api/auth/verify', {
+        fetch('/api/auth/verify', {
             method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ token })
         })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            throw new Error('Token verification failed');
+        })
         .then(data => {
-            if (data.valid) {
+            if (data && data.valid) {
                 showDashboard();
                 return;
             }
-            localStorage.removeItem('authToken');
-            showLogin();
+            throw new Error('Invalid token');
         })
-        .catch(() => {
+        .catch(error => {
+            console.warn('Token verification failed:', error.message);
             localStorage.removeItem('authToken');
             showLogin();
         });
