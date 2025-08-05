@@ -380,7 +380,7 @@ class WebServer {
 
     start() {
         this.app.listen(this.port, '0.0.0.0', () => {
-            // Web server started silently for cleaner console output
+            logSuccess(`Dashboard is connected to port ${this.port}`);
         });
     }
 
