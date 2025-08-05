@@ -67,7 +67,7 @@
   "rejectCalls": true,
   "callRejectMessage": "❌ Please do not call this bot. You will be blocked automatically.",
   "autoAcceptInvites": {
-    "enable": truee,
+    "enable": true,
     "fromAdminsOnly": true
   },
   "antiSpam": {
