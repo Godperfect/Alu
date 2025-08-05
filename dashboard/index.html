@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -263,7 +264,7 @@
                     </div>
                 </div>
 
-                <!-- Other tabs content remains the same but hidden by default -->
+                <!-- Bot Info Tab -->
                 <div id="bot-info-tab" class="tab-content">
                     <div class="info-card">
                         <h5><i class="fas fa-info-circle"></i> Bot Details</h5>
@@ -331,34 +332,90 @@
                     </div>
                 </div>
 
+                <!-- Users Tab -->
                 <div id="users-tab" class="tab-content">
                     <div class="info-card">
-                        <h5><i class="fas fa-users"></i> Users</h5>
-                        <p>Users list loading...</p>
+                        <h5><i class="fas fa-users"></i> Bot Users</h5>
+                        <div class="search-container">
+                            <input type="text" id="userSearch" class="search-input" placeholder="Search users...">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <div class="list-container" id="usersList">
+                            <div class="text-center text-muted p-4">
+                                <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
+                                <p>Loading users data...</p>
+                                <small>If this persists, the database might be empty or disconnected</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Groups Tab -->
                 <div id="groups-tab" class="tab-content">
                     <div class="info-card">
-                        <h5><i class="fas fa-comments"></i> Groups</h5>
-                        <p>Groups list loading...</p>
+                        <h5><i class="fas fa-comments"></i> Bot Groups</h5>
+                        <div class="search-container">
+                            <input type="text" id="groupSearch" class="search-input" placeholder="Search groups...">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <div class="list-container" id="groupsList">
+                            <div class="text-center text-muted p-4">
+                                <i class="fas fa-comments fa-3x mb-3 opacity-50"></i>
+                                <p>Loading groups data...</p>
+                                <small>If this persists, the database might be empty or disconnected</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
+                <!-- System Tab -->
                 <div id="system-tab" class="tab-content">
                     <div class="info-card">
                         <h5><i class="fas fa-server"></i> System Information</h5>
-                        <p>System info loading...</p>
+                        <div class="system-metrics">
+                            <div class="system-metric">
+                                <span class="metric-label">Platform:</span>
+                                <span class="metric-value" id="platform">Loading...</span>
+                            </div>
+                            <div class="system-metric">
+                                <span class="metric-label">Architecture:</span>
+                                <span class="metric-value" id="architecture">Loading...</span>
+                            </div>
+                            <div class="system-metric">
+                                <span class="metric-label">Node.js Version:</span>
+                                <span class="metric-value" id="nodeVersion">Loading...</span>
+                            </div>
+                            <div class="system-metric">
+                                <span class="metric-label">Total Memory:</span>
+                                <span class="metric-value" id="memoryTotal">Loading...</span>
+                            </div>
+                            <div class="system-metric">
+                                <span class="metric-label">Memory Usage:</span>
+                                <span class="metric-value" id="systemMemoryUsage">Loading...</span>
+                            </div>
+                            <div class="system-metric">
+                                <span class="metric-label">Free Memory:</span>
+                                <span class="metric-value" id="freeMemory">Loading...</span>
+                            </div>
+                            <div class="system-metric">
+                                <span class="metric-label">Load Average:</span>
+                                <span class="metric-value" id="loadAverage">Loading...</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Analytics Tab -->
                 <div id="analytics-tab" class="tab-content">
-                    <div class="info-card">
-                        <h5><i class="fas fa-chart-bar"></i> Analytics</h5>
-                        <p>Analytics loading...</p>
+                    <div id="analyticsContainer">
+                        <div class="info-card">
+                            <h5><i class="fas fa-chart-bar"></i> Analytics</h5>
+                            <p>Loading analytics data...</p>
+                        </div>
                     </div>
                 </div>
 
+                <!-- WhatsApp Authentication Tab -->
                 <div id="whatsapp-auth-tab" class="tab-content">
                     <div class="info-card">
                         <h5><i class="fab fa-whatsapp"></i> WhatsApp Authentication</h5>
@@ -366,6 +423,7 @@
                     </div>
                 </div>
 
+                <!-- Settings Tab -->
                 <div id="settings-tab" class="tab-content">
                     <div class="info-card">
                         <h5><i class="fas fa-cog"></i> Settings</h5>
