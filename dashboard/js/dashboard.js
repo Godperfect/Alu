@@ -47,41 +47,43 @@ if (typeof showLoginTab !== 'undefined') {
 
 function passwordLogin() {
     const password = document.getElementById('adminPassword').value;
+    const loginBtn = document.getElementById('passwordLoginBtn');
+
     if (!password) {
-        showAlert('Please enter your password', 'error');
+        showAlert('Please enter password', 'error');
         return;
     }
 
-    const loginBtn = document.getElementById('passwordLoginBtn');
     loginBtn.disabled = true;
     loginBtn.innerHTML = '<span class="spinner"></span>Logging in...';
 
-    fetch('/api/auth/login', {
+    apiRequest('/api/auth/login', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password: password })
+        body: JSON.stringify({ password })
     })
-    .then(response => response.json())
     .then(data => {
         if (data.success) {
             localStorage.setItem('authToken', data.token);
-            showDashboard();
             showAlert('Login successful!', 'success');
+            setTimeout(() => {
+                showDashboard();
+            }, 1000);
         } else {
-            showAlert(data.message || 'Invalid password', 'error');
+            showAlert(data.error || 'Login failed', 'error');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        showAlert('Error during login. Please try again.', 'error');
+        console.error('Login error:', error);
+        showAlert('Login failed. Please try again.', 'error');
     })
     .finally(() => {
         loginBtn.disabled = false;
         loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
     });
 }
+
+// Make sure password login is available globally
+window.passwordLogin = passwordLogin;
 
 function requestOTP() {
     const submitBtn = document.getElementById('submitBtn');
@@ -257,26 +259,21 @@ function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('mainContent');
 
-    // Check if we're on mobile or desktop
-    if (window.innerWidth <= 992) {
-        // Mobile logic: open/close sidebar
-        if (sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open');
-        } else {
-            sidebar.classList.add('open');
-        }
+    if (!sidebar || !mainContent) return;
+
+    sidebarCollapsed = !sidebarCollapsed;
+
+    if (sidebarCollapsed) {
+        sidebar.classList.add('collapsed');
+        mainContent.classList.add('expanded');
     } else {
-        // Desktop logic: collapse/expand sidebar
-        sidebarCollapsed = !sidebarCollapsed;
-        if (sidebarCollapsed) {
-            sidebar.classList.add('collapsed');
-            mainContent.classList.add('expanded');
-        } else {
-            sidebar.classList.remove('collapsed');
-            mainContent.classList.remove('expanded');
-        }
+        sidebar.classList.remove('collapsed');
+        mainContent.classList.remove('expanded');
     }
 }
+
+// Make functions globally available
+window.toggleSidebar = toggleSidebar;
 
 function formatUptime(seconds) {
     const years = Math.floor(seconds / (365.25 * 24 * 3600));
@@ -909,8 +906,8 @@ function setTheme(theme) {
     // Update icon
     const themeToggleBtn = document.getElementById('theme-toggle');
     if (themeToggleBtn) {
-        themeToggleBtn.innerHTML = appliedTheme === 'dark' 
-            ? '<i class="fas fa-sun"></i>' 
+        themeToggleBtn.innerHTML = appliedTheme === 'dark'
+            ? '<i class="fas fa-sun"></i>'
             : '<i class="fas fa-moon"></i>';
     }
 
@@ -924,11 +921,11 @@ function toggleTheme() {
     if (currentTheme === 'auto') {
         const systemTheme = detectSystemTheme();
         setTheme(systemTheme === 'dark' ? 'light' : 'dark');
-    } 
+    }
     // If light, switch to dark
     else if (currentTheme === 'light') {
         setTheme('dark');
-    } 
+    }
     // If dark, switch to light
     else {
         setTheme('light');
@@ -965,26 +962,74 @@ function setupThemeListener() {
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', function() {
-    setupOTPInputs();
-    setupSearch();
-    checkAuth();
-
-    // Initialize theme
-    setTheme(currentTheme);
-    setupThemeListener();
-
-    // Auto-refresh data
-    setInterval(() => {
-        if (isAuthenticated) {
-            updateUptime();
-            if (currentTab === 'dashboard') {
-                loadDashboardData();
+    // Check if already authenticated
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        // Verify token is still valid
+        apiRequest('/api/auth/verify', {
+            method: 'POST',
+            body: JSON.stringify({ token })
+        })
+        .then(data => {
+            if (data.valid) {
+                showDashboard();
+                return;
             }
-        }
-    }, 30000);
+            localStorage.removeItem('authToken');
+            showLogin();
+        })
+        .catch(() => {
+            localStorage.removeItem('authToken');
+            showLogin();
+        });
+    } else {
+        showLogin();
+    }
+
+    // Setup OTP inputs
+    setupOTPInputs();
+
+    // Setup event listeners
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', requestOTP);
+    }
+
+    const verifyBtn = document.getElementById('verifyBtn');
+    if (verifyBtn) {
+        verifyBtn.addEventListener('click', verifyOTP);
+    }
+
+    const resendBtn = document.getElementById('resendOTP');
+    if (resendBtn) {
+        resendBtn.addEventListener('click', requestOTP);
+    }
+
+    // Add password login event listener
+    const passwordLoginBtn = document.getElementById('passwordLoginBtn');
+    if (passwordLoginBtn) {
+        passwordLoginBtn.addEventListener('click', passwordLogin);
+    }
+
+    // Add enter key support for password input
+    const passwordInput = document.getElementById('adminPassword');
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                passwordLogin();
+            }
+        });
+    }
 
     // Update uptime every second
     setInterval(updateUptime, 1000);
+
+    // Auto-refresh dashboard data every 30 seconds
+    setInterval(() => {
+        if (isAuthenticated) {
+            loadDashboardData();
+        }
+    }, 30000);
 });
 
 // Event listeners
