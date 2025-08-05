@@ -95,5 +95,11 @@
   },
   "autoreply": {
     "enable": true
+  },
+  "dashboard": {
+    "enabled": true,
+    "port": 3000,
+    "adminPassword": "lunabot",
+    "sessionTimeout": 1800000
   }
 }
