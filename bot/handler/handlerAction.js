@@ -170,12 +170,21 @@ const handlerAction = {
             let userNumber = '';
             if (sender && typeof sender === 'string') {
                 if (sender.includes('@lid')) {
-                    userNumber = sender.replace(/[^0-9]/g, '');
-                } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
+                    // Handle @lid format (WhatsApp Web users)
+                    userNumber = sender.replace('@lid', '');
+                } else if (sender.includes('@s.whatsapp.net')) {
+                    userNumber = sender.replace('@s.whatsapp.net', '');
+                } else if (sender.includes('@c.us')) {
+                    userNumber = sender.replace('@c.us', '');
+                } else if (sender.includes('@')) {
+                    // Generic @ format handling
                     userNumber = sender.split('@')[0];
                 } else {
                     userNumber = sender.replace(/[^0-9]/g, '');
                 }
+                
+                // Clean any remaining non-numeric characters
+                userNumber = userNumber.replace(/[^0-9]/g, '');
             }
             
             const threadID = mek.key.remoteJid;

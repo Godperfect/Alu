@@ -193,32 +193,47 @@ class DataHandler {
 
             // Try multiple approaches to extract userId
             if (messageInfo.key) {
-                if (messageInfo.key.participant && messageInfo.key.participant.endsWith('@s.whatsapp.net')) {
+                if (messageInfo.key.participant) {
                     // Group message - participant is the sender
-                    userId = messageInfo.key.participant.replace('@s.whatsapp.net', '');
+                    if (messageInfo.key.participant.endsWith('@s.whatsapp.net')) {
+                        userId = messageInfo.key.participant.replace('@s.whatsapp.net', '');
+                    } else if (messageInfo.key.participant.endsWith('@lid')) {
+                        // Handle @lid format (WhatsApp Web users)
+                        userId = messageInfo.key.participant.replace('@lid', '');
+                    } else if (messageInfo.key.participant.includes('@')) {
+                        // Extract numbers from any @ format
+                        userId = messageInfo.key.participant.split('@')[0];
+                    }
                 } else if (messageInfo.key.remoteJid && messageInfo.key.remoteJid.endsWith('@s.whatsapp.net')) {
                     // Private message - remoteJid is the sender
                     userId = messageInfo.key.remoteJid.replace('@s.whatsapp.net', '');
                 } else if (messageInfo.key.fromMe && messageInfo.key.remoteJid.endsWith('@g.us')) {
-                    // Bot's own message in group - skip logging
+                    // Bot's own message in group - skip logging for bot messages
                     return false;
                 }
             }
 
-            // Validate userId - must be a proper phone number
-            if (userId && !/^\d{10,15}$/.test(userId)) {
-                console.log(`[WARN] Invalid userId format, skipping message log: ${userId}`);
-                return false;
-            }
-
-            // Fallback to sender field
+            // Fallback to sender field if userId is still null
             if (!userId && messageInfo.sender) {
-                userId = messageInfo.sender.replace(/[^0-9]/g, '');
+                if (messageInfo.sender.endsWith('@s.whatsapp.net')) {
+                    userId = messageInfo.sender.replace('@s.whatsapp.net', '');
+                } else if (messageInfo.sender.endsWith('@lid')) {
+                    userId = messageInfo.sender.replace('@lid', '');
+                } else if (messageInfo.sender.includes('@')) {
+                    userId = messageInfo.sender.split('@')[0];
+                } else {
+                    userId = messageInfo.sender.replace(/[^0-9]/g, '');
+                }
             }
 
-            // Final validation - userId must be a valid phone number (at least 10 digits)
-            if (!userId || userId.length < 10) {
-                console.log(`Skipping message log - invalid userId: ${userId}`);
+            // Clean userId - extract only numbers
+            if (userId) {
+                userId = userId.replace(/[^0-9]/g, '');
+            }
+
+            // Validate userId - must be a proper phone number (at least 10 digits)
+            if (!userId || userId.length < 10 || !/^\d{10,15}$/.test(userId)) {
+                console.log(`[WARN] Skipping message log - invalid userId format: ${userId} from ${messageInfo.sender || messageInfo.key?.participant || 'unknown'}`);
                 return false;
             }
 
