@@ -295,28 +295,55 @@ function formatUptime(seconds) {
 function updateUptime() {
     if (!isAuthenticated) return;
 
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
     fetch('/api/system', {
         headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('authToken')
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.uptime) {
+        if (data && data.uptime) {
             const uptime = formatUptime(data.uptime);
-            document.getElementById('uptimeYears').textContent = uptime.years;
-            document.getElementById('uptimeMonths').textContent = uptime.months;
-            document.getElementById('uptimeDays').textContent = uptime.days;
-            document.getElementById('uptimeHours').textContent = uptime.hours;
-            document.getElementById('uptimeMinutes').textContent = uptime.minutes;
-            document.getElementById('uptimeSeconds').textContent = uptime.seconds;
+            const elements = {
+                'uptimeYears': uptime.years,
+                'uptimeMonths': uptime.months,
+                'uptimeDays': uptime.days,
+                'uptimeHours': uptime.hours,
+                'uptimeMinutes': uptime.minutes,
+                'uptimeSeconds': uptime.seconds
+            };
+
+            for (const [id, value] of Object.entries(elements)) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                }
+            }
         }
 
-        if (data.memory) {
-            document.getElementById('memoryUsage').textContent = Math.round(data.memory.used / 1024 / 1024) + ' MB';
+        if (data && data.memory && data.memory.used) {
+            const memoryElement = document.getElementById('memoryUsage');
+            if (memoryElement) {
+                memoryElement.textContent = Math.round(data.memory.used / 1024 / 1024) + ' MB';
+            }
         }
     })
-    .catch(error => console.error('Error updating uptime:', error));
+    .catch(error => {
+        console.error('Error updating uptime:', error.message || error);
+        // Stop trying to update if there's an authentication error
+        if (error.message && error.message.includes('401')) {
+            isAuthenticated = false;
+        }
+    });
 }
 
 function loadTabData(tabName) {

@@ -9,8 +9,31 @@ const db = require("./connectDB");
 const OTPService = require('../libs/otpService');
 // Auth middleware
 const requireAuth = (req, res, next) => {
-  // Simple auth check - you can enhance this later
-  next();
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    
+    if (!token) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const authTokens = global.GoatBot.authTokens || new Map();
+    const tokenData = authTokens.get(token);
+    
+    if (!tokenData) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    if (Date.now() > tokenData.expiryTime) {
+      authTokens.delete(token);
+      return res.status(401).json({ error: "Token expired" });
+    }
+
+    // Token is valid, proceed
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: "Authentication error" });
+  }
 };
 
 let app;
@@ -584,8 +607,22 @@ function initializeApp() {
     }
   });
 
-  app.get("/api/system", requireAuth, (req, res) => {
+  app.get("/api/system", (req, res) => {
     try {
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      
+      if (!token) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const authTokens = global.GoatBot.authTokens || new Map();
+      const tokenData = authTokens.get(token);
+      
+      if (!tokenData || Date.now() > tokenData.expiryTime) {
+        if (tokenData) authTokens.delete(token);
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
       const memoryUsage = process.memoryUsage();
       const cpuUsage = process.cpuUsage();
       res.json({
@@ -607,6 +644,7 @@ function initializeApp() {
         loadAverage: os.loadavg(),
       });
     } catch (error) {
+      console.error('System endpoint error:', error);
       res.status(500).json({ error: error.message });
     }
   });
