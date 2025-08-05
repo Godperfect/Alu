@@ -1,7 +1,7 @@
 const fs = require('fs');
 const { logError, logInfo, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo } = require('../../utils');
 const { config } = require('../../config/globals');
-
+const { parsePhoneNumber, isValidPhoneNumber } = require('libphonenumber-js');
 const handlerAction = require('./handlerAction');
 const lang = require('../../language/language');
 
@@ -125,7 +125,7 @@ class EventHandler {
                         // Other formats - try to extract numbers
                         senderNumber = sender.replace(/[^0-9]/g, '');
                     }
-                    
+
                     // Ensure sender has proper format for WhatsApp
                     if (sender && !sender.includes('@') && senderNumber.length > 0) {
                         sender = senderNumber + '@s.whatsapp.net';
@@ -248,13 +248,111 @@ class EventHandler {
 
             const messageText = getTextContent(mek.message);
 
+            // Function to extract sender information, handling various formats including LID
+            const getSenderInfo = (msg) => {
+                try {
+                    let phoneNumber = null;
+                    let senderName = 'Unknown';
+
+                    if (msg.key?.participant) {
+                        // Group message - extract from participant
+                        const participant = msg.key.participant;
+                        if (participant.includes('@lid')) {
+                            phoneNumber = participant.replace('@lid', '');
+                        } else if (participant.includes('@s.whatsapp.net')) {
+                            phoneNumber = participant.replace('@s.whatsapp.net', '');
+                        } else {
+                            phoneNumber = participant.split('@')[0];
+                        }
+                    } else if (msg.key?.remoteJid) {
+                        // Private message or other formats
+                        const remoteJid = msg.key.remoteJid;
+                        if (remoteJid.includes('@lid')) {
+                            phoneNumber = remoteJid.replace('@lid', '');
+                        } else if (remoteJid.includes('@s.whatsapp.net')) {
+                            phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
+                        } else if (remoteJid.includes('@g.us')) {
+                            // This is a group JID, not a user phone number
+                            phoneNumber = null;
+                        } else {
+                            phoneNumber = remoteJid.split('@')[0];
+                        }
+                    }
+
+                    // Get sender name from various sources
+                    if (msg.pushName && msg.pushName.trim()) {
+                        senderName = msg.pushName.trim();
+                    } else if (msg.verifiedBizName && msg.verifiedBizName.trim()) {
+                        senderName = msg.verifiedBizName.trim();
+                    } else if (msg.notify && msg.notify.trim()) {
+                        senderName = msg.notify.trim();
+                    }
+
+                    // Validate and normalize phone number
+                    if (phoneNumber && /^\d{10,15}$/.test(phoneNumber)) {
+                        try {
+                            // Try to parse and validate the phone number
+                            const parsed = parsePhoneNumber('+' + phoneNumber);
+                            if (parsed && parsed.isValid()) {
+                                phoneNumber = parsed.number.replace('+', '');
+                            }
+                        } catch (error) {
+                            // Keep original if parsing fails
+                        }
+                    } else if (phoneNumber && !phoneNumber.includes('lid')) {
+                        // Invalid format that's not LID
+                        phoneNumber = null;
+                    }
+
+                    return { phoneNumber, senderName };
+                } catch (error) {
+                    console.error('Error extracting sender info:', error);
+                    return { phoneNumber: null, senderName: 'Unknown' };
+                }
+            };
+
+            const messageInfo = {
+                messageType,
+                chatName,
+                hasAttachment,
+                attachmentType,
+                isForwarded,
+                isReply,
+                repliedTo,
+                quotedMessageId,
+                isReaction,
+                reaction,
+                timestamp,
+                groupMetadata,
+                messageText: messageText,
+                isGroup,
+                isChannel,
+                isCommunity,
+                isPrivate
+            };
+
+            const { phoneNumber: extractedPhoneNumber, senderName } = getSenderInfo(mek);
+
+            // Create a unique user identifier for both regular and LID format
+            let userId = extractedPhoneNumber;
+            if (!userId && mek.key?.participant) {
+                // Use the full participant ID as fallback for LID users
+                userId = mek.key.participant;
+            }
+
+            // Skip only if we absolutely can't identify the user
+            if (!userId) {
+                console.log('Skipping message log - no user identifier found');
+                return;
+            }
+
 
             // Log message details
             logMessage({
                 messageType,
                 chatName,
-                sender,
-                senderName: await getSenderName(sock, sender),
+                sender: userId + (mek.key.participant ? '' : '@s.whatsapp.net'), // Adjust sender format if needed
+                senderName: senderName,
                 messageText,
                 hasAttachment,
                 attachmentType,
@@ -271,31 +369,11 @@ class EventHandler {
             try {
                 const db = require('../../dashboard/connectDB');
                 if (db.getStatus().connected) {
-                    const senderName = await getSenderName(sock, sender);
 
-                    // Extract phone number for database operations
-                    const phoneNumber = extractPhoneNumber(sender, senderNumber);
-                    if (!phoneNumber || phoneNumber.length < 8) {
-                        console.log('Skipping message log - invalid or short userId:', phoneNumber, 'from sender:', sender);
-                        // Don't return here for channels/communities - continue processing
-                        if (!isChannel && !isCommunity) {
-                            return;
-                        }
-                    }
-
-                    // Additional validation for phone numbers (more lenient for channels)
-                    if (phoneNumber && !/^\d{8,15}$/.test(phoneNumber)) {
-                        console.log('Skipping message log - invalid phone number format:', phoneNumber, 'from sender:', sender);
-                        // Don't return here for channels/communities - continue processing
-                        if (!isChannel && !isCommunity) {
-                            return;
-                        }
-                    }
-
-                    if (phoneNumber && phoneNumber.length >= 8) {
-                        console.log(`[INFO] Updating user activity for: ${phoneNumber}`);
-                        // Update user activity
-                        await db.updateUserActivity(phoneNumber, senderName);
+                    // Update user activity
+                    if (userId) {
+                        logInfo(`Updating user activity for: ${userId}`);
+                        await dataHandler.updateUserActivity(userId, senderName, messageInfo);
                     }
 
                     // Update group activity if in group
@@ -307,7 +385,7 @@ class EventHandler {
                             groupMetadata.participants ? groupMetadata.participants.length : 0
                         );
                     }
-                    
+
                     // Log channel activity
                     if (isChannel) {
                         console.log(`[INFO] Channel message processed in: ${messageInfo.chatName}`);
@@ -320,7 +398,7 @@ class EventHandler {
 
 
             if (config.adminOnly?.enable &&
-                !config.adminOnly.adminNumbers.includes(senderNumber) &&
+                !config.adminOnly.adminNumbers.includes(userId) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedAdminOnly'));
                 return;
@@ -328,80 +406,70 @@ class EventHandler {
 
 
             if (config.whiteListMode?.enable &&
-                !config.whiteListMode.allowedNumbers.includes(senderNumber) &&
+                !config.whiteListMode.allowedNumbers.includes(userId) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedWhitelist'));
                 return;
             }
 
 
-            const messageInfo = {
-                messageType,
-                chatName,
-                hasAttachment,
-                attachmentType,
-                isForwarded,
-                isReply,
-                repliedTo,
-                quotedMessageId,
-                isReaction,
-                reaction,
-                timestamp,
-                groupMetadata
-            };
+            // Handle commands
+            if (messageInfo.messageText?.startsWith(prefix)) {
+                const command = messageInfo.messageText.slice(prefix.length).split(' ')[0].toLowerCase();
+                const args = messageInfo.messageText.slice(prefix.length + command.length).trim().split(' ').filter(arg => arg);
 
+                if (global.commands && global.commands.has(command)) {
+                    logInfo(`Command '${prefix}${command}' executed by ${userId} in ${messageInfo.isGroup ? 'group' : 'private'}: ${messageInfo.chatName || 'Unknown'}`);
 
-            if (isReaction && reaction) {
-                await handlerAction.handleReaction({
-                    sock,
-                    mek,
-                    sender,
-                    botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net',
-                    messageInfo
-                });
-            } else if (isReply && quotedMessageId) {
+                    try {
+                        const commandModule = global.commands.get(command);
+                        if (commandModule && typeof commandModule.onStart === 'function') {
+                            // Create proper user ID for database operations
+                            const dbUserId = extractedPhoneNumber || userId;
 
-                await handlerAction.handleReply({
-                    sock,
-                    mek,
-                    sender,
-                    botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net',
-                    messageInfo
-                });
-            } else {
-
-                const body = messageText || '';
-                const isCmd = body.startsWith(global.prefix);
-                const command = isCmd ? body.slice(global.prefix.length).trim().split(' ').shift().toLowerCase() : '';
-                const args = body.trim().split(/ +/).slice(1);
-
-                if (isCmd) {
-                    await handlerAction.handleCommand({
-                        sock,
-                        mek,
-                        args,
-                        command,
-                        sender,
-                        botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net',
-                        messageInfo,
-                        isGroup
-                    });
-                } else {
-                    await handlerAction.handleChat({
-                        sock,
-                        mek,
-                        sender,
-                        messageText: body,
-                        messageInfo,
-                        isGroup
-                    });
+                            await commandModule.onStart({
+                                api: {
+                                    sendMessage: sock.sendMessage.bind(sock),
+                                    getUserID: () => dbUserId,
+                                    getThreadID: () => messageInfo.chatId
+                                },
+                                event: {
+                                    ...mek,
+                                    senderID: dbUserId,
+                                    threadID: messageInfo.chatId,
+                                    isGroup: messageInfo.isGroup,
+                                    body: messageInfo.messageText
+                                },
+                                args,
+                                Users: {
+                                    getData: async (uid) => await db.getUser(uid || dbUserId),
+                                    setData: async (uid, data) => await db.updateUser(uid || dbUserId, data)
+                                },
+                                Threads: {
+                                    getData: async (tid) => await db.getThread(tid || messageInfo.chatId),
+                                    setData: async (tid, data) => await db.updateThread(tid || messageInfo.chatId, data)
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        logError(`Error executing command ${command}:`, error);
+                    }
                 }
+            } else {
+                await handlerAction.handleChat({
+                    sock,
+                    mek,
+                    sender: userId, // Use userId for sender
+                    messageText: messageText,
+                    messageInfo,
+                    isGroup
+                });
             }
 
             await handlerAction.processEvents({
                 sock,
                 mek,
-                sender,
+                sender: userId, // Use userId for sender
                 messageInfo,
                 isGroup
             });
@@ -552,41 +620,22 @@ class EventHandler {
     }
 }
 
-// Helper function to extract phone number from sender JID
-function extractPhoneNumber(senderJid, fallbackNumber = null) {
-    if (!senderJid) return fallbackNumber;
-    
-    // Handle standard WhatsApp format
-    if (senderJid.endsWith('@s.whatsapp.net') || senderJid.endsWith('@c.us')) {
-        const phoneNumber = senderJid.split('@')[0];
-        if (/^\d{8,15}$/.test(phoneNumber)) {
-            return phoneNumber;
-        }
-    }
-    
-    // Handle LinkedIn ID format (@lid)
-    if (senderJid.includes('@lid')) {
-        const phoneNumber = senderJid.replace(/[^0-9]/g, '');
-        if (/^\d{8,15}$/.test(phoneNumber)) {
-            return phoneNumber;
-        }
-    }
-    
-    // Handle other formats - extract numbers only
-    if (typeof senderJid === 'string') {
-        const phoneNumber = senderJid.replace(/[^0-9]/g, '');
-        if (/^\d{8,15}$/.test(phoneNumber)) {
-            return phoneNumber;
-        }
-    }
-    
-    // Use fallback if available
-    if (fallbackNumber && /^\d{8,15}$/.test(fallbackNumber)) {
-        return fallbackNumber;
-    }
-    
-    return null;
+// Helper function to extract message information (replace with actual implementation if needed)
+function extractMessageInfo(msg) {
+    // Placeholder for message info extraction logic
+    // This function should return an object containing relevant message details
+    // e.g., { chatId: msg.key.remoteJid, messageText: getTextContent(msg.message) }
+    // For now, returning a basic structure
+    return {
+        chatId: msg.key.remoteJid,
+        messageText: getTextContent(msg.message),
+        isGroup: msg.key.remoteJid.endsWith('@g.us'),
+        isChannel: msg.key.remoteJid.endsWith('@newsletter'),
+        isCommunity: msg.key.remoteJid.includes('community') // Basic check, might need refinement
+    };
 }
+
+// Removed the old extractPhoneNumber function as its logic is now within getSenderInfo
 
 
 const eventHandler = new EventHandler();

@@ -30,6 +30,7 @@
     "googleapis": "^144.0.0",
     "gradient-string": "^2.0.2",
     "https-proxy-agent": "^7.0.6",
+    "libphonenumber-js": "^1.12.10",
     "moment-timezone": "^0.5.47",
     "mongodb": "^6.13.1",
     "passport": "^0.7.0",
