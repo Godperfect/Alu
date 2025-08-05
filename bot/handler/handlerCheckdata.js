@@ -193,16 +193,22 @@ class DataHandler {
 
             // Try multiple approaches to extract userId
             if (messageInfo.key) {
-                if (messageInfo.key.participant) {
+                if (messageInfo.key.participant && messageInfo.key.participant.endsWith('@s.whatsapp.net')) {
                     // Group message - participant is the sender
-                    userId = messageInfo.key.participant.replace(/[^0-9]/g, '');
-                } else if (messageInfo.key.remoteJid && !messageInfo.key.remoteJid.endsWith('@g.us')) {
+                    userId = messageInfo.key.participant.replace('@s.whatsapp.net', '');
+                } else if (messageInfo.key.remoteJid && messageInfo.key.remoteJid.endsWith('@s.whatsapp.net')) {
                     // Private message - remoteJid is the sender
-                    userId = messageInfo.key.remoteJid.replace(/[^0-9]/g, '');
+                    userId = messageInfo.key.remoteJid.replace('@s.whatsapp.net', '');
                 } else if (messageInfo.key.fromMe && messageInfo.key.remoteJid.endsWith('@g.us')) {
                     // Bot's own message in group - skip logging
                     return false;
                 }
+            }
+
+            // Validate userId - must be a proper phone number
+            if (userId && !/^\d{10,15}$/.test(userId)) {
+                console.log(`[WARN] Invalid userId format, skipping message log: ${userId}`);
+                return false;
             }
 
             // Fallback to sender field
