@@ -32,9 +32,9 @@ class EventHandler {
                 let mek = chatUpdate.messages[0];
                 if (!mek.message) return;
 
-                // Log message to database
-                const dataHandler = require('./handlerCheckdata');
-                await dataHandler.logMessage(mek);
+                // Log message to database - skip for now to avoid userId issues
+                // const dataHandler = require('./handlerCheckdata');
+                // await dataHandler.logMessage(mek);
 
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
@@ -47,13 +47,19 @@ class EventHandler {
         sock.ev.on('group-participants.update', async (update) => {
             try {
                 // Log group activity
-                const dataHandler = require('./handlerCheckdata');
-                await dataHandler.logGroupActivity(
-                    update.id,
-                    update.action,
-                    update.participants?.[0],
-                    JSON.stringify({ participants: update.participants, action: update.action })
-                );
+                try {
+                    const db = require('../../dashboard/connectDB');
+                    if (db.getStatus().connected) {
+                        await db.logGroupActivity(
+                            update.id,
+                            update.action,
+                            update.participants?.[0],
+                            JSON.stringify({ participants: update.participants, action: update.action })
+                        );
+                    }
+                } catch (dbError) {
+                    console.error('Group activity logging error:', dbError.message);
+                }
 
                 await this.handleGroupUpdate(sock, update);
             } catch (error) {
@@ -368,12 +374,22 @@ class EventHandler {
             // Update database with user/group activity
             try {
                 const db = require('../../dashboard/connectDB');
+                const dataHandler = require('./handlerCheckdata');
+                
                 if (db.getStatus().connected) {
 
                     // Update user activity
                     if (userId) {
                         logInfo(`Updating user activity for: ${userId}`);
-                        await dataHandler.updateUserActivity(userId, senderName, messageInfo);
+                        // Extract clean phone number for database
+                        let cleanUserId = userId;
+                        if (userId.includes('@s.whatsapp.net')) {
+                            cleanUserId = userId.replace('@s.whatsapp.net', '');
+                        } else if (userId.includes('@lid')) {
+                            cleanUserId = userId.replace('@lid', '');
+                        }
+                        
+                        await db.updateUserActivity(cleanUserId, senderName);
                     }
 
                     // Update group activity if in group
