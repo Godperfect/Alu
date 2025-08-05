@@ -44,9 +44,9 @@ const handlerAction = {
                 let userNumber = '';
                 if (sender && typeof sender === 'string') {
                     if (isGroup) {
-                        // For group messages, sender is already the participant JID
-                        const senderJid = sender; // This should be 'XXXXXXXXXXXX@s.whatsapp.net'
-                        userNumber = senderJid.split('@')[0]; // Extract 'XXXXXXXXXXXX'
+                        // For group messages, use participant JID (works for both @g.us and @lid groups)
+                        const senderJid = mek.key.participant || sender; // 'XXXXXXXXXXXX@s.whatsapp.net'
+                        userNumber = senderJid ? senderJid.split('@')[0] : ''; // Extract 'XXXXXXXXXXXX'
                     } else {
                         // Handle different ID formats for private messages
                         if (sender.includes('@lid')) {
@@ -176,9 +176,9 @@ const handlerAction = {
             let userNumber = '';
             if (sender && typeof sender === 'string') {
                 if (isGroup) {
-                    // For group messages, sender is the participant JID
-                    const senderJid = sender; // 'XXXXXXXXXXXX@s.whatsapp.net'
-                    userNumber = senderJid.split('@')[0]; // 'XXXXXXXXXXXX'
+                    // For group messages, use participant JID (works for both @g.us and @lid groups)
+                    const senderJid = mek.key.participant || sender; // 'XXXXXXXXXXXX@s.whatsapp.net'
+                    userNumber = senderJid ? senderJid.split('@')[0] : ''; // Extract 'XXXXXXXXXXXX'
                 } else {
                     // For private messages, handle different formats
                     if (sender.includes('@lid')) {
