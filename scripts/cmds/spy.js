@@ -28,9 +28,17 @@ module.exports = {
                     targetNumber = quotedSender.split('@')[0];
                 }
             }
-            // Check if phone number provided as argument
+            // Check if phone number provided as argument or mention
             else if (args.length > 0) {
-                let phoneNumber = args[0].replace(/[^0-9]/g, '');
+                let phoneNumber = args[0];
+                
+                // Handle WhatsApp mentions (e.g., @77210878738630)
+                if (phoneNumber.startsWith('@')) {
+                    phoneNumber = phoneNumber.substring(1);
+                }
+                
+                // Remove all non-numeric characters
+                phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
                 
                 // Add country code if missing (assuming India +91 as default)
                 if (phoneNumber.length === 10) {
@@ -104,8 +112,9 @@ module.exports = {
             }
 
             // 4. Profile Picture
+            let profilePicUrl = null;
             try {
-                const profilePicUrl = await sock.profilePictureUrl(targetJid, 'image');
+                profilePicUrl = await sock.profilePictureUrl(targetJid, 'image');
                 if (profilePicUrl) {
                     spyInfo += `🖼️ *Profile Picture:* Available\n`;
                     accessibleData.push("✅ Profile Picture");
