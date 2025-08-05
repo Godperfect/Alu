@@ -56,11 +56,24 @@ class WebServer {
                 const groupCount = await db.getGroupCount();
 
                 // Get message stats for last 24 hours
-                const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                const messageStats = await db.all(
-                    'SELECT COUNT(*) as count FROM messages WHERE timestamp >= ?',
-                    [last24h]
-                );
+                let messageStats = [{ count: 0 }];
+                try {
+                    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    if (db.getStatus().primaryDB === 'SQLite') {
+                        messageStats = await db.all(
+                            'SELECT COUNT(*) as count FROM messages WHERE timestamp >= ?',
+                            [last24h]
+                        );
+                    } else {
+                        // For MongoDB, we need to use a different approach
+                        const count = await db.primaryDB.db.collection('messages').countDocuments({
+                            timestamp: { $gte: new Date(last24h) }
+                        });
+                        messageStats = [{ count }];
+                    }
+                } catch (statsError) {
+                    console.error('Error getting message stats:', statsError);
+                }
 
                 const botStatus = global.botConnected === true ? 'online' : 'offline';
                 const uptime = process.uptime();

@@ -483,6 +483,53 @@ class SQLiteDB {
             return 0;
         }
     }
+
+    // Add missing methods that are called from eventHandler
+    async updateUserActivity(phoneNumber, userName = null) {
+        try {
+            if (!phoneNumber || phoneNumber.length < 10) {
+                return false;
+            }
+
+            const userData = {
+                phoneNumber: phoneNumber,
+                name: userName || 'Unknown',
+                profilePic: '',
+                isAdmin: false,
+                isBanned: false,
+                commandCount: 0
+            };
+
+            return await this.saveUser(userData);
+        } catch (error) {
+            console.error('Error updating user activity:', error);
+            return false;
+        }
+    }
+
+    async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
+        try {
+            if (!groupId) {
+                return false;
+            }
+
+            const groupData = {
+                groupId: groupId,
+                groupName: groupName || 'Unknown Group',
+                description: '',
+                adminNumbers: [],
+                memberCount: participantCount,
+                isActive: true,
+                customPrefix: '',
+                settings: {}
+            };
+
+            return await this.saveGroup(groupData);
+        } catch (error) {
+            console.error('Error updating group activity:', error);
+            return false;
+        }
+    }
 }
 
 module.exports = new SQLiteDB();
