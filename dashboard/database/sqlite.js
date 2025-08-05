@@ -488,8 +488,11 @@ class SQLiteDB {
     async updateUserActivity(phoneNumber, userName = null) {
         try {
             if (!phoneNumber || phoneNumber.length < 10) {
+                console.error(`Invalid phone number in updateUserActivity: ${phoneNumber}`);
                 return false;
             }
+
+            console.log(`[SQLite] Updating user activity for: ${phoneNumber}`);
 
             const userData = {
                 phoneNumber: phoneNumber,
@@ -500,7 +503,9 @@ class SQLiteDB {
                 commandCount: 0
             };
 
-            return await this.saveUser(userData);
+            const result = await this.saveUser(userData);
+            console.log(`[SQLite] User activity update result: ${result}`);
+            return result;
         } catch (error) {
             console.error('Error updating user activity:', error);
             return false;
@@ -510,21 +515,26 @@ class SQLiteDB {
     async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
         try {
             if (!groupId) {
+                console.error('Invalid group ID in updateGroupActivity');
                 return false;
             }
+
+            console.log(`[SQLite] Updating group activity for: ${groupId} - ${groupName}`);
 
             const groupData = {
                 groupId: groupId,
                 groupName: groupName || 'Unknown Group',
                 description: '',
                 adminNumbers: [],
-                memberCount: participantCount,
+                memberCount: participantCount || 0,
                 isActive: true,
                 customPrefix: '',
                 settings: {}
             };
 
-            return await this.saveGroup(groupData);
+            const result = await this.saveGroup(groupData);
+            console.log(`[SQLite] Group activity update result: ${result}`);
+            return result;
         } catch (error) {
             console.error('Error updating group activity:', error);
             return false;
