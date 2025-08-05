@@ -43,27 +43,42 @@ const handlerAction = {
                 // Improved user number extraction for channels and communities
                 let userNumber = '';
                 if (sender && typeof sender === 'string') {
-                    userNumber = sender.replace(/[^0-9]/g, '');
+                    // Handle different ID formats
+                    if (sender.includes('@lid')) {
+                        // LinkedIn ID format
+                        userNumber = sender.replace(/[^0-9]/g, '');
+                    } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
+                        // Standard WhatsApp format
+                        userNumber = sender.split('@')[0];
+                    } else {
+                        // Other formats
+                        userNumber = sender.replace(/[^0-9]/g, '');
+                    }
                     
                     // For channels, if we can't extract a valid number, check other sources
-                    if (isChannel && (!userNumber || userNumber.length < 10)) {
+                    if (isChannel && (!userNumber || userNumber.length < 8)) {
                         // Try to get from push name or context
                         const altSender = mek.pushName || mek.message?.contextInfo?.participant;
                         if (altSender) {
                             userNumber = altSender.replace(/[^0-9]/g, '');
                         }
+                        
+                        // For channels, we might use a generic identifier
+                        if (!userNumber || userNumber.length < 8) {
+                            userNumber = 'channel_user_' + Math.random().toString(36).substr(2, 9);
+                            logWarning(`Channel message from unidentified user in ${messageInfo.chatName}, using temp ID: ${userNumber}`);
+                        }
                     }
                     
-                    // Validate phone number format
-                    if (!userNumber || userNumber.length < 10 || !/^\d{10,15}$/.test(userNumber)) {
-                        if (isChannel) {
-                            // For channels, we might not have proper user identification
-                            logWarning(`Channel message from unidentified user in ${messageInfo.chatName}`);
-                            return sock.sendMessage(threadID, { 
-                                text: "❌ Unable to identify user in channel. Commands may not work properly."
-                            }, { quoted: mek });
+                    // Validate phone number format (more lenient for channels)
+                    if (!userNumber || (userNumber.length < 8 && !userNumber.startsWith('channel_user_'))) {
+                        if (isChannel || isCommunity) {
+                            // For channels/communities, use a fallback identifier
+                            userNumber = 'community_user_' + Date.now();
+                            logWarning(`Using fallback identifier for channel/community user: ${userNumber}`);
+                        } else {
+                            userNumber = '';
                         }
-                        userNumber = ''; // Set empty for validation below
                     }
                 } else {
                     userNumber = '';
@@ -151,7 +166,18 @@ const handlerAction = {
 
     handleChat: async function({ sock, mek, sender, messageText, messageInfo, isGroup }) {
         try {
-            const userNumber = sender.replace(/[^0-9]/g, '');
+            // Extract user number with improved handling for different formats
+            let userNumber = '';
+            if (sender && typeof sender === 'string') {
+                if (sender.includes('@lid')) {
+                    userNumber = sender.replace(/[^0-9]/g, '');
+                } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
+                    userNumber = sender.split('@')[0];
+                } else {
+                    userNumber = sender.replace(/[^0-9]/g, '');
+                }
+            }
+            
             const threadID = mek.key.remoteJid;
 
 

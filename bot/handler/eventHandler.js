@@ -110,11 +110,25 @@ class EventHandler {
                 }
 
                 // Extract phone number more robustly
-                if (typeof sender === 'string') {
-                    senderNumber = sender.replace(/[^0-9]/g, '');
-                    // Ensure sender has proper format
-                    if (sender && !sender.includes('@') && sender !== 'channel_user') {
-                        sender = sender + '@s.whatsapp.net';
+                if (typeof sender === 'string' && sender !== 'channel_user') {
+                    // Handle different ID formats
+                    if (sender.includes('@lid')) {
+                        // LinkedIn ID format - extract numbers only
+                        senderNumber = sender.replace(/[^0-9]/g, '');
+                    } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
+                        // Standard WhatsApp format
+                        senderNumber = sender.split('@')[0];
+                    } else if (sender.includes('@g.us')) {
+                        // Group ID - extract from participant if available
+                        senderNumber = '';
+                    } else {
+                        // Other formats - try to extract numbers
+                        senderNumber = sender.replace(/[^0-9]/g, '');
+                    }
+                    
+                    // Ensure sender has proper format for WhatsApp
+                    if (sender && !sender.includes('@') && senderNumber.length > 0) {
+                        sender = senderNumber + '@s.whatsapp.net';
                     }
                 } else {
                     senderNumber = '';
@@ -260,22 +274,29 @@ class EventHandler {
                     const senderName = await getSenderName(sock, sender);
 
                     // Extract phone number for database operations
-                    const phoneNumber = extractPhoneNumber(sender);
-                    if (!phoneNumber || phoneNumber.length < 10) {
-                        console.log('Skipping message log - invalid or short userId:', phoneNumber);
-                        return;
+                    const phoneNumber = extractPhoneNumber(sender, senderNumber);
+                    if (!phoneNumber || phoneNumber.length < 8) {
+                        console.log('Skipping message log - invalid or short userId:', phoneNumber, 'from sender:', sender);
+                        // Don't return here for channels/communities - continue processing
+                        if (!isChannel && !isCommunity) {
+                            return;
+                        }
                     }
 
-                    // Additional validation for phone numbers
-                    if (!/^\d{10,15}$/.test(phoneNumber)) {
-                        console.log('Skipping message log - invalid phone number format:', phoneNumber);
-                        return;
+                    // Additional validation for phone numbers (more lenient for channels)
+                    if (phoneNumber && !/^\d{8,15}$/.test(phoneNumber)) {
+                        console.log('Skipping message log - invalid phone number format:', phoneNumber, 'from sender:', sender);
+                        // Don't return here for channels/communities - continue processing
+                        if (!isChannel && !isCommunity) {
+                            return;
+                        }
                     }
 
-                    console.log(`[INFO] Updating user activity for: ${phoneNumber}`);
-
-                    // Update user activity
-                    await db.updateUserActivity(phoneNumber, senderName);
+                    if (phoneNumber && phoneNumber.length >= 8) {
+                        console.log(`[INFO] Updating user activity for: ${phoneNumber}`);
+                        // Update user activity
+                        await db.updateUserActivity(phoneNumber, senderName);
+                    }
 
                     // Update group activity if in group
                     if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
@@ -285,6 +306,11 @@ class EventHandler {
                             groupMetadata.subject,
                             groupMetadata.participants ? groupMetadata.participants.length : 0
                         );
+                    }
+                    
+                    // Log channel activity
+                    if (isChannel) {
+                        console.log(`[INFO] Channel message processed in: ${messageInfo.chatName}`);
                     }
                 }
             } catch (dbError) {
@@ -527,15 +553,38 @@ class EventHandler {
 }
 
 // Helper function to extract phone number from sender JID
-function extractPhoneNumber(senderJid) {
-    if (senderJid && senderJid.endsWith('@s.whatsapp.net')) {
-        const phoneNumber = senderJid.replace('@s.whatsapp.net', '');
-        // Basic check for digits only
-        if (/^\d+$/.test(phoneNumber)) {
+function extractPhoneNumber(senderJid, fallbackNumber = null) {
+    if (!senderJid) return fallbackNumber;
+    
+    // Handle standard WhatsApp format
+    if (senderJid.endsWith('@s.whatsapp.net') || senderJid.endsWith('@c.us')) {
+        const phoneNumber = senderJid.split('@')[0];
+        if (/^\d{8,15}$/.test(phoneNumber)) {
             return phoneNumber;
         }
     }
-    // Return null for non-WhatsApp IDs or malformed senderJids
+    
+    // Handle LinkedIn ID format (@lid)
+    if (senderJid.includes('@lid')) {
+        const phoneNumber = senderJid.replace(/[^0-9]/g, '');
+        if (/^\d{8,15}$/.test(phoneNumber)) {
+            return phoneNumber;
+        }
+    }
+    
+    // Handle other formats - extract numbers only
+    if (typeof senderJid === 'string') {
+        const phoneNumber = senderJid.replace(/[^0-9]/g, '');
+        if (/^\d{8,15}$/.test(phoneNumber)) {
+            return phoneNumber;
+        }
+    }
+    
+    // Use fallback if available
+    if (fallbackNumber && /^\d{8,15}$/.test(fallbackNumber)) {
+        return fallbackNumber;
+    }
+    
     return null;
 }
 
