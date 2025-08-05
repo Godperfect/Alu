@@ -1,6 +1,6 @@
 const { DisconnectReason } = require("@whiskeysockets/baileys");
 const { Boom } = require('@hapi/boom');
-const { logInfo, logSuccess } = require('../../utils');
+const { logInfo, logError } = require('../../utils');
 
 
 function handleConnection(ptz, startBotz) {
