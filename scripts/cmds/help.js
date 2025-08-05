@@ -21,10 +21,13 @@ module.exports = {
             const prefix = global.prefix;
             
             if (args.length === 0) {
-                // Fetch waifu image
+                // Fetch waifu image with Luna Bot overlay
                 const res = await fetch("https://api.waifu.pics/sfw/waifu");
                 const { url } = await res.json();
-                const squareUrl = `https://images.weserv.nl/?url=${url.replace("https://", "")}&w=512&h=512&fit=cover`;
+                const baseImageUrl = url.replace("https://", "");
+                // Add Luna Bot text overlay with purple gradient and glow effect
+                const overlayText = encodeURIComponent("LUNA BOT");
+                const squareUrl = `https://images.weserv.nl/?url=${baseImageUrl}&w=512&h=512&fit=cover&overlay=text&otxt=${overlayText}&ox=center&oy=bottom&oh=60&oc=white&os=2&bg=7b2cbf&bgo=80`;
 
                 let msg = "╔══════════════╗\n";
                 msg += "    *LUNA BOT V1* 🌙\n";
@@ -80,10 +83,12 @@ module.exports = {
                 const command = global.commands?.get(commandName) || global.commands?.get(global.aliases?.get(commandName));
 
                 if (!command) {
-                    // Fetch waifu image for error message too
+                    // Fetch waifu image for error message with Luna Bot overlay
                     const res = await fetch("https://api.waifu.pics/sfw/waifu");
                     const { url } = await res.json();
-                    const squareUrl = `https://images.weserv.nl/?url=${url.replace("https://", "")}&w=512&h=512&fit=cover`;
+                    const baseImageUrl = url.replace("https://", "");
+                    const overlayText = encodeURIComponent("LUNA BOT");
+                    const squareUrl = `https://images.weserv.nl/?url=${baseImageUrl}&w=512&h=512&fit=cover&overlay=text&otxt=${overlayText}&ox=center&oy=bottom&oh=60&oc=white&os=2&bg=7b2cbf&bgo=80`;
 
                     const errorMsg = `╔══════════════╗\n    *LUNA BOT V2* 🌙\n╚══════════════╝\n\n⚠️ Command "*${commandName}*" not found.\n\n_Type *${prefix}help* to see all available commands._`;
 
@@ -96,10 +101,12 @@ module.exports = {
                     }
                 }
 
-                // Fetch waifu image for command details
+                // Fetch waifu image for command details with Luna Bot overlay
                 const res = await fetch("https://api.waifu.pics/sfw/waifu");
                 const { url } = await res.json();
-                const squareUrl = `https://images.weserv.nl/?url=${url.replace("https://", "")}&w=512&h=512&fit=cover`;
+                const baseImageUrl = url.replace("https://", "");
+                const overlayText = encodeURIComponent("LUNA BOT");
+                const squareUrl = `https://images.weserv.nl/?url=${baseImageUrl}&w=512&h=512&fit=cover&overlay=text&otxt=${overlayText}&ox=center&oy=bottom&oh=60&oc=white&os=2&bg=7b2cbf&bgo=80`;
 
                 const permission = command.permission || command.config?.role || 0;
                 const roleText = roleToString(permission);
