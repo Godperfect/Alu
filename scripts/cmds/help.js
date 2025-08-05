@@ -14,7 +14,9 @@ module.exports = {
         }
     },
 
-    onStart: async ({ sock, m, args, sender, messageInfo }) => {
+    run: async ({ sock, mek, args, sender, messageInfo }) => {
+        // Use mek instead of m for consistency
+        const m = mek;
         try {
             const prefix = global.prefix;
             
@@ -129,6 +131,11 @@ module.exports = {
             }
         }
     },
+
+    // Add onStart for compatibility with the command manager
+    onStart: async function(params) {
+        return this.run(params);
+    }
 };
 
 // Function to convert role numbers to text

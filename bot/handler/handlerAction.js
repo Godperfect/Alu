@@ -29,7 +29,20 @@ const handlerAction = {
                 }, { quoted: mek });
             }
             
-            const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
+            // First try to get command directly, then check aliases
+            let cmd = global.commands.get(command);
+            
+            if (!cmd && global.aliases && global.aliases.has(command)) {
+                const actualCommandName = global.aliases.get(command);
+                cmd = global.commands.get(actualCommandName);
+            }
+            
+            // Fallback: search through command aliases (for backwards compatibility)
+            if (!cmd) {
+                cmd = [...global.commands.values()].find(cmd => 
+                    cmd.aliases && cmd.aliases.includes(command)
+                );
+            }
   if (!cmd) {
 
  return sock.sendMessage(threadID, { 
@@ -39,7 +52,9 @@ const handlerAction = {
             }
 
 
-            if (typeof cmd.run === 'function') {
+            // Try to execute the command using run or onStart method
+            const executeMethod = cmd.run || cmd.onStart;
+            if (typeof executeMethod === 'function') {
                 // Extract user number using correct method for groups
                 let userNumber = '';
                 if (sender && typeof sender === 'string') {
@@ -152,7 +167,7 @@ const handlerAction = {
                 logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
 
 
-                await cmd.run({
+                await executeMethod({
                     sock,
                     mek,
                     args,

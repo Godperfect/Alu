@@ -19,7 +19,7 @@ module.exports = {
         }
     },
 
-    onStart: async function({ sock, mek, args, event }) {
+    run: async function({ sock, mek, args, event }) {
         try {
             const isGroup = mek.key.remoteJid.endsWith('@g.us');
             
@@ -89,5 +89,10 @@ module.exports = {
                 text: "❌ An error occurred while processing the command."
             }, { quoted: mek });
         }
+    },
+
+    // Add onStart for compatibility with the command manager
+    onStart: async function(params) {
+        return this.run(params);
     }
 };
