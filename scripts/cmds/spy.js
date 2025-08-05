@@ -93,6 +93,7 @@ module.exports = {
             }
 
             // 2. Push Name / Display Name
+            let displayName = null;
             try {
                 // For LID users in groups, try to get name from group metadata
                 if (targetJid.includes('@lid')) {
@@ -101,28 +102,37 @@ module.exports = {
                         try {
                             const groupMeta = await sock.groupMetadata(chatId);
                             const participant = groupMeta.participants.find(p => p.id === targetJid);
-                            if (participant && participant.notify) {
-                                spyInfo += `👤 *Display Name:* ${participant.notify}\n`;
-                                accessibleData.push("✅ Display Name");
-                            } else {
-                                restrictedData.push("❌ Display Name");
+                            if (participant) {
+                                // Try multiple name sources
+                                displayName = participant.notify || participant.name || participant.verifiedName;
+                                if (displayName) {
+                                    spyInfo += `👤 *Display Name:* ${displayName}\n`;
+                                    accessibleData.push("✅ Display Name");
+                                }
                             }
                         } catch (err) {
-                            restrictedData.push("❌ Display Name");
+                            console.log('Group metadata error:', err.message);
                         }
-                    } else {
-                        restrictedData.push("❌ Display Name");
                     }
                 } else {
                     // Regular WhatsApp number check
-                    const contact = await sock.onWhatsApp(targetJid);
-                    if (contact && contact.length > 0) {
-                        const pushName = contact[0].notify || "Not Set";
-                        spyInfo += `👤 *Display Name:* ${pushName}\n`;
-                        accessibleData.push("✅ Display Name");
-                    } else {
-                        restrictedData.push("❌ Display Name");
+                    try {
+                        const contact = await sock.onWhatsApp(targetJid);
+                        if (contact && contact.length > 0 && contact[0].exists) {
+                            // Try to get push name
+                            if (contact[0].notify) {
+                                displayName = contact[0].notify;
+                                spyInfo += `👤 *Display Name:* ${displayName}\n`;
+                                accessibleData.push("✅ Display Name");
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Contact check error:', err.message);
                     }
+                }
+                
+                if (!displayName) {
+                    restrictedData.push("❌ Display Name");
                 }
             } catch (err) {
                 restrictedData.push("❌ Display Name");
@@ -148,26 +158,49 @@ module.exports = {
             // 4. Profile Picture
             let profilePicUrl = null;
             try {
-                profilePicUrl = await sock.profilePictureUrl(targetJid, 'image');
+                // Try to get high quality first, then fallback to preview
+                try {
+                    profilePicUrl = await sock.profilePictureUrl(targetJid, 'image');
+                } catch (err) {
+                    // Try preview quality if image fails
+                    try {
+                        profilePicUrl = await sock.profilePictureUrl(targetJid, 'preview');
+                    } catch (err2) {
+                        console.log('Profile picture error:', err2.message);
+                    }
+                }
+                
                 if (profilePicUrl) {
-                    spyInfo += `🖼️ *Profile Picture:* Available\n`;
+                    spyInfo += `🖼️ *Profile Picture:* Available ✅\n`;
                     accessibleData.push("✅ Profile Picture");
                 } else {
                     restrictedData.push("❌ Profile Picture");
                 }
             } catch (err) {
+                console.log('Profile picture outer error:', err.message);
                 restrictedData.push("❌ Profile Picture");
             }
 
-            // 5. Business Profile Check
+            // 5. Basic Number Info (Always show what we extracted)
+            spyInfo += `📞 *Extracted Number:* ${targetNumber}\n`;
+            if (targetJid.includes('@lid')) {
+                spyInfo += `🆔 *Full LID:* ${targetJid}\n`;
+            } else {
+                spyInfo += `📱 *WhatsApp JID:* ${targetJid}\n`;
+            }
+
+            // 6. Business Profile Check
+            let hasBusiness = false;
             try {
                 const businessProfile = await sock.getBusinessProfile(targetJid);
-                if (businessProfile) {
+                if (businessProfile && Object.keys(businessProfile).length > 0) {
+                    hasBusiness = true;
                     spyInfo += `\n🏢 *BUSINESS PROFILE DETECTED*\n`;
                     spyInfo += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
                     
-                    if (businessProfile.business_name) {
-                        spyInfo += `🏪 *Business Name:* ${businessProfile.business_name}\n`;
+                    if (businessProfile.business_name || businessProfile.name) {
+                        const businessName = businessProfile.business_name || businessProfile.name;
+                        spyInfo += `🏪 *Business Name:* ${businessName}\n`;
                         accessibleData.push("✅ Business Name");
                     }
                     
@@ -190,21 +223,35 @@ module.exports = {
                         spyInfo += `📍 *Address:* ${businessProfile.address}\n`;
                         accessibleData.push("✅ Business Address");
                     }
+                    
+                    if (businessProfile.category) {
+                        spyInfo += `🏷️ *Category:* ${businessProfile.category}\n`;
+                        accessibleData.push("✅ Business Category");
+                    }
                 }
             } catch (err) {
+                console.log('Business profile error:', err.message);
                 // Not a business profile or restricted
             }
 
-            // 6. Check if user is online (if available)
+            // 7. Check account existence
             try {
-                const presence = await sock.presenceSubscribe(targetJid);
-                // Note: This might not always work due to privacy settings
-                restrictedData.push("❓ Online Status (Privacy Protected)");
+                const exists = await sock.onWhatsApp(targetJid);
+                if (exists && exists.length > 0) {
+                    if (exists[0].exists) {
+                        spyInfo += `✅ *Account Status:* Active WhatsApp Account\n`;
+                        accessibleData.push("✅ Account Verification");
+                    } else {
+                        spyInfo += `❌ *Account Status:* Not on WhatsApp\n`;
+                        restrictedData.push("❌ Invalid WhatsApp Number");
+                    }
+                }
             } catch (err) {
-                restrictedData.push("❌ Online Status");
+                restrictedData.push("❌ Account Verification");
             }
 
-            // Add privacy restrictions
+            // Privacy restricted items
+            restrictedData.push("❓ Online Status (Privacy Protected)");
             restrictedData.push("❌ Last Seen (Privacy Protected)");
             restrictedData.push("❌ Story Status (24h Status)");
             restrictedData.push("❌ Read Receipts");
