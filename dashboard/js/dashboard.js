@@ -352,6 +352,7 @@ function loadTabData(tabName) {
             break;
         case 'commands':
             loadCommands();
+            loadEvents();
             break;
         case 'users':
             loadUsers();
@@ -665,10 +666,12 @@ function loadCommands() {
                             <h6>${command.name}</h6>
                             <p>${command.description || 'No description available'}</p>
                             <small class="text-muted">Usage: ${command.usage || 'N/A'}</small>
+                            ${command.aliases && command.aliases.length > 0 ? `<small class="text-muted">Aliases: ${command.aliases.join(', ')}</small>` : ''}
                         </div>
                         <div class="item-badges">
                             <span class="badge command-category">${command.category || 'General'}</span>
-                            ${command.role ? `<span class="badge bg-info">Role: ${command.role}</span>` : ''}
+                            ${command.role !== undefined ? `<span class="badge bg-info">Role: ${getRoleText(command.role)}</span>` : ''}
+                            ${command.cooldown ? `<span class="badge bg-warning">Cooldown: ${command.cooldown}s</span>` : ''}
                         </div>
                     `;
                     commandsList.appendChild(commandItem);
@@ -681,6 +684,77 @@ function loadCommands() {
             console.error('Error loading commands:', error);
             document.getElementById('commandsList').innerHTML = '<div class="error-message">Error loading commands</div>';
         });
+}
+
+function loadEvents() {
+    apiRequest('/api/events')
+        .then(data => {
+            const eventsList = document.getElementById('eventsList');
+            eventsList.innerHTML = '';
+
+            if (data && data.length > 0) {
+                data.forEach(event => {
+                    const eventItem = document.createElement('div');
+                    eventItem.className = 'list-item';
+                    eventItem.innerHTML = `
+                        <div class="item-info">
+                            <h6>${event.name}</h6>
+                            <p>${event.description || 'No description available'}</p>
+                            <small class="text-muted">Type: ${event.type || 'Unknown'}</small>
+                        </div>
+                        <div class="item-badges">
+                            <span class="badge bg-success">Active</span>
+                            <span class="badge bg-info">${event.type || 'Event'}</span>
+                        </div>
+                    `;
+                    eventsList.appendChild(eventItem);
+                });
+            } else {
+                eventsList.innerHTML = '<div class="text-center text-muted">No events found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading events:', error);
+            document.getElementById('eventsList').innerHTML = '<div class="error-message">Error loading events</div>';
+        });
+}
+
+function showCommandsEventsTab(tabName) {
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Remove active class from all content areas
+    document.querySelectorAll('.commands-events-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Add active class to clicked tab button
+    event.target.classList.add('active');
+
+    // Show corresponding content
+    document.getElementById(tabName + '-list-tab').classList.add('active');
+
+    // Load data for the selected tab
+    if (tabName === 'commands') {
+        loadCommands();
+    } else if (tabName === 'events') {
+        loadEvents();
+    }
+}
+
+function getRoleText(role) {
+    switch (role) {
+        case 0:
+            return 'Everyone';
+        case 1:
+            return 'Group Admin';
+        case 2:
+            return 'Bot Admin';
+        default:
+            return 'Unknown';
+    }
 }
 
 function loadUsers() {
@@ -858,7 +932,7 @@ function updateSettingsDisplay(data) {
 // Search functionality
 function setupSearch() {
     const searchInputs = [
-        { input: 'commandSearch', container: '#commandsList .list-item' },
+        { input: 'commandSearch', container: '#commandsList .list-item, #eventsList .list-item' },
         { input: 'userSearch', container: '#usersList .list-item' },
         { input: 'groupSearch', container: '#groupsList .list-item' }
     ];
@@ -1081,3 +1155,4 @@ window.startWhatsAppAuth = startWhatsAppAuth;
 window.disconnectWhatsApp = disconnectWhatsApp;
 window.restartWhatsAppAuth = restartWhatsAppAuth;
 window.toggleTheme = toggleTheme;
+window.showCommandsEventsTab = showCommandsEventsTab;
