@@ -150,6 +150,7 @@ async function startBotz() {
             const webServer = new WebServer();
             webServer.start();
             logInfo('Dashboard started on port 5000');
+            console.log('─────────────────────────────────────────');
         } catch (error) {
             logError(`Dashboard startup failed: ${error.message}`);
         }

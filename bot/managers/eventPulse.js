@@ -50,7 +50,8 @@ class EventManager {
         if (failedEvents > 0) {
             logError(`Failed to load ${failedEvents} events`);
         }
-        logSuccess(`Events loaded: ${totalEvents}/${eventFiles.length}`);
+        logSuccess(`Successfully loaded ${totalEvents} events ${failedEvents > 0 ? `(${failedEvents} failed)` : ''}`);
+        console.log('─────────────────────────────────────────');
     }
 
     handleEvents({ sock, m = null, sender }) {

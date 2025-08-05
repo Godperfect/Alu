@@ -118,7 +118,8 @@ class CommandManager {
         if (failedCommands > 0) {
             logError(`Failed to load ${failedCommands} commands`);
         }
-        logSuccess(`Commands loaded: ${totalCommands}/${commandFiles.length}`);
+        logSuccess(`Successfully loaded ${totalCommands} commands ${failedCommands > 0 ? `(${failedCommands} failed)` : ''}`);
+        console.log('─────────────────────────────────────────');
     }
 
     // Check if the command is on cooldown for the sender
