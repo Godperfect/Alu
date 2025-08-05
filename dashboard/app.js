@@ -473,8 +473,8 @@ function initializeApp() {
     try {
       let commands = [];
 
-      if (global.GoatBot?.commands) {
-        commands = Array.from(global.GoatBot.commands.entries()).map(
+      if (global.commands && global.commands.size > 0) {
+        commands = Array.from(global.commands.entries()).map(
           ([name, cmd]) => ({
             name,
             description:
@@ -485,30 +485,34 @@ function initializeApp() {
             category: cmd.config?.category || cmd.category || "general",
             permissions: cmd.config?.permissions || cmd.permissions || [],
             cooldown: cmd.config?.cooldown || cmd.cooldown || 0,
-            usage: cmd.config?.usage || cmd.usage || `${config.prefix}${name}`,
+            usage: cmd.config?.usage || cmd.usage || `${global.prefix || '+'}${name}`,
             guide: cmd.config?.guide || cmd.guide || "No guide available",
+            role: cmd.config?.role || cmd.role || 0,
           })
         );
       } else {
+        // Fallback to reading from file system
         const commandFiles = fs
-          .readdirSync(path.join("plugins", "commands"))
+          .readdirSync(path.join("scripts", "cmds"))
           .filter((f) => f.endsWith(".js"));
         for (const file of commandFiles) {
           try {
             const command = require(path.join(
               "..",
-              "plugins",
-              "commands",
+              "scripts",
+              "cmds",
               file
             ));
             commands.push({
               name: command.config?.name || file.replace(".js", ""),
               description:
                 command.config?.description || "No description available",
-              usage: command.config?.usage || "N/A",
+              aliases: command.config?.aliases || [],
               category: command.config?.category || "General",
               role: command.config?.role || 0,
-              enabled: command.config?.enabled !== false,
+              usage: command.config?.usage || `${global.prefix || '+'}${command.config?.name || file.replace(".js", "")}`,
+              guide: command.config?.guide || "No guide available",
+              cooldown: command.config?.cooldown || 0,
             });
           } catch (error) {
             logError(`Error loading command ${file}:`, error);
