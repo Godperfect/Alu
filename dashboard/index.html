@@ -288,11 +288,46 @@
                     </div>
                 </div>
 
-                <!-- Placeholder tabs -->
+                <!-- Commands Tab -->
                 <div id="commands-tab" class="tab-content">
-                    <div class="info-card">
-                        <h5><i class="fas fa-terminal"></i> Commands</h5>
-                        <p>Commands list loading...</p>
+                    <div class="search-container">
+                        <input type="text" id="commandSearch" class="search-input" placeholder="Search commands...">
+                        <i class="fas fa-search search-icon"></i>
+                    </div>
+                    
+                    <div class="commands-events-tabs">
+                        <button class="tab-btn active" onclick="showCommandsEventsTab('commands')">
+                            <i class="fas fa-terminal"></i> Commands
+                        </button>
+                        <button class="tab-btn" onclick="showCommandsEventsTab('events')">
+                            <i class="fas fa-bolt"></i> Events
+                        </button>
+                    </div>
+
+                    <div id="commands-list-tab" class="commands-events-content active">
+                        <div class="info-card">
+                            <h5><i class="fas fa-terminal"></i> Available Commands</h5>
+                            <div class="list-container" id="commandsList">
+                                <div class="loading-spinner">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading commands...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="events-list-tab" class="commands-events-content">
+                        <div class="info-card">
+                            <h5><i class="fas fa-bolt"></i> Active Events</h5>
+                            <div class="list-container" id="eventsList">
+                                <div class="loading-spinner">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading events...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

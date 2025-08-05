@@ -524,17 +524,50 @@ function initializeApp() {
   });
 
   app.get("/api/events", requireAuth, (req, res) => {
-    const events = Array.from(global.GoatBot.events.entries()).map(
-      ([name, event]) => ({
-        name,
-        description:
-          event.config?.description ||
-          event.description ||
-          "No description available",
-        type: event.config?.type || event.type || "message",
-      })
-    );
-    res.json(events);
+    try {
+      let events = [];
+
+      if (global.GoatBot?.events) {
+        events = Array.from(global.GoatBot.events.entries()).map(
+          ([name, event]) => ({
+            name,
+            description:
+              event.config?.description ||
+              event.description ||
+              "No description available",
+            type: event.config?.type || event.type || "message",
+          })
+        );
+      } else {
+        // Fallback to reading from file system
+        const eventFiles = fs
+          .readdirSync(path.join("scripts", "events"))
+          .filter((f) => f.endsWith(".js"));
+        for (const file of eventFiles) {
+          try {
+            const event = require(path.join(
+              "..",
+              "scripts",
+              "events",
+              file
+            ));
+            events.push({
+              name: event.config?.name || file.replace(".js", ""),
+              description:
+                event.config?.description || "No description available",
+              type: event.config?.type || "message",
+            });
+          } catch (error) {
+            logError(`Error loading event ${file}:`, error);
+          }
+        }
+      }
+
+      res.json(events);
+    } catch (error) {
+      logError("Error fetching events:", error);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/logs", requireAuth, (req, res) => {
