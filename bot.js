@@ -97,7 +97,7 @@ async function startBotz() {
 
                 if (shouldReconnect) {
                     logInfo('Reconnecting...');
-                    startBot();
+                    startBotz();
                 } else {
                     logError('Connection closed permanently');
                 }
@@ -159,7 +159,5 @@ async function startBotz() {
         logError('Bot startup failed: ' + err.message);
     }
 }
-
-startBotz();
 
 module.exports = startBotz;
