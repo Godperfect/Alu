@@ -148,8 +148,7 @@ async function startBotz() {
             const WebServer = require('./dashboard/app');
             const webServer = new WebServer();
             webServer.start();
-            logSuccess('Dashboard is connected to port 5000');
-            logInfo('Dashboard started on port 5000');
+            logSuccess('Bot is Successfully connected');
             console.log('─────────────────────────────────────────');
         } catch (error) {
             logError(`Dashboard startup failed: ${error.message}`);
