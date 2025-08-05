@@ -357,7 +357,7 @@ class EventHandler {
             logMessage({
                 messageType,
                 chatName,
-                sender: userId + (mek.key.participant ? '' : '@s.whatsapp.net'), // Adjust sender format if needed
+                sender: extractedPhoneNumber || userId, // Use clean phone number for sender
                 senderName: senderName,
                 messageText,
                 hasAttachment,
@@ -378,18 +378,12 @@ class EventHandler {
                 
                 if (db.getStatus().connected) {
 
-                    // Update user activity
-                    if (userId) {
-                        logInfo(`Updating user activity for: ${userId}`);
-                        // Extract clean phone number for database
-                        let cleanUserId = userId;
-                        if (userId.includes('@s.whatsapp.net')) {
-                            cleanUserId = userId.replace('@s.whatsapp.net', '');
-                        } else if (userId.includes('@lid')) {
-                            cleanUserId = userId.replace('@lid', '');
-                        }
-                        
-                        await db.updateUserActivity(cleanUserId, senderName);
+                    // Update user activity - use the extracted phone number directly
+                    if (extractedPhoneNumber) {
+                        logInfo(`Updating user activity for: ${extractedPhoneNumber}`);
+                        await db.updateUserActivity(extractedPhoneNumber, senderName);
+                    } else {
+                        console.log(`No valid phone number extracted for user: ${userId}`);
                     }
 
                     // Update group activity if in group
@@ -413,16 +407,18 @@ class EventHandler {
             }
 
 
+            // Use phone number for admin/whitelist checks
+            const checkNumber = extractedPhoneNumber || userId;
+            
             if (config.adminOnly?.enable &&
-                !config.adminOnly.adminNumbers.includes(userId) &&
+                !config.adminOnly.adminNumbers.includes(checkNumber) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedAdminOnly'));
                 return;
             }
 
-
             if (config.whiteListMode?.enable &&
-                !config.whiteListMode.allowedNumbers.includes(userId) &&
+                !config.whiteListMode.allowedNumbers.includes(checkNumber) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedWhitelist'));
                 return;
@@ -435,24 +431,25 @@ class EventHandler {
                 const args = messageInfo.messageText.slice(prefix.length + command.length).trim().split(' ').filter(arg => arg);
 
                 if (global.commands && global.commands.has(command)) {
-                    logInfo(`Command '${prefix}${command}' executed by ${userId} in ${messageInfo.isGroup ? 'group' : 'private'}: ${messageInfo.chatName || 'Unknown'}`);
+                    const userForLog = extractedPhoneNumber || userId;
+                    logInfo(`Command '${prefix}${command}' executed by ${userForLog} in ${messageInfo.isGroup ? 'group' : 'private'}: ${messageInfo.chatName || 'Unknown'}`);
 
                     try {
                         const commandModule = global.commands.get(command);
                         if (commandModule && typeof commandModule.onStart === 'function') {
-                            // Create proper user ID for database operations
+                            // Use phone number for database operations
                             const dbUserId = extractedPhoneNumber || userId;
 
                             await commandModule.onStart({
                                 api: {
                                     sendMessage: sock.sendMessage.bind(sock),
                                     getUserID: () => dbUserId,
-                                    getThreadID: () => messageInfo.chatId
+                                    getThreadID: () => mek.key.remoteJid // Use the actual chat ID (group or private)
                                 },
                                 event: {
                                     ...mek,
                                     senderID: dbUserId,
-                                    threadID: messageInfo.chatId,
+                                    threadID: mek.key.remoteJid, // Group ID for groups, user ID for private
                                     isGroup: messageInfo.isGroup,
                                     body: messageInfo.messageText
                                 },
@@ -462,8 +459,8 @@ class EventHandler {
                                     setData: async (uid, data) => await db.updateUser(uid || dbUserId, data)
                                 },
                                 Threads: {
-                                    getData: async (tid) => await db.getThread(tid || messageInfo.chatId),
-                                    setData: async (tid, data) => await db.updateThread(tid || messageInfo.chatId, data)
+                                    getData: async (tid) => await db.getThread(tid || mek.key.remoteJid),
+                                    setData: async (tid, data) => await db.updateThread(tid || mek.key.remoteJid, data)
                                 }
                             });
                         }
@@ -475,7 +472,7 @@ class EventHandler {
                 await handlerAction.handleChat({
                     sock,
                     mek,
-                    sender: userId, // Use userId for sender
+                    sender: extractedPhoneNumber || userId, // Use phone number for sender
                     messageText: messageText,
                     messageInfo,
                     isGroup
@@ -485,7 +482,7 @@ class EventHandler {
             await handlerAction.processEvents({
                 sock,
                 mek,
-                sender: userId, // Use userId for sender
+                sender: extractedPhoneNumber || userId, // Use phone number for sender
                 messageInfo,
                 isGroup
             });
