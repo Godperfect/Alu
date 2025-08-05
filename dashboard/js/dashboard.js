@@ -100,12 +100,14 @@ class LunaDashboard {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            if (data.success) {
+            if (data && data.success && data.stats) {
                 this.updateStats(data);
-                this.updateStatus(data.status);
+                this.updateStatus(data.status || 'offline');
             } else {
-                console.error('API returned error:', data.error);
+                console.error('API returned error:', data?.error || 'Invalid response');
                 this.showNotification('Failed to load dashboard data', 'error');
+                this.updateStats({ stats: { users: 0, groups: 0, commands: 0, uptime: 0 } });
+                this.updateStatus('offline');
             }
         } catch (error) {
             console.error('Failed to load initial data:', error);
@@ -486,6 +488,64 @@ class LunaDashboard {
             };
         }
     }
+
+    updateStats(data) {
+        const stats = data?.stats || { users: 0, groups: 0, commands: 0, uptime: 0 };
+        this.stats = stats;
+        
+        const userCountEl = document.getElementById('user-count');
+        const groupCountEl = document.getElementById('group-count');
+        const commandCountEl = document.getElementById('command-count');
+        const uptimeEl = document.getElementById('uptime');
+        
+        if (userCountEl) userCountEl.textContent = stats.users || 0;
+        if (groupCountEl) groupCountEl.textContent = stats.groups || 0;
+        if (commandCountEl) commandCountEl.textContent = stats.commands || 0;
+        if (uptimeEl) uptimeEl.textContent = this.formatUptime(stats.uptime || 0);
+    }
+
+    updateStatus(status) {
+        const statusEl = document.getElementById('status-text');
+        const statusIndicator = document.querySelector('.status-indicator');
+        
+        if (statusEl) {
+            statusEl.textContent = status === 'online' ? 'Bot is Online' : 'Bot is Offline';
+        }
+        
+        if (statusIndicator) {
+            statusIndicator.className = `status-indicator status-${status || 'offline'}`;
+        }
+        
+        this.isConnected = status === 'online';
+    }
+
+    formatUptime(seconds) {
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+
+        if (days > 0) {
+            return `${days}d ${hours}h ${minutes}m`;
+        } else if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        } else {
+            return `${minutes}m`;
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.classList.add('show'), 100);
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 400);
+        }, 3000);
+    }
 }
 
 // Dashboard functionality
@@ -493,29 +553,47 @@ let statsInterval;
 
 function loadStats() {
     fetch('/api/stats')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.success) {
+            if (data && data.success && data.stats) {
                 updateStatsDisplay(data.stats);
-                updateBotStatus(data.status);
+                updateBotStatus(data.status || 'offline');
+            } else {
+                console.error('Invalid stats data received:', data);
+                updateStatsDisplay({ users: 0, groups: 0, commands: 0, uptime: 0 });
+                updateBotStatus('offline');
             }
         })
         .catch(error => {
             console.error('Error loading stats:', error);
+            updateStatsDisplay({ users: 0, groups: 0, commands: 0, uptime: 0 });
+            updateBotStatus('offline');
         });
 }
 
 function updateStatsDisplay(stats) {
-    document.getElementById('user-count').textContent = stats.users;
-    document.getElementById('group-count').textContent = stats.groups;
-    document.getElementById('command-count').textContent = stats.commands;
-    document.getElementById('uptime').textContent = formatUptime(stats.uptime);
+    const userCountEl = document.getElementById('user-count');
+    const groupCountEl = document.getElementById('group-count');
+    const commandCountEl = document.getElementById('command-count');
+    const uptimeEl = document.getElementById('uptime');
+    
+    if (userCountEl) userCountEl.textContent = stats?.users || 0;
+    if (groupCountEl) groupCountEl.textContent = stats?.groups || 0;
+    if (commandCountEl) commandCountEl.textContent = stats?.commands || 0;
+    if (uptimeEl) uptimeEl.textContent = formatUptime(stats?.uptime || 0);
 }
 
 function updateBotStatus(status) {
     const statusElement = document.getElementById('bot-status');
-    statusElement.textContent = status;
-    statusElement.className = `status ${status}`;
+    if (statusElement) {
+        statusElement.textContent = status || 'offline';
+        statusElement.className = `status ${status || 'offline'}`;
+    }
 }
 
 function formatUptime(seconds) {
