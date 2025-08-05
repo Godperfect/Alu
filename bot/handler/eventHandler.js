@@ -1,7 +1,7 @@
 const fs = require('fs');
-const { logError, getSenderName, logMessage } = require('../../utils');
+const { logError, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo } = require('../../utils');
 const { config } = require('../../config/globals');
-const { getTextContent } = require('../../utils/messageParser');
+
 const handlerAction = require('./handlerAction');
 const lang = require('../../language/language');
 

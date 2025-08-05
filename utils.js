@@ -114,6 +114,42 @@ const getSenderName = (m) => {
     return m.pushName || m.verifiedBizName || 'Unknown';
 };
 
+const getMessageType = (message) => {
+    if (!message) return 'unknown';
+    
+    const messageTypes = Object.keys(message);
+    if (messageTypes.length === 0) return 'unknown';
+    
+    return messageTypes[0];
+};
+
+const hasMedia = (message) => {
+    if (!message) return false;
+    
+    const mediaTypes = ['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'];
+    return mediaTypes.some(type => message[type]);
+};
+
+const getMediaInfo = (message) => {
+    if (!message) return null;
+    
+    const mediaTypes = ['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'];
+    
+    for (const type of mediaTypes) {
+        if (message[type]) {
+            return {
+                type: type.replace('Message', ''),
+                mimetype: message[type].mimetype,
+                fileLength: message[type].fileLength,
+                fileName: message[type].fileName || null,
+                caption: message[type].caption || null
+            };
+        }
+    }
+    
+    return null;
+};
+
 // Message serializer functions
 const smsg = (sock, m, store) => {
     if (!m) return m;
@@ -237,6 +273,9 @@ module.exports = {
     // Message parser functions
     getTextContent,
     getSenderName,
+    getMessageType,
+    hasMedia,
+    getMediaInfo,
     
     // Message serializer functions
     smsg,
