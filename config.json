@@ -31,7 +31,7 @@
     "logLevel": "silent"
   },
   "database": {
-    "type": "sqlite",
+    "type": "mongodb",
     "uriMongodb": "mongodb://localhost:27017/lunabot"
   },
   "adminOnly": {
