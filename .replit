@@ -35,4 +35,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node bot.js"
+args = "node index.js"
