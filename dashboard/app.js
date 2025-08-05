@@ -3,9 +3,9 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs-extra");
 const os = require("os");
-const { logger } = require("../libs/logger");
+const { logInfo, logWarn, logError } = require("../utils");
 const config = require("../config.json");
-const db = require("../database/manager");
+const db = require("./connectDB");
 const OTPService = require("../libs/otpService");
 const connect = require("../bot/connect");
 const {
@@ -22,7 +22,7 @@ function invalidateSessionAndRestart() {
   global.GoatBot.sessionValid = false;
   global.GoatBot.authMethod = null;
   global.GoatBot.connectionStatus = "awaiting-login";
-  logger.warn("🔄 Session invalidated by request – restarting auth flow…");
+  logWarn("🔄 Session invalidated by request – restarting auth flow…");
   process.exit(2);
 }
 
@@ -337,7 +337,7 @@ function initializeApp() {
 
   app.post("/api/whatsapp/auth/restart", requireAuth, async (req, res) => {
     try {
-      logger.info("🔄 Restarting WhatsApp authentication...");
+      logInfo("🔄 Restarting WhatsApp authentication...");
 
       const sessionPath = path.join(__dirname, "..", "session");
       if (fs.existsSync(sessionPath)) {
@@ -357,7 +357,7 @@ function initializeApp() {
         try {
           await connect.connect({ method: "qr" });
         } catch (error) {
-          logger.error("Error starting new authentication:", error);
+          logError("Error starting new authentication:", error);
         }
       }, 2000);
 
@@ -467,14 +467,14 @@ function initializeApp() {
               enabled: command.config?.enabled !== false,
             });
           } catch (error) {
-            logger.error(`Error loading command ${file}:`, error);
+            logError(`Error loading command ${file}:`, error);
           }
         }
       }
 
       res.json({ total: commands.length, commands });
     } catch (error) {
-      logger.error("Error fetching commands:", error);
+      logError("Error fetching commands:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -528,7 +528,7 @@ function initializeApp() {
         })),
       });
     } catch (error) {
-      logger.error("Error fetching users:", error);
+      logError("Error fetching users:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -558,7 +558,7 @@ function initializeApp() {
         })),
       });
     } catch (error) {
-      logger.error("Error fetching groups:", error);
+      logError("Error fetching groups:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -649,7 +649,7 @@ function initializeApp() {
       };
       res.json(botInfo);
     } catch (error) {
-      logger.error("Error fetching bot info:", error);
+      logError("Error fetching bot info:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -705,7 +705,7 @@ function initializeApp() {
       };
       res.json(analytics);
     } catch (error) {
-      logger.error("Error fetching analytics:", error);
+      logError("Error fetching analytics:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -741,7 +741,7 @@ function initializeApp() {
       };
       res.json(settings);
     } catch (error) {
-      logger.error("Error fetching settings:", error);
+      logError("Error fetching settings:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -763,7 +763,7 @@ function initializeApp() {
       };
       res.json(overview);
     } catch (error) {
-      logger.error("Error fetching analytics overview:", error);
+      logError("Error fetching analytics overview:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -793,14 +793,14 @@ function startServer() {
   const PORT = process.env.PORT || config.dashboard.port || 3000;
   const appInstance = initializeApp();
   server = appInstance.listen(PORT, () =>
-    logger.info(`📊 Dashboard available at http://localhost:${PORT}`)
+    logInfo(`📊 Dashboard available at http://localhost:${PORT}`)
   );
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {
-      logger.error(`❌ Port ${PORT} is already in use.`);
+      logError(`❌ Port ${PORT} is already in use.`);
       process.exit(1);
     }
-    logger.error("❌ Server error:", error);
+    logError("❌ Server error:", error);
   });
 }
 

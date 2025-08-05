@@ -174,6 +174,30 @@ class DatabaseManager {
         if (!this.isConnected) return { changes: 0 };
         return await this.primaryDB.run(sql, params);
     }
+
+    // Add getStats method
+    async getStats() {
+        if (!this.isConnected) return {};
+        
+        try {
+            const userCount = await this.getUserCount();
+            const groupCount = await this.getGroupCount();
+            
+            return {
+                users: userCount,
+                groups: groupCount,
+                messages: 0,
+                commands: 0
+            };
+        } catch (error) {
+            return {};
+        }
+    }
+
+    // Add getAllThreads method
+    async getAllThreads() {
+        return await this.getAllGroups();
+    }
 }
 
 module.exports = new DatabaseManager();

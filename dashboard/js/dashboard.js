@@ -37,6 +37,9 @@ function showLoginTab(tabName) {
     document.getElementById(tabName + '-login').classList.add('active');
 }
 
+// Make function globally available
+window.showLoginTab = showLoginTab;
+
 function passwordLogin() {
     const password = document.getElementById('adminPassword').value;
     if (!password) {
