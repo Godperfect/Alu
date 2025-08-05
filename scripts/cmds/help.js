@@ -134,7 +134,7 @@ module.exports = {
 
     // Add onStart for compatibility with the command manager
     onStart: async function(params) {
-        return this.run(params);
+        return module.exports.run(params);
     }
 };
 
