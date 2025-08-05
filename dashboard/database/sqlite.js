@@ -251,6 +251,9 @@ class SQLiteDB {
 
     async getUserCount() {
         try {
+            if (!this.isConnected || !this.db) {
+                return 0;
+            }
             const result = await this.get('SELECT COUNT(*) as count FROM users');
             return result?.count || 0;
         } catch (error) {
@@ -261,6 +264,9 @@ class SQLiteDB {
 
     async getGroupCount() {
         try {
+            if (!this.isConnected || !this.db) {
+                return 0;
+            }
             const result = await this.get('SELECT COUNT(*) as count FROM groups');
             return result?.count || 0;
         } catch (error) {

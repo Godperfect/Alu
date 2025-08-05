@@ -48,7 +48,7 @@ class WebServer {
                 const botStatus = global.botConnected ? 'online' : 'offline';
                 res.json({
                     success: true,
-                    stats,
+                    stats: stats || { users: 0, groups: 0, commands: 0, uptime: 0 },
                     status: botStatus,
                     timestamp: new Date().toISOString()
                 });
@@ -56,7 +56,9 @@ class WebServer {
                 logError(`Stats API error: ${error.message}`);
                 res.status(500).json({
                     success: false,
-                    error: 'Failed to fetch stats'
+                    error: 'Failed to fetch stats',
+                    stats: { users: 0, groups: 0, commands: 0, uptime: 0 },
+                    status: 'offline'
                 });
             }
         });
@@ -279,17 +281,21 @@ class WebServer {
             let userCount = 0;
             let groupCount = 0;
             
-            const database = require('./connectDB');
-            if (database.getStatus().connected) {
-                userCount = await database.getUserCount();
-                groupCount = await database.getGroupCount();
+            try {
+                const database = require('./connectDB');
+                if (database.getStatus().isConnected) {
+                    userCount = await database.getUserCount();
+                    groupCount = await database.getGroupCount();
+                }
+            } catch (dbError) {
+                logError(`Database error in getStats: ${dbError.message}`);
             }
             
             return {
-                users: userCount,
-                groups: groupCount,
+                users: userCount || 0,
+                groups: groupCount || 0,
                 commands: global.commands ? global.commands.size : 0,
-                uptime,
+                uptime: uptime || 0,
                 memory: process.memoryUsage(),
                 nodeVersion: process.version,
                 platform: process.platform
