@@ -121,7 +121,7 @@ class SQLiteDB {
         // Create indexes separately
         const indexes = [
             'CREATE INDEX IF NOT EXISTS idx_messages_userId ON messages(userId)',
-            'CREATE INDEX IF NOT EXISTS idx_messages_groupId ON messages(groupId)', 
+            'CREATE INDEX IF NOT EXISTS idx_messages_groupId ON messages(groupId)',
             'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
             'CREATE INDEX IF NOT EXISTS idx_group_activities_groupId ON group_activities(groupId)',
             'CREATE INDEX IF NOT EXISTS idx_group_activities_activityType ON group_activities(activityType)',
@@ -179,8 +179,8 @@ class SQLiteDB {
     // User operations
     async saveUser(userData) {
         try {
-            const sql = `INSERT OR REPLACE INTO users 
-                (phoneNumber, name, profilePic, isAdmin, isBanned, commandCount, lastSeen) 
+            const sql = `INSERT OR REPLACE INTO users
+                (phoneNumber, name, profilePic, isAdmin, isBanned, commandCount, lastSeen)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
             await this.run(sql, [
                 userData.phoneNumber,
@@ -209,8 +209,8 @@ class SQLiteDB {
     // Group operations
     async saveGroup(groupData) {
         try {
-            const sql = `INSERT OR REPLACE INTO groups 
-                (groupId, groupName, description, adminNumbers, memberCount, customPrefix, settings, lastActivity) 
+            const sql = `INSERT OR REPLACE INTO groups
+                (groupId, groupName, description, adminNumbers, memberCount, customPrefix, settings, lastActivity)
                 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
             await this.run(sql, [
                 groupData.groupId,
@@ -300,7 +300,7 @@ class SQLiteDB {
             const now = new Date().toISOString();
             await this.run(`
                 INSERT OR REPLACE INTO users (userNumber, userName, lastSeen, messageCount, joinDate)
-                VALUES (?, ?, ?, 
+                VALUES (?, ?, ?,
                     COALESCE((SELECT messageCount FROM users WHERE userNumber = ?), 0) + 1,
                     COALESCE((SELECT joinDate FROM users WHERE userNumber = ?), ?)
                 )
@@ -315,7 +315,7 @@ class SQLiteDB {
             const now = new Date().toISOString();
             await this.run(`
                 INSERT OR REPLACE INTO groups (groupId, groupName, lastActivity, messageCount, participantCount, joinDate)
-                VALUES (?, ?, ?, 
+                VALUES (?, ?, ?,
                     COALESCE((SELECT messageCount FROM groups WHERE groupId = ?), 0) + 1,
                     ?,
                     COALESCE((SELECT joinDate FROM groups WHERE groupId = ?), ?)
@@ -332,7 +332,7 @@ class SQLiteDB {
             const { messageId, userId, groupId, messageType, messageLength, hasMedia, isForwarded, isReply } = messageData;
 
             await this.run(`
-                INSERT OR IGNORE INTO messages 
+                INSERT OR IGNORE INTO messages
                 (messageId, userId, groupId, messageType, messageLength, hasMedia, isForwarded, isReply)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `, [messageId, userId, groupId, messageType || 'text', messageLength || 0, hasMedia || 0, isForwarded || 0, isReply || 0]);
@@ -349,44 +349,50 @@ class SQLiteDB {
 
     async updateUserMessageStats(userId, hasMedia = false) {
         try {
+            // Skip if userId is undefined, null, or invalid
+            if (!userId || typeof userId !== 'string' || userId.length < 10) {
+                console.error(`updateUserMessageStats called with invalid userId: ${userId}`);
+                return false;
+            }
+
             const now = new Date();
             const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
             await this.run(`
-                INSERT OR REPLACE INTO user_stats 
+                INSERT OR REPLACE INTO user_stats
                 (userId, totalMessages, totalMediaSent, lastActivityTime, lastActivityType,
                  weeklyMessageCount, monthlyMessageCount, lastWeekReset, lastMonthReset)
-                VALUES (?, 
+                VALUES (?,
                     COALESCE((SELECT totalMessages FROM user_stats WHERE userId = ?), 0) + 1,
                     COALESCE((SELECT totalMediaSent FROM user_stats WHERE userId = ?), 0) + ?,
                     CURRENT_TIMESTAMP,
                     'message',
-                    CASE 
-                        WHEN COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
-                        THEN 1 
-                        ELSE COALESCE((SELECT weeklyMessageCount FROM user_stats WHERE userId = ?), 0) + 1 
+                    CASE
+                        WHEN COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), '1970-01-01') < ?
+                        THEN 1
+                        ELSE COALESCE((SELECT weeklyMessageCount FROM user_stats WHERE userId = ?), 0) + 1
                     END,
-                    CASE 
-                        WHEN COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
-                        THEN 1 
-                        ELSE COALESCE((SELECT monthlyMessageCount FROM user_stats WHERE userId = ?), 0) + 1 
+                    CASE
+                        WHEN COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), '1970-01-01') < ?
+                        THEN 1
+                        ELSE COALESCE((SELECT monthlyMessageCount FROM user_stats WHERE userId = ?), 0) + 1
                     END,
-                    CASE 
-                        WHEN COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
-                        THEN ? 
-                        ELSE COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), ?) 
+                    CASE
+                        WHEN COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), '1970-01-01') < ?
+                        THEN ?
+                        ELSE COALESCE((SELECT lastWeekReset FROM user_stats WHERE userId = ?), ?)
                     END,
-                    CASE 
-                        WHEN COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), '1970-01-01') < ? 
-                        THEN ? 
-                        ELSE COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), ?) 
+                    CASE
+                        WHEN COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), '1970-01-01') < ?
+                        THEN ?
+                        ELSE COALESCE((SELECT lastMonthReset FROM user_stats WHERE userId = ?), ?)
                     END
                 )
             `, [
-                userId, userId, userId, hasMedia ? 1 : 0, userId, weekStart.toISOString(), 
-                userId, userId, monthStart.toISOString(), userId, userId, weekStart.toISOString(), 
-                weekStart.toISOString(), userId, weekStart.toISOString(), userId, monthStart.toISOString(), 
+                userId, userId, userId, hasMedia ? 1 : 0, userId, weekStart.toISOString(),
+                userId, userId, monthStart.toISOString(), userId, userId, weekStart.toISOString(),
+                weekStart.toISOString(), userId, weekStart.toISOString(), userId, monthStart.toISOString(),
                 monthStart.toISOString(), userId, monthStart.toISOString()
             ]);
 
@@ -424,21 +430,21 @@ class SQLiteDB {
             const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
             const stats = await this.get(`
-                SELECT 
+                SELECT
                     COUNT(*) as totalMessages,
                     COUNT(DISTINCT userId) as activeUsers,
                     SUM(CASE WHEN hasMedia = 1 THEN 1 ELSE 0 END) as mediaMessages,
                     SUM(CASE WHEN isForwarded = 1 THEN 1 ELSE 0 END) as forwardedMessages
-                FROM messages 
+                FROM messages
                 WHERE groupId = ? AND timestamp >= ?
             `, [groupId, since]);
 
             const topUsers = await this.all(`
                 SELECT userId, COUNT(*) as messageCount
-                FROM messages 
+                FROM messages
                 WHERE groupId = ? AND timestamp >= ?
-                GROUP BY userId 
-                ORDER BY messageCount DESC 
+                GROUP BY userId
+                ORDER BY messageCount DESC
                 LIMIT 5
             `, [groupId, since]);
 
@@ -452,9 +458,9 @@ class SQLiteDB {
     async getRecentGroupActivities(groupId, limit = 10) {
         try {
             return await this.all(`
-                SELECT * FROM group_activities 
-                WHERE groupId = ? 
-                ORDER BY timestamp DESC 
+                SELECT * FROM group_activities
+                WHERE groupId = ?
+                ORDER BY timestamp DESC
                 LIMIT ?
             `, [groupId, limit]);
         } catch (error) {

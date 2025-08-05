@@ -39,7 +39,7 @@ class EventHandler {
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
                 logError(lang.get('eventHandler.error.messageListener', err.message));
-                console.error(err); 
+                console.error(err);
             }
         });
 
@@ -54,7 +54,7 @@ class EventHandler {
                     update.participants?.[0],
                     JSON.stringify({ participants: update.participants, action: update.action })
                 );
-                
+
                 await this.handleGroupUpdate(sock, update);
             } catch (error) {
                 logError(`Error handling group update: ${error.message}`);
@@ -79,8 +79,8 @@ class EventHandler {
     async handleMessage(sock, mek, store) {
         try {
 
-            mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') 
-                ? mek.message.ephemeralMessage.message 
+            mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage')
+                ? mek.message.ephemeralMessage.message
                 : mek.message;
 
 
@@ -166,7 +166,7 @@ class EventHandler {
             }
 
 
-            const isReaction = contentType === 'reactionMessage' || 
+            const isReaction = contentType === 'reactionMessage' ||
                             (mek.message[contentType]?.contextInfo?.hasOwnProperty('reactionMessage'));
 
             let reaction = null;
@@ -226,20 +226,23 @@ class EventHandler {
 
             // Update database with user/group activity
             try {
-                const db = require('../../connectDB');
+                const db = require('../../dashboard/connectDB');
                 if (db.getStatus().connected) {
                     const senderName = await getSenderName(sock, sender);
 
-                    // Update user activity
-                    await db.updateUserActivity(senderNumber, senderName);
+                    // Only update if we have a valid sender number
+                    if (senderNumber && senderNumber.length > 0) {
+                        // Update user activity
+                        await db.updateUserActivity(senderNumber, senderName);
 
-                    // Update group activity if in group
-                    if (isGroup && groupMetadata) {
-                        await db.updateGroupActivity(
-                            mek.key.remoteJid, 
-                            groupMetadata.subject, 
-                            groupMetadata.participants ? groupMetadata.participants.length : 0
-                        );
+                        // Update group activity if in group
+                        if (isGroup && groupMetadata) {
+                            await db.updateGroupActivity(
+                                mek.key.remoteJid,
+                                groupMetadata.subject,
+                                groupMetadata.participants ? groupMetadata.participants.length : 0
+                            );
+                        }
                     }
                 }
             } catch (dbError) {
@@ -248,16 +251,16 @@ class EventHandler {
             }
 
 
-            if (config.adminOnly?.enable && 
-                !config.adminOnly.adminNumbers.includes(senderNumber) && 
+            if (config.adminOnly?.enable &&
+                !config.adminOnly.adminNumbers.includes(senderNumber) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedAdminOnly'));
                 return;
             }
 
 
-            if (config.whiteListMode?.enable && 
-                !config.whiteListMode.allowedNumbers.includes(senderNumber) && 
+            if (config.whiteListMode?.enable &&
+                !config.whiteListMode.allowedNumbers.includes(senderNumber) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedWhitelist'));
                 return;
@@ -265,8 +268,8 @@ class EventHandler {
 
 
             const messageInfo = {
-                messageType, 
-                chatName, 
+                messageType,
+                chatName,
                 hasAttachment,
                 attachmentType,
                 isForwarded,
@@ -318,7 +321,7 @@ class EventHandler {
                 } else {
                     await handlerAction.handleChat({
                         sock,
-                        mek, 
+                        mek,
                         sender,
                         messageText: body,
                         messageInfo,
@@ -356,7 +359,7 @@ class EventHandler {
             }
 
             const eventData = {
-                eventType: action, 
+                eventType: action,
                 groupId: id,
                 groupName,
                 participants,
@@ -471,7 +474,7 @@ class EventHandler {
                 if (retries > 0) {
                     logInfo(lang.get('luna.system.retryingGroupMetadata', retries));
                     await new Promise(resolve => setTimeout(resolve, backoffTime));
-                    backoffTime *= 2; 
+                    backoffTime *= 2;
                 } else {
                     logError(lang.get('eventHandler.error.failedGroupMetadataRetries', maxRetries, err.message));
                     return { subject: lang.get('eventHandler.unknownGroup'), participants: [] };

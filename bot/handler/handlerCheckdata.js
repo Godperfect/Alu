@@ -1,4 +1,3 @@
-
 const { logInfo, logError, getSenderName } = require('../../utils');
 const db = require('../../dashboard/connectDB');
 const { config } = require('../../config/globals');
@@ -87,7 +86,7 @@ class DataHandler {
                 // Get group metadata from WhatsApp
                 try {
                     const groupMeta = await sock.groupMetadata(groupId);
-                    
+
                     groupData = {
                         groupId: groupId,
                         groupName: groupMeta.subject || 'Unknown Group',
@@ -131,7 +130,7 @@ class DataHandler {
     async validatePermissions(userNumber, groupId = null, requiredLevel = 0) {
         try {
             const userData = await db.getUser(userNumber);
-            
+
             if (!userData) {
                 return false;
             }
@@ -189,10 +188,38 @@ class DataHandler {
 
     async logMessage(messageInfo) {
         try {
+            // Extract userId properly from different message formats
+            let userId = null;
+
+            // Try multiple approaches to extract userId
+            if (messageInfo.key) {
+                if (messageInfo.key.participant) {
+                    // Group message - participant is the sender
+                    userId = messageInfo.key.participant.replace(/[^0-9]/g, '');
+                } else if (messageInfo.key.remoteJid && !messageInfo.key.remoteJid.endsWith('@g.us')) {
+                    // Private message - remoteJid is the sender
+                    userId = messageInfo.key.remoteJid.replace(/[^0-9]/g, '');
+                } else if (messageInfo.key.fromMe && messageInfo.key.remoteJid.endsWith('@g.us')) {
+                    // Bot's own message in group - skip logging
+                    return false;
+                }
+            }
+
+            // Fallback to sender field
+            if (!userId && messageInfo.sender) {
+                userId = messageInfo.sender.replace(/[^0-9]/g, '');
+            }
+
+            // Final validation - userId must be a valid phone number (at least 10 digits)
+            if (!userId || userId.length < 10) {
+                console.log(`Skipping message log - invalid userId: ${userId}`);
+                return false;
+            }
+
             const messageData = {
-                messageId: messageInfo.key?.id || messageInfo.id,
-                userId: messageInfo.sender || messageInfo.participant,
-                groupId: messageInfo.isGroup ? messageInfo.chat : null,
+                messageId: messageInfo.key?.id || messageInfo.id || Date.now().toString(),
+                userId: userId,
+                groupId: messageInfo.key?.remoteJid?.endsWith('@g.us') ? messageInfo.key.remoteJid : null,
                 messageType: this.getMessageType(messageInfo),
                 messageLength: this.getMessageLength(messageInfo),
                 hasMedia: this.hasMedia(messageInfo),
@@ -227,7 +254,7 @@ class DataHandler {
         if (message.stickerMessage) return 'sticker';
         if (message.locationMessage) return 'location';
         if (message.contactMessage) return 'contact';
-        
+
         return 'other';
     }
 
