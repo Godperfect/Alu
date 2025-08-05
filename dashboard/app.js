@@ -795,7 +795,7 @@ function initializeApp() {
         version: "1.0.0",
         status: "Online",
         uptime: formatUptime(process.uptime()),
-        commandsLoaded: getCommandCount(),
+        commandsLoaded: global.commands?.size || 0,
         eventsLoaded: getEventCount(),
         lastRestart: global.GoatBot?.startTime || new Date().toISOString(),
         adminUsers: await getAdminCount(),
