@@ -872,9 +872,10 @@ function formatUptime(uptime) {
 function startServer() {
   if (server) return;
   const PORT = process.env.PORT || config.dashboard?.port || 3000;
+  const HOST = process.env.HOST || '0.0.0.0';
   const appInstance = initializeApp();
-  server = appInstance.listen(PORT, () =>
-    logInfo(`📊 Dashboard available at http://localhost:${PORT}`)
+  server = appInstance.listen(PORT, HOST, () =>
+    logInfo(`📊 Dashboard available at http://${HOST}:${PORT}`)
   );
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {

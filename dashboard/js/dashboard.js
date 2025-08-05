@@ -85,34 +85,31 @@ function passwordLogin() {
 
 function requestOTP() {
     const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span>Sending OTP...';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span>Sending...';
 
-    fetch('/api/auth/request-otp', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showOTPForm();
-            startOTPTimer();
-            showAlert('OTP sent to all admins successfully!', 'success');
-        } else {
-            showAlert(data.message || 'Failed to send OTP', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('Error sending OTP. Please try again.', 'error');
-    })
-    .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Request OTP';
-    });
+        apiRequest('/api/auth/request-otp', {
+            method: 'POST'
+        })
+        .then(data => {
+            if (data.success) {
+                showOTPForm();
+                startOTPTimer();
+                showAlert('OTP sent to all admins successfully!', 'success');
+            } else {
+                showAlert(data.message || 'Failed to send OTP', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error sending OTP. Please try again.', 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Request OTP';
+        });
+    }
 }
 
 function verifyOTP() {
@@ -591,21 +588,21 @@ function loadDashboardData() {
             const el = document.getElementById(id);
             if (el) el.textContent = value;
         };
-        
+
         setText('totalUsers', users.total || 0);
         setText('totalGroups', groups.total || 0);
         setText('activeUsers', users.active || 0);
         setText('activeGroups', groups.active || 0);
         setText('botName', botInfo.name || 'Luna Bot v1');
         setText('commandsLoaded', botInfo.commandsLoaded || 0);
-        
+
         if (analytics && !analytics.error) {
             updateAnalyticsDisplay(analytics);
         }
-        
+
         const loadingEl = document.getElementById('loading');
         if (loadingEl) loadingEl.style.display = 'none';
-        
+
         // Log any individual errors without breaking the dashboard
         [users, groups, system, botInfo, analytics].forEach((data, index) => {
             if (data.error) {
