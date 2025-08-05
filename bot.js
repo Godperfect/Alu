@@ -148,9 +148,8 @@ async function startBotz() {
 
         // Start web dashboard
         try {
-            const WebServer = require('./dashboard/app');
-            const webServer = new WebServer();
-            webServer.start();
+            const { startServer } = require('./dashboard/app');
+            startServer();
             logSuccess('Bot is Successfully connected');
         } catch (error) {
             logError(`Dashboard startup failed: ${error.message}`);

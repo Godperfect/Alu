@@ -40,6 +40,11 @@ function showLoginTab(tabName) {
 // Make function globally available
 window.showLoginTab = showLoginTab;
 
+// Also ensure it's available before DOM is ready
+if (typeof showLoginTab !== 'undefined') {
+    window.showLoginTab = showLoginTab;
+}
+
 function passwordLogin() {
     const password = document.getElementById('adminPassword').value;
     if (!password) {

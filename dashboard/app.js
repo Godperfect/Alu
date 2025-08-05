@@ -6,8 +6,7 @@ const os = require("os");
 const { logInfo, logWarn, logError } = require("../utils");
 const config = require("../config.json");
 const db = require("./connectDB");
-const OTPService = require("../libs/otpService");
-const connect = require("../bot/connect");
+const OTPService = require('../libs/otpService');
 const {
   dashboardSessions,
   generateSessionId,
@@ -36,16 +35,33 @@ function initializeApp() {
   // Request OTP endpoint
   app.post("/api/auth/request-otp", async (req, res) => {
     try {
-      if (!global.GoatBot.sock || !global.GoatBot.isConnected) {
+      if (!global.sock || !global.botConnected) {
         return res
           .status(503)
           .json({ error: "Bot is not connected to WhatsApp" });
       }
 
-      const result = await OTPService.generateAndSendOTP(
-        global.GoatBot.sock,
-        config
-      );
+      const otpService = new OTPService();
+      const otp = otpService.generateOTP("dashboard_login");
+      
+      const adminIds = config.adminOnly?.adminNumbers || [];
+      const sendResults = [];
+      const message = `🔐 Dashboard Login Request\n\nOTP: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nSomeone is trying to access the dashboard. If this wasn't you, please ignore this message.`;
+
+      for (const adminId of adminIds) {
+        try {
+          await global.sock.sendMessage(adminId + "@s.whatsapp.net", { text: message });
+          sendResults.push({ id: adminId, success: true });
+        } catch (sendError) {
+          console.error(`Error sending OTP to ${adminId}:`, sendError);
+          sendResults.push({ id: adminId, success: false, error: sendError.message });
+        }
+      }
+
+      const result = {
+        expiryTime: Date.now() + 5 * 60 * 1000,
+        sendResults: sendResults
+      };
 
       res.json({
         success: true,
@@ -68,7 +84,8 @@ function initializeApp() {
         return res.status(400).json({ error: "OTP is required" });
       }
 
-      const verification = OTPService.verifyOTP("dashboard_login", otp);
+      const otpService = new OTPService();
+      const verification = otpService.verifyOTP("dashboard_login", otp);
 
       if (verification.success) {
         // Create a proper auth token for consistent authentication
@@ -126,7 +143,12 @@ function initializeApp() {
   // Get OTP status endpoint
   app.get("/api/auth/otp-status", (req, res) => {
     try {
-      const status = OTPService.getOTPStatus("dashboard_login");
+      const otpService = new OTPService();
+      const status = {
+        exists: otpService.isOTPValid("dashboard_login"),
+        timeLeft: otpService.otpStore.get("dashboard_login")?.expiry ? 
+          Math.max(0, otpService.otpStore.get("dashboard_login").expiry - Date.now()) : 0
+      };
       res.json(status);
     } catch (error) {
       console.error("Error getting OTP status:", error);
@@ -153,7 +175,7 @@ function initializeApp() {
   // Token-based authentication endpoints
   app.post("/api/auth/request-otp", async (req, res) => {
     try {
-      if (!global.GoatBot.sock || !global.GoatBot.isConnected) {
+      if (!global.sock || !global.botConnected) {
         return res.status(503).json({
           success: false,
           message: "Bot is not connected to WhatsApp",
@@ -172,7 +194,7 @@ function initializeApp() {
 
       for (const adminId of adminIds) {
         try {
-          await global.GoatBot.sock.sendMessage(adminId, { text: message });
+          await global.sock.sendMessage(adminId, { text: message });
           sendResults.push({ id: adminId, success: true });
         } catch (sendError) {
           console.error(`Error sending OTP to ${adminId}:`, sendError);
