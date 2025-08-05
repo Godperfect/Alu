@@ -309,14 +309,24 @@ function updateUptime() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     fetch('/api/system', {
         headers: {
             'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
     })
     .then(response => {
+        clearTimeout(timeoutId);
         if (!response.ok) {
+            // Don't log 502 errors as they're common during server restart
+            if (response.status !== 502) {
+                console.warn(`System API returned ${response.status}: ${response.statusText}`);
+            }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.json();
@@ -367,7 +377,13 @@ function updateUptime() {
         }
     })
     .catch(error => {
-        console.error('Error updating uptime:', error.message || error);
+        clearTimeout(timeoutId);
+        
+        // Only log errors that aren't 502 (server unavailable) or timeouts
+        if (!error.message?.includes('502') && error.name !== 'AbortError') {
+            console.error('Error updating uptime:', error.message || error);
+        }
+        
         // Stop trying to update if there's an authentication error
         if (error.message && error.message.includes('401')) {
             isAuthenticated = false;
@@ -604,7 +620,25 @@ function apiRequest(endpoint, options = {}) {
                 logout();
                 throw new Error('Unauthorized');
             }
-            return response.json();
+            if (response.status === 502) {
+                throw new Error('Server temporarily unavailable (502 Bad Gateway)');
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                throw new Error('Invalid response format - expected JSON');
+            }
+        })
+        .catch(error => {
+            // Handle network errors or JSON parsing errors
+            console.error(`API request to ${endpoint} failed:`, error);
+            throw error;
         });
 }
 
@@ -698,18 +732,43 @@ function loadDashboardData() {
 function loadBotInfo() {
     apiRequest('/api/bot/info')
         .then(data => {
-            document.getElementById('botName').textContent = data.name || 'Luna v1';
-            document.getElementById('botVersion').textContent = data.version || '1.0.0';
-            document.getElementById('botStatusText').textContent = data.status || 'Online';
-            document.getElementById('botUptime').textContent = data.uptime || '0 seconds';
-            document.getElementById('commandsLoaded').textContent = data.commandsLoaded || 0;
-            document.getElementById('eventsLoaded').textContent = data.eventsLoaded || 0;
-            document.getElementById('lastRestart').textContent = data.lastRestart || 'Never';
-            document.getElementById('adminUsers').textContent = data.adminUsers || 0;
+            // Handle empty or malformed response
+            if (!data || typeof data !== 'object') {
+                console.warn('Bot info returned empty or invalid data:', data);
+                data = {}; // Set fallback empty object
+            }
+
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+
+            setText('botInfoName', data.name || 'Luna Bot v1');
+            setText('botVersion', data.version || '1.0.0');
+            setText('botStatusText', data.status || 'Online');
+            setText('botUptime', data.uptime || '0 seconds');
+            setText('botInfoCommandsLoaded', data.commandsLoaded || 0);
+            setText('eventsLoaded', data.eventsLoaded || 0);
+            setText('lastRestart', data.lastRestart || 'Never');
+            setText('adminUsers', data.adminUsers || 0);
         })
         .catch(error => {
             console.error('Error loading bot info:', error);
-            showAlert('Error loading bot information: ' + error.message, 'error');
+            
+            // Set fallback values on error
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+
+            setText('botInfoName', 'Luna Bot v1');
+            setText('botVersion', '1.0.0');
+            setText('botStatusText', 'Error loading status');
+            setText('botUptime', 'N/A');
+            setText('botInfoCommandsLoaded', '0');
+            setText('eventsLoaded', '0');
+            setText('lastRestart', 'N/A');
+            setText('adminUsers', '0');
         });
 }
 
@@ -719,13 +778,19 @@ function loadCommands() {
             const commandsList = document.getElementById('commandsList');
             commandsList.innerHTML = '';
 
+            // Handle case where data might be empty or malformed
+            if (!data || typeof data !== 'object') {
+                commandsList.innerHTML = '<div class="text-center text-muted">Failed to load commands data</div>';
+                return;
+            }
+
             if (data.commands && data.commands.length > 0) {
                 data.commands.forEach(command => {
                     const commandItem = document.createElement('div');
                     commandItem.className = 'list-item';
                     commandItem.innerHTML = `
                         <div class="item-info">
-                            <h6>${command.name}</h6>
+                            <h6>${command.name || 'Unnamed Command'}</h6>
                             <p>${command.description || 'No description available'}</p>
                             <small class="text-muted">Usage: ${command.usage || 'N/A'}</small>
                             ${command.aliases && command.aliases.length > 0 ? `<small class="text-muted">Aliases: ${command.aliases.join(', ')}</small>` : ''}
@@ -744,7 +809,10 @@ function loadCommands() {
         })
         .catch(error => {
             console.error('Error loading commands:', error);
-            document.getElementById('commandsList').innerHTML = '<div class="error-message">Error loading commands</div>';
+            const commandsList = document.getElementById('commandsList');
+            if (commandsList) {
+                commandsList.innerHTML = '<div class="error-message">Error loading commands: ' + (error.message || 'Unknown error') + '</div>';
+            }
         });
 }
 
