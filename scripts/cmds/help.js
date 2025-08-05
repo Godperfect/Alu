@@ -65,10 +65,13 @@ module.exports = {
                 msg += `💫 *LUNA BOT V2* 💫\n`;
                 msg += `🤖 Made with ❤️`;
 
-                await sock.sendMessage(m.key.remoteJid, {
-                    image: { url: squareUrl },
-                    caption: msg
-                }, { quoted: m });
+                const chatId = m?.key?.remoteJid || messageInfo?.threadID;
+                if (chatId) {
+                    await sock.sendMessage(chatId, {
+                        image: { url: squareUrl },
+                        caption: msg
+                    }, m ? { quoted: m } : {});
+                }
 
             } else {
                 const commandName = args[0].toLowerCase();
@@ -82,10 +85,13 @@ module.exports = {
 
                     const errorMsg = `╔══════════════╗\n    *LUNA BOT V2* 🌙\n╚══════════════╝\n\n⚠️ Command "*${commandName}*" not found.\n\n_Type *${prefix}help* to see all available commands._`;
 
-                    return await sock.sendMessage(m.key.remoteJid, {
-                        image: { url: squareUrl },
-                        caption: errorMsg
-                    }, { quoted: m });
+                    const chatId = m?.key?.remoteJid || messageInfo?.threadID;
+                    if (chatId) {
+                        return await sock.sendMessage(chatId, {
+                            image: { url: squareUrl },
+                            caption: errorMsg
+                        }, m ? { quoted: m } : {});
+                    }
                 }
 
                 // Fetch waifu image for command details
@@ -103,18 +109,24 @@ module.exports = {
 
                 const response = `╔══════════════╗\n    *LUNA BOT V2* 🌙\n╚══════════════╝\n\n╭── *COMMAND INFO* ────⭓\n│ *Name:* ${command.name || commandName}\n│ *Description:* ${description}\n│ *Category:* ${category}\n│ *Aliases:* ${aliases.length > 0 ? aliases.join(", ") : "None"}\n│ *Role Required:* ${roleText}\n│ *Usage:* ${guide.replace(/{p}/g, prefix)}\n│ *OnChat:* ${hasOnChat ? "✅ Yes" : "❌ No"}\n╰━━━━━━━━━❖`;
 
-                await sock.sendMessage(m.key.remoteJid, {
-                    image: { url: squareUrl },
-                    caption: response
-                }, { quoted: m });
+                const chatId = m?.key?.remoteJid || messageInfo?.threadID;
+                if (chatId) {
+                    await sock.sendMessage(chatId, {
+                        image: { url: squareUrl },
+                        caption: response
+                    }, m ? { quoted: m } : {});
+                }
             }
         } catch (err) {
             logError(`Error in help command: ${err.message}`);
-            await sock.sendMessage(
-                m.key.remoteJid,
-                { text: "❌ An error occurred while fetching the help menu." },
-                { quoted: m }
-            );
+            const chatId = m?.key?.remoteJid || messageInfo?.threadID;
+            if (chatId) {
+                await sock.sendMessage(
+                    chatId,
+                    { text: "❌ An error occurred while fetching the help menu." },
+                    m ? { quoted: m } : {}
+                );
+            }
         }
     },
 };

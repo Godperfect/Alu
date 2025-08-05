@@ -551,23 +551,47 @@ function initializeApp() {
     try {
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), 10000)
+            setTimeout(() => reject(new Error('Request timeout')), 5000)
         );
 
         const getUsersPromise = (async () => {
             const users = await db.getAllUsers();
             const userCount = await db.getUserCount();
 
-            // Filter out invalid users
-            const validUsers = users ? users.filter(u => 
-                u.phoneNumber && /^\d{10,15}$/.test(u.phoneNumber)
-            ) : [];
+            // Filter and validate users
+            const validUsers = users ? users.filter(u => {
+                // Check if phoneNumber exists and is valid
+                if (!u.phoneNumber) return false;
+                
+                // Allow both numeric phone numbers and lid format
+                const phoneStr = String(u.phoneNumber);
+                return /^\d{10,15}$/.test(phoneStr) || phoneStr.includes('lid');
+            }).map(u => ({
+                ...u,
+                id: u.phoneNumber,
+                name: u.name || u.userName || 'Unknown',
+                exp: u.exp || 0,
+                level: u.level || 1,
+                banned: u.isBanned || false,
+                role: u.isAdmin ? 2 : 0,
+                messageCount: u.messageCount || 0,
+                lastSeen: u.lastSeen || new Date().toISOString()
+            })) : [];
 
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            
             return {
                 success: true,
-                users: validUsers,
-                total: userCount || 0,
-                active: validUsers.filter(u => new Date() - new Date(u.lastSeen) < 24 * 60 * 60 * 1000).length
+                users: validUsers.slice(0, 50), // Limit to 50 users for performance
+                total: userCount || validUsers.length,
+                active: validUsers.filter(u => {
+                    try {
+                        return new Date(u.lastSeen) > oneDayAgo;
+                    } catch {
+                        return false;
+                    }
+                }).length
             };
         })();
 
@@ -575,7 +599,7 @@ function initializeApp() {
         res.json(result);
     } catch (error) {
         console.error('Error fetching users:', error);
-        res.status(500).json({ 
+        res.json({ 
             success: false, 
             error: 'Failed to fetch users',
             users: [],
@@ -589,23 +613,40 @@ function initializeApp() {
     try {
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), 10000)
+            setTimeout(() => reject(new Error('Request timeout')), 5000)
         );
 
         const getGroupsPromise = (async () => {
             const groups = await db.getAllGroups();
             const groupCount = await db.getGroupCount();
 
-            // Filter out invalid groups
+            // Filter and validate groups
             const validGroups = groups ? groups.filter(g => 
                 g.groupId && g.groupId.endsWith('@g.us')
-            ) : [];
+            ).map(g => ({
+                ...g,
+                id: g.groupId,
+                name: g.groupName || g.name || 'Unknown Group',
+                memberCount: g.memberCount || g.participantCount || 0,
+                messageCount: g.messageCount || 0,
+                isActive: g.isActive !== false, // Default to true if not specified
+                lastActivity: g.lastActivity || new Date().toISOString()
+            })) : [];
+
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
             return {
                 success: true,
-                groups: validGroups,
-                total: groupCount || 0,
-                active: validGroups.filter(g => g.isActive).length
+                groups: validGroups.slice(0, 50), // Limit to 50 groups for performance
+                total: groupCount || validGroups.length,
+                active: validGroups.filter(g => {
+                    try {
+                        return new Date(g.lastActivity) > oneWeekAgo;
+                    } catch {
+                        return false;
+                    }
+                }).length
             };
         })();
 
@@ -613,7 +654,7 @@ function initializeApp() {
         res.json(result);
     } catch (error) {
         console.error('Error fetching groups:', error);
-        res.status(500).json({ 
+        res.json({ 
             success: false, 
             error: 'Failed to fetch groups',
             groups: [],
