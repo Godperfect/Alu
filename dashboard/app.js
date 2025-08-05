@@ -62,7 +62,7 @@ class WebServer {
                     [last24h]
                 );
 
-                const botStatus = global.botConnected ? 'online' : 'offline';
+                const botStatus = global.botConnected === true ? 'online' : 'offline';
                 const uptime = process.uptime();
 
                 res.json({
@@ -73,7 +73,8 @@ class WebServer {
                         messages24h: messageStats[0]?.count || 0,
                         botStatus: botStatus,
                         uptime: Math.floor(uptime)
-                    }
+                    },
+                    status: botStatus
                 });
             } catch (error) {
                 console.error('Stats API error:', error);

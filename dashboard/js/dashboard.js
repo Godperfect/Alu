@@ -102,7 +102,7 @@ class LunaDashboard {
             const data = await response.json();
             if (data && data.success && data.stats) {
                 this.updateStats(data);
-                this.updateStatus(data.status || 'offline');
+                this.updateStatus(data.stats.botStatus || data.status || 'offline');
             } else {
                 console.error('API returned error:', data?.error || 'Invalid response');
                 this.showNotification('Failed to load dashboard data', 'error');
@@ -562,7 +562,7 @@ function loadStats() {
         .then(data => {
             if (data.success && data.stats) {
                 updateStatsDisplay(data.stats);
-                updateBotStatus(data.status || 'offline');
+                updateBotStatus(data.stats.botStatus || data.status || 'offline');
             } else {
                 console.error('Stats API returned error:', data.error || 'Unknown error');
                 // Set default values on error
