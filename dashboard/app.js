@@ -171,6 +171,60 @@ class WebServer {
             }
         });
 
+        // Users API endpoint
+        this.app.get('/api/users', async (req, res) => {
+            try {
+                const db = require('./connectDB');
+
+                if (!db.getStatus().connected) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Database not connected'
+                    });
+                }
+
+                const users = await db.getAllUsers();
+                res.json({
+                    success: true,
+                    users: users || []
+                });
+            } catch (error) {
+                console.error('Users API error:', error);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch users',
+                    users: []
+                });
+            }
+        });
+
+        // Groups API endpoint
+        this.app.get('/api/groups', async (req, res) => {
+            try {
+                const db = require('./connectDB');
+
+                if (!db.getStatus().connected) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Database not connected'
+                    });
+                }
+
+                const groups = await db.getAllGroups();
+                res.json({
+                    success: true,
+                    groups: groups || []
+                });
+            } catch (error) {
+                console.error('Groups API error:', error);
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to fetch groups',
+                    groups: []
+                });
+            }
+        });
+
         this.app.get('/api/analytics/group/:groupId', async (req, res) => {
             try {
                 const { groupId } = req.params;

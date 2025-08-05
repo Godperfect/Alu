@@ -213,6 +213,97 @@ class LunaDashboard {
         }
     }
 
+    renderUsersTable(users) {
+        const usersTab = document.getElementById('users-tab');
+        if (!usersTab) return;
+
+        let html = `
+            <h2>Active Users (${users.length})</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User Number</th>
+                            <th>User Name</th>
+                            <th>Messages</th>
+                            <th>Last Seen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (users.length === 0) {
+            html += '<tr><td colspan="4" class="no-data">No users found</td></tr>';
+        } else {
+            users.forEach(user => {
+                const lastSeen = user.lastSeen ? new Date(user.lastSeen).toLocaleString() : 'Never';
+                const messageCount = user.commandCount || user.messageCount || 0;
+                html += `
+                    <tr>
+                        <td>${user.phoneNumber || user.userNumber || 'Unknown'}</td>
+                        <td>${user.name || user.userName || 'Unknown'}</td>
+                        <td>${messageCount}</td>
+                        <td>${lastSeen}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        usersTab.innerHTML = html;
+    }
+
+    renderGroupsTable(groups) {
+        const groupsTab = document.getElementById('groups-tab');
+        if (!groupsTab) return;
+
+        let html = `
+            <h2>Active Groups (${groups.length})</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Group Name</th>
+                            <th>Participants</th>
+                            <th>Messages</th>
+                            <th>Last Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (groups.length === 0) {
+            html += '<tr><td colspan="4" class="no-data">No groups found</td></tr>';
+        } else {
+            groups.forEach(group => {
+                const lastActivity = group.lastActivity ? new Date(group.lastActivity).toLocaleString() : 'Never';
+                const messageCount = group.messageCount || 0;
+                const participantCount = group.memberCount || group.participantCount || 0;
+                html += `
+                    <tr>
+                        <td>${group.groupName || 'Unknown Group'}</td>
+                        <td>${participantCount}</td>
+                        <td>${messageCount}</td>
+                        <td>${lastActivity}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        groupsTab.innerHTML = html;
+    }
+
     async loadCommands() {
         try {
             const response = await fetch('/api/commands');
