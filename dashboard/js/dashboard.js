@@ -344,7 +344,24 @@ function updateUptime() {
         if (data && data.memory) {
             const memoryElement = document.getElementById('memoryUsage');
             if (memoryElement && data.memory.used) {
-                const memoryUsageMB = Math.round(data.memory.used / 1024 / 1024);
+                // Handle different memory units properly
+                let memoryUsageMB = data.memory.used;
+                
+                // If the value seems to be in bytes (> 1000000), convert to MB
+                if (memoryUsageMB > 1000000) {
+                    memoryUsageMB = Math.round(memoryUsageMB / 1024 / 1024);
+                } else {
+                    memoryUsageMB = Math.round(memoryUsageMB);
+                }
+                
+                // Cap at reasonable values and handle unit conversion
+                if (memoryUsageMB > 8192) {
+                    memoryUsageMB = Math.round(memoryUsageMB / 1024);
+                    if (memoryUsageMB > 8192) {
+                        memoryUsageMB = Math.round(memoryUsageMB / 1024);
+                    }
+                }
+                
                 memoryElement.textContent = memoryUsageMB + ' MB';
             }
         }
@@ -631,7 +648,25 @@ function loadDashboardData() {
         if (system && system.memory && system.memory.used) {
             const memoryElement = document.getElementById('memoryUsage');
             if (memoryElement) {
-                const memoryUsageMB = Math.round(system.memory.used / 1024 / 1024);
+                // Handle different memory units - if value is already in MB or too large
+                let memoryUsageMB = system.memory.used;
+                
+                // If the value seems to be in bytes (> 1000000), convert to MB
+                if (memoryUsageMB > 1000000) {
+                    memoryUsageMB = Math.round(memoryUsageMB / 1024 / 1024);
+                } else {
+                    // Value might already be in MB or KB, ensure it's reasonable
+                    memoryUsageMB = Math.round(memoryUsageMB);
+                }
+                
+                // Cap at reasonable values (max 8GB = 8192MB for typical systems)
+                if (memoryUsageMB > 8192) {
+                    memoryUsageMB = Math.round(memoryUsageMB / 1024); // Try converting from KB to MB
+                    if (memoryUsageMB > 8192) {
+                        memoryUsageMB = Math.round(memoryUsageMB / 1024); // Convert from bytes if still too high
+                    }
+                }
+                
                 memoryElement.textContent = memoryUsageMB + ' MB';
             }
         }
