@@ -41,6 +41,7 @@ class SQLiteDB {
                 isAdmin BOOLEAN DEFAULT 0,
                 isBanned BOOLEAN DEFAULT 0,
                 commandCount INTEGER DEFAULT 0,
+                messageCount INTEGER DEFAULT 0,
                 lastSeen DATETIME DEFAULT CURRENT_TIMESTAMP,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
@@ -51,6 +52,7 @@ class SQLiteDB {
                 description TEXT,
                 adminNumbers TEXT,
                 memberCount INTEGER DEFAULT 0,
+                messageCount INTEGER DEFAULT 0,
                 isActive BOOLEAN DEFAULT 1,
                 customPrefix TEXT,
                 settings TEXT,
@@ -180,15 +182,16 @@ class SQLiteDB {
     async saveUser(userData) {
         try {
             const sql = `INSERT OR REPLACE INTO users
-                (phoneNumber, name, profilePic, isAdmin, isBanned, commandCount, lastSeen)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
+                (phoneNumber, name, profilePic, isAdmin, isBanned, commandCount, messageCount, lastSeen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
             await this.run(sql, [
                 userData.phoneNumber,
                 userData.name || '',
                 userData.profilePic || '',
                 userData.isAdmin || 0,
                 userData.isBanned || 0,
-                userData.commandCount || 0
+                userData.commandCount || 0,
+                userData.messageCount || 0
             ]);
             return true;
         } catch (error) {
@@ -210,14 +213,15 @@ class SQLiteDB {
     async saveGroup(groupData) {
         try {
             const sql = `INSERT OR REPLACE INTO groups
-                (groupId, groupName, description, adminNumbers, memberCount, customPrefix, settings, lastActivity)
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
+                (groupId, groupName, description, adminNumbers, memberCount, messageCount, customPrefix, settings, lastActivity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
             await this.run(sql, [
                 groupData.groupId,
                 groupData.groupName || '',
                 groupData.description || '',
                 JSON.stringify(groupData.adminNumbers || []),
                 groupData.memberCount || 0,
+                groupData.messageCount || 0,
                 groupData.customPrefix || '',
                 JSON.stringify(groupData.settings || {})
             ]);
@@ -494,18 +498,23 @@ class SQLiteDB {
 
             console.log(`[SQLite] Updating user activity for: ${phoneNumber}`);
 
-            const userData = {
-                phoneNumber: phoneNumber,
-                name: userName || 'Unknown',
-                profilePic: '',
-                isAdmin: false,
-                isBanned: false,
-                commandCount: 0
-            };
+            // Use INSERT OR IGNORE and then UPDATE to increment message count
+            await this.run(`
+                INSERT OR IGNORE INTO users (phoneNumber, name, messageCount, lastSeen)
+                VALUES (?, ?, 0, CURRENT_TIMESTAMP)
+            `, [phoneNumber, userName || 'Unknown']);
 
-            const result = await this.saveUser(userData);
-            console.log(`[SQLite] User activity update result: ${result}`);
-            return result;
+            // Update existing user with incremented message count
+            await this.run(`
+                UPDATE users 
+                SET name = COALESCE(?, name),
+                    messageCount = messageCount + 1,
+                    lastSeen = CURRENT_TIMESTAMP
+                WHERE phoneNumber = ?
+            `, [userName, phoneNumber]);
+
+            console.log(`[SQLite] User activity updated successfully`);
+            return true;
         } catch (error) {
             console.error('Error updating user activity:', error);
             return false;
@@ -521,20 +530,24 @@ class SQLiteDB {
 
             console.log(`[SQLite] Updating group activity for: ${groupId} - ${groupName}`);
 
-            const groupData = {
-                groupId: groupId,
-                groupName: groupName || 'Unknown Group',
-                description: '',
-                adminNumbers: [],
-                memberCount: participantCount || 0,
-                isActive: true,
-                customPrefix: '',
-                settings: {}
-            };
+            // Use INSERT OR IGNORE and then UPDATE to increment message count
+            await this.run(`
+                INSERT OR IGNORE INTO groups (groupId, groupName, memberCount, messageCount, lastActivity)
+                VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+            `, [groupId, groupName || 'Unknown Group', participantCount || 0]);
 
-            const result = await this.saveGroup(groupData);
-            console.log(`[SQLite] Group activity update result: ${result}`);
-            return result;
+            // Update existing group with incremented message count
+            await this.run(`
+                UPDATE groups 
+                SET groupName = COALESCE(?, groupName),
+                    memberCount = ?,
+                    messageCount = messageCount + 1,
+                    lastActivity = CURRENT_TIMESTAMP
+                WHERE groupId = ?
+            `, [groupName, participantCount || 0, groupId]);
+
+            console.log(`[SQLite] Group activity updated successfully`);
+            return true;
         } catch (error) {
             console.error('Error updating group activity:', error);
             return false;
