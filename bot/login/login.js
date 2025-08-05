@@ -85,7 +85,7 @@ const displayLunaBotTitle = () => {
 
     // Print version and credit centered
     const version = getVersion();
-    const versionText = `         Luna Bot version ${version}`;
+    const versionText = `         Luna Bot v1 (${version})`;
     const creditText = "       Created by Mr perfect with 💗";
 
     console.log(chalk.cyan(versionText));

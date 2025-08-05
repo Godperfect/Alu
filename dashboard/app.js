@@ -660,7 +660,7 @@ function initializeApp() {
       };
 
       const botInfo = {
-        name: "Goat Bot",
+        name: "Luna Bot v1",
         version: "1.0.0",
         status: "Online",
         uptime: formatUptime(process.uptime()),

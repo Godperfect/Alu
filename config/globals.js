@@ -4,7 +4,7 @@ const config = require('../config.json');
 const initializeGlobals = () => {
     global.owner = config.botSettings.ownerNumber ? [config.botSettings.ownerNumber] : [];
     global.prefix = config.botSettings.prefix || '+';
-    global.botName = config.botSettings.botName || 'Luna';
+    global.botName = config.botSettings.botName || 'Luna v1';
     global.commands = new Map();
     global.aliases = new Map();
     global.events = new Map();
