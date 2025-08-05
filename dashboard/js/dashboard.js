@@ -341,10 +341,11 @@ function updateUptime() {
             }
         }
 
-        if (data && data.memory && data.memory.used) {
+        if (data && data.memory) {
             const memoryElement = document.getElementById('memoryUsage');
-            if (memoryElement) {
-                memoryElement.textContent = Math.round(data.memory.used / 1024 / 1024) + ' MB';
+            if (memoryElement && data.memory.used) {
+                const memoryUsageMB = Math.round(data.memory.used / 1024 / 1024);
+                memoryElement.textContent = memoryUsageMB + ' MB';
             }
         }
     })
@@ -608,7 +609,7 @@ function loadDashboardData() {
     Promise.all([
         apiRequestWithTimeout('/api/users').catch(() => ({ total: 0, active: 0, users: [] })),
         apiRequestWithTimeout('/api/groups').catch(() => ({ total: 0, active: 0, groups: [] })),
-        apiRequestWithTimeout('/api/system').catch(() => ({ uptime: 0, memory: { used: 0 } })),
+        apiRequestWithTimeout('/api/system').catch(() => ({ uptime: 0, memory: { used: 0, total: 0, free: 0 } })),
         apiRequestWithTimeout('/api/bot/info').catch(() => ({ name: 'Luna Bot v1', commandsLoaded: 0 })),
         apiRequestWithTimeout('/api/analytics/overview').catch(() => ({ totalMessages: 0, commandsUsed: 0 }))
     ]).then(([users, groups, system, botInfo, analytics]) => {
@@ -625,6 +626,15 @@ function loadDashboardData() {
         setText('activeGroups', groups.active);
         setText('botName', botInfo.name);
         setText('commandsLoaded', botInfo.commandsLoaded);
+
+        // Update memory usage if available
+        if (system && system.memory && system.memory.used) {
+            const memoryElement = document.getElementById('memoryUsage');
+            if (memoryElement) {
+                const memoryUsageMB = Math.round(system.memory.used / 1024 / 1024);
+                memoryElement.textContent = memoryUsageMB + ' MB';
+            }
+        }
 
         // Analytics
         if (analytics && !analytics.error) {
