@@ -67,6 +67,19 @@ class OTPService {
     generateSecureToken() {
         return crypto.randomBytes(32).toString('hex');
     }
+
+    getOTPStatus(identifier) {
+        const otpData = this.otpStore.get(identifier);
+        if (!otpData) {
+            return { exists: false, timeLeft: 0 };
+        }
+        
+        const timeLeft = Math.max(0, otpData.expiry - Date.now());
+        return {
+            exists: timeLeft > 0,
+            timeLeft: timeLeft
+        };
+    }
 }
 
 module.exports = OTPService;

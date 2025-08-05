@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luna Bot Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Login Container -->
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h2><i class="fas fa-robot"></i> Luna Bot Dashboard</h2>
+                <p>Secure admin access</p>
+            </div>
+
+            <!-- Login Tabs -->
+            <div class="login-tabs">
+                <button class="login-tab active" onclick="showLoginTab('otp')">
+                    <i class="fas fa-mobile-alt"></i> OTP Login
+                </button>
+                <button class="login-tab" onclick="showLoginTab('password')">
+                    <i class="fas fa-key"></i> Password Login
+                </button>
+            </div>
+
+            <!-- OTP Login -->
+            <div id="otp-login" class="login-method active">
+                <div class="phone-container">
+                    <h4>Request OTP</h4>
+                    <p>Click below to send OTP to all admin numbers</p>
+                    <button id="submitBtn" class="btn btn-primary" type="button">
+                        <i class="fas fa-paper-plane"></i> Request OTP
+                    </button>
+                </div>
+
+                <div class="otp-container" style="display: none;">
+                    <h4>Enter OTP</h4>
+                    <p>Enter the 6-digit OTP sent to admin numbers</p>
+                    <div class="otp-inputs">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]">
+                    </div>
+                    <button id="verifyBtn" class="btn btn-primary" type="button">
+                        <i class="fas fa-check"></i> Verify OTP
+                    </button>
+                    <div class="otp-timer">
+                        <span id="otpTimer"></span>
+                    </div>
+                    <button id="resendOTP" class="btn btn-link" style="display: none;">
+                        <i class="fas fa-redo"></i> Resend OTP
+                    </button>
+                </div>
+            </div>
+
+            <!-- Password Login -->
+            <div id="password-login" class="login-method">
+                <h4>Password Login</h4>
+                <p>Enter your admin password to access the dashboard</p>
+                <div class="input-group">
+                    <input type="password" id="adminPassword" class="form-control" placeholder="Enter password">
+                    <button id="passwordLoginBtn" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" style="display: none;">
+        <!-- Content will be loaded dynamically -->
+        <div id="loading">Loading dashboard...</div>
+        <div id="error" style="display: none;"></div>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
