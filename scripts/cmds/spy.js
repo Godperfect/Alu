@@ -72,23 +72,57 @@ module.exports = {
 
             let spyInfo = `🕵️ *SPY REPORT* 🕵️\n`;
             spyInfo += `═══════════════════════\n\n`;
-            spyInfo += `📱 *Target:* +${targetNumber}\n\n`;
+            // Detect if target is using LID system
+            const isLidUser = targetJid.includes('@lid');
+            
+            if (isLidUser) {
+                spyInfo += `📱 *Target:* ${targetNumber} (LID User)\n`;
+                spyInfo += `🆔 *LID:* ${targetJid}\n\n`;
+            } else {
+                spyInfo += `📱 *Target:* +${targetNumber}\n\n`;
+            }
             
             let accessibleData = [];
             let restrictedData = [];
 
-            // 1. Phone Number (Always available)
-            accessibleData.push("✅ Phone Number");
+            // 1. Phone Number / LID (Always available)
+            if (isLidUser) {
+                accessibleData.push("✅ LID Number");
+            } else {
+                accessibleData.push("✅ Phone Number");
+            }
 
             // 2. Push Name / Display Name
             try {
-                const contact = await sock.onWhatsApp(targetJid);
-                if (contact && contact.length > 0) {
-                    const pushName = contact[0].notify || "Not Set";
-                    spyInfo += `👤 *Display Name:* ${pushName}\n`;
-                    accessibleData.push("✅ Display Name");
+                // For LID users in groups, try to get name from group metadata
+                if (targetJid.includes('@lid')) {
+                    const chatId = m?.key?.remoteJid;
+                    if (chatId && chatId.includes('@g.us')) {
+                        try {
+                            const groupMeta = await sock.groupMetadata(chatId);
+                            const participant = groupMeta.participants.find(p => p.id === targetJid);
+                            if (participant && participant.notify) {
+                                spyInfo += `👤 *Display Name:* ${participant.notify}\n`;
+                                accessibleData.push("✅ Display Name");
+                            } else {
+                                restrictedData.push("❌ Display Name");
+                            }
+                        } catch (err) {
+                            restrictedData.push("❌ Display Name");
+                        }
+                    } else {
+                        restrictedData.push("❌ Display Name");
+                    }
                 } else {
-                    restrictedData.push("❌ Display Name");
+                    // Regular WhatsApp number check
+                    const contact = await sock.onWhatsApp(targetJid);
+                    if (contact && contact.length > 0) {
+                        const pushName = contact[0].notify || "Not Set";
+                        spyInfo += `👤 *Display Name:* ${pushName}\n`;
+                        accessibleData.push("✅ Display Name");
+                    } else {
+                        restrictedData.push("❌ Display Name");
+                    }
                 }
             } catch (err) {
                 restrictedData.push("❌ Display Name");
@@ -198,6 +232,10 @@ module.exports = {
             spyInfo += `• Most data depends on user's privacy settings\n`;
             spyInfo += `• Business profiles reveal more information\n`;
             spyInfo += `• WhatsApp protects user privacy by default\n`;
+            if (isLidUser) {
+                spyInfo += `• LID users have enhanced privacy protection\n`;
+                spyInfo += `• Limited data available for non-contact LID users\n`;
+            }
             spyInfo += `• Some data may be cached or outdated\n\n`;
             
             spyInfo += `🤖 *Luna Bot Spy Module v1.0*\n`;
