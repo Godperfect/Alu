@@ -595,7 +595,7 @@ function initializeApp() {
             const validUsers = users ? users.filter(u => {
                 // Check if phoneNumber exists and is valid
                 if (!u.phoneNumber) return false;
-                
+
                 // Allow both numeric phone numbers and lid format
                 const phoneStr = String(u.phoneNumber);
                 return /^\d{10,15}$/.test(phoneStr) || phoneStr.includes('lid');
@@ -613,7 +613,7 @@ function initializeApp() {
 
             const now = new Date();
             const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            
+
             return {
                 success: true,
                 users: validUsers.slice(0, 50), // Limit to 50 users for performance
@@ -942,6 +942,46 @@ function initializeApp() {
   app.get("/api/auth/restart", requireAuth, (_, res) => {
     res.json({ message: "Forcing auth re-initialisation…" });
     invalidateSessionAndRestart();
+  });
+
+  // Token verification endpoint
+  app.post("/api/auth/verify", (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader ? authHeader.split(" ")[1] : req.body.token;
+
+      if (!token) {
+        return res.status(401).json({ 
+          valid: false, 
+          error: "No token provided",
+          success: false 
+        });
+      }
+
+      // Initialize authTokens if not exists
+      if (!global.GoatBot) {
+        global.GoatBot = { authTokens: new Map() };
+      }
+      if (!global.GoatBot.authTokens) {
+        global.GoatBot.authTokens = new Map();
+      }
+
+      const tokenData = global.GoatBot.authTokens.get(token);
+      const valid = tokenData && tokenData.expiryTime > Date.now();
+
+      res.json({ 
+        valid,
+        success: valid,
+        error: valid ? null : "Token expired or invalid"
+      });
+    } catch (error) {
+      console.error("Auth verify error:", error);
+      res.status(500).json({ 
+        valid: false, 
+        success: false,
+        error: "Internal server error during token verification" 
+      });
+    }
   });
 
   app.get("/", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
