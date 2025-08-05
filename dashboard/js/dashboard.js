@@ -705,7 +705,8 @@ function loadDashboardData() {
         setText('totalUsers', users.total || 0);
         setText('totalGroups', groups.total || 0);
         setText('activeUsers', users.active || 0);
-        setText('activeGroups', groups.active || 0);
+        // Note: activeGroups element doesn't exist in HTML, using totalGroups instead
+        setText('totalGroups', groups.total || 0);
         setText('botName', botInfo.name || 'Luna Bot v1');
         setText('commandsLoaded', botInfo.commandsLoaded || 0);
 
@@ -968,7 +969,30 @@ function loadUsers() {
             console.error('Error loading users:', error);
             const usersList = document.getElementById('usersList');
             if (usersList) {
-                usersList.innerHTML = '<div class="error-message">Error loading users: ' + (error.message || 'Unknown error') + '</div>';
+                usersList.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error loading users:</strong> ${error.message || 'Unable to connect to database or fetch user data'}
+                        <br><small>Please check if the database is properly connected and has user data.</small>
+                    </div>
+                `;
+            } else {
+                // Create the usersList container if it doesn't exist
+                const usersTab = document.getElementById('users-tab');
+                if (usersTab) {
+                    usersTab.innerHTML = `
+                        <div class="search-container">
+                            <input type="text" id="userSearch" class="search-input" placeholder="Search users...">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <div class="list-container" id="usersList">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Error loading users:</strong> ${error.message || 'Unable to connect to database'}
+                            </div>
+                        </div>
+                    `;
+                }
             }
         });
 }
@@ -1019,7 +1043,30 @@ function loadGroups() {
             console.error('Error loading groups:', error);
             const groupsList = document.getElementById('groupsList');
             if (groupsList) {
-                groupsList.innerHTML = '<div class="error-message">Error loading groups: ' + (error.message || 'Unknown error') + '</div>';
+                groupsList.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error loading groups:</strong> ${error.message || 'Unable to connect to database or fetch group data'}
+                        <br><small>Please check if the database is properly connected and has group data.</small>
+                    </div>
+                `;
+            } else {
+                // Create the groupsList container if it doesn't exist
+                const groupsTab = document.getElementById('groups-tab');
+                if (groupsTab) {
+                    groupsTab.innerHTML = `
+                        <div class="search-container">
+                            <input type="text" id="groupSearch" class="search-input" placeholder="Search groups...">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <div class="list-container" id="groupsList">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Error loading groups:</strong> ${error.message || 'Unable to connect to database'}
+                            </div>
+                        </div>
+                    `;
+                }
             }
         });
 }
@@ -1060,21 +1107,22 @@ function loadSystemInfo() {
             }
         })
         .catch(error => {
-            console.error('Error loading system info:', error);
+            console.error('Error loading system info:', error.message || error);
             
-            // Set fallback values on error
+            // Set fallback values on error with better error messages
             const setText = (id, value) => {
                 const element = document.getElementById(id);
                 if (element) element.textContent = value;
             };
             
-            setText('platform', 'Error');
-            setText('architecture', 'Error');
-            setText('nodeVersion', 'Error');
-            setText('memoryTotal', 'Error');
-            setText('systemMemoryUsage', 'Error');
-            setText('loadAverage', 'Error');
-            setText('freeMemory', 'Error');
+            const errorMsg = 'Unable to load';
+            setText('platform', errorMsg);
+            setText('architecture', errorMsg);
+            setText('nodeVersion', errorMsg);
+            setText('memoryTotal', errorMsg);
+            setText('systemMemoryUsage', errorMsg);
+            setText('loadAverage', errorMsg);
+            setText('freeMemory', errorMsg);
             
             if (typeof showAlert === 'function') {
                 showAlert('Error loading system information: ' + (error.message || 'Unknown error'), 'error');

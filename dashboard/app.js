@@ -999,7 +999,7 @@ function initializeApp() {
       const token = authHeader ? authHeader.split(" ")[1] : req.body.token;
 
       if (!token) {
-        return res.status(401).json({ 
+        return res.json({ 
           valid: false, 
           error: "No token provided",
           success: false 
@@ -1017,6 +1017,11 @@ function initializeApp() {
       const tokenData = global.GoatBot.authTokens.get(token);
       const valid = tokenData && tokenData.expiryTime > Date.now();
 
+      // Clean up expired tokens
+      if (tokenData && !valid) {
+        global.GoatBot.authTokens.delete(token);
+      }
+
       res.json({ 
         valid,
         success: valid,
@@ -1024,7 +1029,7 @@ function initializeApp() {
       });
     } catch (error) {
       console.error("Auth verify error:", error);
-      res.status(500).json({ 
+      res.json({ 
         valid: false, 
         success: false,
         error: "Internal server error during token verification" 
