@@ -1,6 +1,5 @@
 
-const { getPermissionLevel } = require("../../utils/permission");
-const { logError } = require("../../utils/logger");
+const { getPermissionLevel, logError } = require("../../utils");
 const { commands, aliases } = global; // Ensure global.commands and global.aliases are initialized
 
 module.exports = {

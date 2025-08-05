@@ -1,7 +1,6 @@
 const fs = require('fs');
-const { logInfo, logError, logSuccess, logWarning } = require('../../utils');
+const { logInfo, logError, logSuccess, logWarning, hasPermission, getPermissionLevel } = require('../../utils');
 const { config } = require('../../config/globals');
-const { hasPermission, getPermissionLevel } = require('../../utils/permission');
 const languageManager = require('../../language/language');
 const dataHandler = require('./handlerCheckdata');
 const lang =languageManager.initialize(config);
