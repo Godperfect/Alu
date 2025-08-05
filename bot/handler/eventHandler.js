@@ -229,20 +229,28 @@ class EventHandler {
                 const db = require('../../dashboard/connectDB');
                 if (db.getStatus().connected) {
                     const senderName = await getSenderName(sock, sender);
+                    
+                    // Extract phone number properly (remove @s.whatsapp.net)
+                    const cleanSenderNumber = sender.replace('@s.whatsapp.net', '');
 
                     // Only update if we have a valid sender number
-                    if (senderNumber && senderNumber.length > 0) {
+                    if (cleanSenderNumber && cleanSenderNumber.length >= 10) {
+                        console.log(`[INFO] Updating user activity for: ${cleanSenderNumber}`);
+                        
                         // Update user activity
-                        await db.updateUserActivity(senderNumber, senderName);
+                        await db.updateUserActivity(cleanSenderNumber, senderName);
 
                         // Update group activity if in group
                         if (isGroup && groupMetadata) {
+                            console.log(`[INFO] Updating group activity for: ${groupMetadata.subject}`);
                             await db.updateGroupActivity(
                                 mek.key.remoteJid,
                                 groupMetadata.subject,
                                 groupMetadata.participants ? groupMetadata.participants.length : 0
                             );
                         }
+                    } else {
+                        console.log(`[WARN] Invalid sender number: ${cleanSenderNumber}`);
                     }
                 }
             } catch (dbError) {

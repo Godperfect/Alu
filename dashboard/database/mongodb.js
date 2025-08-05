@@ -270,8 +270,11 @@ class MongoDB {
     async updateUserActivity(phoneNumber, userName = null) {
         try {
             if (!phoneNumber || phoneNumber.length < 10) {
+                console.error(`Invalid phone number in updateUserActivity: ${phoneNumber}`);
                 return false;
             }
+
+            console.log(`[MongoDB] Updating user activity for: ${phoneNumber}`);
 
             const userData = {
                 phoneNumber: phoneNumber,
@@ -282,7 +285,9 @@ class MongoDB {
                 commandCount: 0
             };
 
-            return await this.saveUser(userData);
+            const result = await this.saveUser(userData);
+            console.log(`[MongoDB] User activity update result: ${result}`);
+            return result;
         } catch (error) {
             logError(`Failed to update user activity: ${error.message}`);
             return false;
@@ -292,21 +297,26 @@ class MongoDB {
     async updateGroupActivity(groupId, groupName = null, participantCount = 0) {
         try {
             if (!groupId) {
+                console.error('Invalid group ID in updateGroupActivity');
                 return false;
             }
+
+            console.log(`[MongoDB] Updating group activity for: ${groupId} - ${groupName}`);
 
             const groupData = {
                 groupId: groupId,
                 groupName: groupName || 'Unknown Group',
                 description: '',
                 adminNumbers: [],
-                memberCount: participantCount,
+                memberCount: participantCount || 0,
                 isActive: true,
                 customPrefix: '',
                 settings: {}
             };
 
-            return await this.saveGroup(groupData);
+            const result = await this.saveGroup(groupData);
+            console.log(`[MongoDB] Group activity update result: ${result}`);
+            return result;
         } catch (error) {
             logError(`Failed to update group activity: ${error.message}`);
             return false;
