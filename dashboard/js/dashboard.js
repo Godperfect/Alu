@@ -768,12 +768,18 @@ function loadBotInfo() {
 
             setText('botInfoName', data.name || 'Luna Bot v1');
             setText('botVersion', data.version || '1.0.0');
-            setText('botStatusText', data.status || 'Online');
+            setText('botStatusText', data.status || 'Offline');
             setText('botUptime', data.uptime || '0 seconds');
             setText('botInfoCommandsLoaded', data.commandsLoaded || 0);
             setText('eventsLoaded', data.eventsLoaded || 0);
             setText('lastRestart', data.lastRestart || 'Never');
             setText('adminUsers', data.adminUsers || 0);
+            setText('botPrefix', data.prefix || '+');
+            setText('botLanguage', data.language || 'en');
+            setText('botTimeZone', data.timeZone || 'UTC');
+            setText('botPhoneNumber', data.phoneNumber || 'Not configured');
+            setText('botDatabase', data.database || 'sqlite');
+            setText('botAutoRestart', data.autoRestart ? 'Enabled' : 'Disabled');
         })
         .catch(error => {
             console.error('Error loading bot info:', error);
