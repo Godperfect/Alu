@@ -813,7 +813,6 @@ function initializeApp() {
       console.error('Error fetching bot info:', error);
       res.status(500).json({ error: error.message });
     }
-    }
   });
 
   app.get("/api/analytics", requireAuth, async (req, res) => {
