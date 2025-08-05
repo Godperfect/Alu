@@ -107,6 +107,7 @@ async function startBotz() {
 
                 // Load commands and events after successful connection
                 setTimeout(() => {
+                    console.log('─────────────────────────────────────────');
                     commandManager.loadCommands();
                     eventManager.loadEvents();
                 }, 100);
@@ -116,6 +117,7 @@ async function startBotz() {
         await authenticateSession(ptz);
 
         // Step 3: Database connection (after authentication)
+        console.log('─────────────────────────────────────────');
         logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
         const dbConnected = await db.connect();
 
@@ -149,7 +151,6 @@ async function startBotz() {
             const webServer = new WebServer();
             webServer.start();
             logSuccess('Bot is Successfully connected');
-            console.log('─────────────────────────────────────────');
         } catch (error) {
             logError(`Dashboard startup failed: ${error.message}`);
         }
