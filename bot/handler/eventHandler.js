@@ -229,36 +229,33 @@ class EventHandler {
                 const db = require('../../dashboard/connectDB');
                 if (db.getStatus().connected) {
                     const senderName = await getSenderName(sock, sender);
-                    
-                    // Extract phone number properly - only process valid WhatsApp user numbers
-                    let cleanSenderNumber = null;
-                    
-                    if (sender.endsWith('@s.whatsapp.net')) {
-                        cleanSenderNumber = sender.replace('@s.whatsapp.net', '');
-                        // Validate it's a proper phone number (digits only, at least 10 characters)
-                        if (!/^\d{10,15}$/.test(cleanSenderNumber)) {
-                            cleanSenderNumber = null;
-                        }
+
+                    // Extract phone number for database operations
+                    const phoneNumber = extractPhoneNumber(sender);
+                    if (!phoneNumber || phoneNumber.length < 10) {
+                        console.log('Skipping message log - invalid or short userId:', phoneNumber);
+                        return;
                     }
 
-                    // Only update if we have a valid sender number
-                    if (cleanSenderNumber) {
-                        console.log(`[INFO] Updating user activity for: ${cleanSenderNumber}`);
-                        
-                        // Update user activity
-                        await db.updateUserActivity(cleanSenderNumber, senderName);
+                    // Additional validation for phone numbers
+                    if (!/^\d{10,15}$/.test(phoneNumber)) {
+                        console.log('Skipping message log - invalid phone number format:', phoneNumber);
+                        return;
+                    }
 
-                        // Update group activity if in group
-                        if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
-                            console.log(`[INFO] Updating group activity for: ${groupMetadata.subject}`);
-                            await db.updateGroupActivity(
-                                mek.key.remoteJid,
-                                groupMetadata.subject,
-                                groupMetadata.participants ? groupMetadata.participants.length : 0
-                            );
-                        }
-                    } else {
-                        console.log(`[WARN] Invalid sender - not a WhatsApp user: ${sender}`);
+                    console.log(`[INFO] Updating user activity for: ${phoneNumber}`);
+
+                    // Update user activity
+                    await db.updateUserActivity(phoneNumber, senderName);
+
+                    // Update group activity if in group
+                    if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
+                        console.log(`[INFO] Updating group activity for: ${groupMetadata.subject}`);
+                        await db.updateGroupActivity(
+                            mek.key.remoteJid,
+                            groupMetadata.subject,
+                            groupMetadata.participants ? groupMetadata.participants.length : 0
+                        );
                     }
                 }
             } catch (dbError) {
@@ -499,6 +496,19 @@ class EventHandler {
         }
     }
 }
+
+// Helper function to extract phone number from sender JID
+function extractPhoneNumber(senderJid) {
+    if (senderJid && senderJid.endsWith('@s.whatsapp.net')) {
+        const phoneNumber = senderJid.replace('@s.whatsapp.net', '');
+        // Basic check for digits only
+        if (/^\d+$/.test(phoneNumber)) {
+            return phoneNumber;
+        }
+    }
+    return null;
+}
+
 
 const eventHandler = new EventHandler();
 module.exports = eventHandler;
