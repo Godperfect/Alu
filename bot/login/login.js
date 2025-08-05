@@ -8,10 +8,10 @@ const axios = require('axios');
 
 let logInfo, logSuccess, logError;
 try {
-    const logger = require('../../../utils/logger');
-    logInfo = logger.logInfo;
-    logSuccess = logger.logSuccess;
-    logError = logger.logError;
+    const utils = require('../../utils');
+    logInfo = utils.logInfo;
+    logSuccess = utils.logSuccess;
+    logError = utils.logError;
 } catch (error) { 
     logInfo = (msg) => console.log(chalk.blue(`[INFO] ${msg}`)); 
     logSuccess = (msg) => console.log(chalk.green(`[SUCCESS] ${msg}`));
@@ -100,6 +100,14 @@ const displayLunaBotTitle = () => {
 
 // Ensure auth directory exists
 const ensureAuthDirectory = () => {
+    const sessionPath = config.whatsappAccount?.sessionPath || 'session';
+    const authFilePath = config.whatsappAccount?.authFilePath || './session';
+    
+    if (!fs.existsSync(authFilePath)) {
+        fs.mkdirSync(authFilePath, { recursive: true });
+    }
+    
+    // Also ensure the old auth directory exists for compatibility
     const authDir = './auth';
     const sessionDir = './auth/session';
     if (!fs.existsSync(authDir)) {
@@ -157,7 +165,10 @@ const getAuthState = async () => {
         const line = displayLunaBotTitle();
 
         ensureAuthDirectory();
-        const { state, saveCreds } = await useMultiFileAuthState('./auth/session');
+        
+        // Use session path from config
+        const sessionPath = config.whatsappAccount?.authFilePath || './session';
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
         return { state, saveCreds, line };
     } catch (err) {
         logError(`Error getting auth state: ${err.message}`);
