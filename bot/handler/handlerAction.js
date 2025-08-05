@@ -40,44 +40,50 @@ const handlerAction = {
 
 
             if (typeof cmd.run === 'function') {
-                // Improved user number extraction for channels and communities
+                // Extract user number using correct method for groups
                 let userNumber = '';
                 if (sender && typeof sender === 'string') {
-                    // Handle different ID formats
-                    if (sender.includes('@lid')) {
-                        // LinkedIn ID format
-                        userNumber = sender.replace(/[^0-9]/g, '');
-                    } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
-                        // Standard WhatsApp format
-                        userNumber = sender.split('@')[0];
+                    if (isGroup) {
+                        // For group messages, sender is already the participant JID
+                        const senderJid = sender; // This should be 'XXXXXXXXXXXX@s.whatsapp.net'
+                        userNumber = senderJid.split('@')[0]; // Extract 'XXXXXXXXXXXX'
                     } else {
-                        // Other formats
-                        userNumber = sender.replace(/[^0-9]/g, '');
-                    }
-                    
-                    // For channels, if we can't extract a valid number, check other sources
-                    if (isChannel && (!userNumber || userNumber.length < 8)) {
-                        // Try to get from push name or context
-                        const altSender = mek.pushName || mek.message?.contextInfo?.participant;
-                        if (altSender) {
-                            userNumber = altSender.replace(/[^0-9]/g, '');
+                        // Handle different ID formats for private messages
+                        if (sender.includes('@lid')) {
+                            // LinkedIn ID format
+                            userNumber = sender.replace(/[^0-9]/g, '');
+                        } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
+                            // Standard WhatsApp format
+                            userNumber = sender.split('@')[0];
+                        } else {
+                            // Other formats
+                            userNumber = sender.replace(/[^0-9]/g, '');
                         }
                         
-                        // For channels, we might use a generic identifier
-                        if (!userNumber || userNumber.length < 8) {
-                            userNumber = 'channel_user_' + Math.random().toString(36).substr(2, 9);
-                            logWarning(`Channel message from unidentified user in ${messageInfo.chatName}, using temp ID: ${userNumber}`);
+                        // For channels, if we can't extract a valid number, check other sources
+                        if (isChannel && (!userNumber || userNumber.length < 8)) {
+                            // Try to get from push name or context
+                            const altSender = mek.pushName || mek.message?.contextInfo?.participant;
+                            if (altSender) {
+                                userNumber = altSender.replace(/[^0-9]/g, '');
+                            }
+                            
+                            // For channels, we might use a generic identifier
+                            if (!userNumber || userNumber.length < 8) {
+                                userNumber = 'channel_user_' + Math.random().toString(36).substr(2, 9);
+                                logWarning(`Channel message from unidentified user in ${messageInfo.chatName}, using temp ID: ${userNumber}`);
+                            }
                         }
-                    }
-                    
-                    // Validate phone number format (more lenient for channels)
-                    if (!userNumber || (userNumber.length < 8 && !userNumber.startsWith('channel_user_'))) {
-                        if (isChannel || isCommunity) {
-                            // For channels/communities, use a fallback identifier
-                            userNumber = 'community_user_' + Date.now();
-                            logWarning(`Using fallback identifier for channel/community user: ${userNumber}`);
-                        } else {
-                            userNumber = '';
+                        
+                        // Validate phone number format (more lenient for channels)
+                        if (!userNumber || (userNumber.length < 8 && !userNumber.startsWith('channel_user_'))) {
+                            if (isChannel || isCommunity) {
+                                // For channels/communities, use a fallback identifier
+                                userNumber = 'community_user_' + Date.now();
+                                logWarning(`Using fallback identifier for channel/community user: ${userNumber}`);
+                            } else {
+                                userNumber = '';
+                            }
                         }
                     }
                 } else {
@@ -166,25 +172,32 @@ const handlerAction = {
 
     handleChat: async function({ sock, mek, sender, messageText, messageInfo, isGroup }) {
         try {
-            // Extract user number with improved handling for different formats
+            // Extract user number with proper group handling
             let userNumber = '';
             if (sender && typeof sender === 'string') {
-                if (sender.includes('@lid')) {
-                    // Handle @lid format (WhatsApp Web users)
-                    userNumber = sender.replace('@lid', '');
-                } else if (sender.includes('@s.whatsapp.net')) {
-                    userNumber = sender.replace('@s.whatsapp.net', '');
-                } else if (sender.includes('@c.us')) {
-                    userNumber = sender.replace('@c.us', '');
-                } else if (sender.includes('@')) {
-                    // Generic @ format handling
-                    userNumber = sender.split('@')[0];
+                if (isGroup) {
+                    // For group messages, sender is the participant JID
+                    const senderJid = sender; // 'XXXXXXXXXXXX@s.whatsapp.net'
+                    userNumber = senderJid.split('@')[0]; // 'XXXXXXXXXXXX'
                 } else {
-                    userNumber = sender.replace(/[^0-9]/g, '');
+                    // For private messages, handle different formats
+                    if (sender.includes('@lid')) {
+                        // Handle @lid format (WhatsApp Web users)
+                        userNumber = sender.replace('@lid', '');
+                    } else if (sender.includes('@s.whatsapp.net')) {
+                        userNumber = sender.replace('@s.whatsapp.net', '');
+                    } else if (sender.includes('@c.us')) {
+                        userNumber = sender.replace('@c.us', '');
+                    } else if (sender.includes('@')) {
+                        // Generic @ format handling
+                        userNumber = sender.split('@')[0];
+                    } else {
+                        userNumber = sender.replace(/[^0-9]/g, '');
+                    }
+                    
+                    // Clean any remaining non-numeric characters
+                    userNumber = userNumber.replace(/[^0-9]/g, '');
                 }
-                
-                // Clean any remaining non-numeric characters
-                userNumber = userNumber.replace(/[^0-9]/g, '');
             }
             
             const threadID = mek.key.remoteJid;
