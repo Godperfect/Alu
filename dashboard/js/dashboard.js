@@ -580,28 +580,39 @@ function apiRequest(endpoint, options = {}) {
 
 function loadDashboardData() {
     Promise.all([
-        apiRequest('/api/users'),
-        apiRequest('/api/groups'),
-        apiRequest('/api/system'),
-        apiRequest('/api/bot/info'),
-        apiRequest('/api/analytics/overview')
+        apiRequest('/api/users').catch(err => ({ total: 0, active: 0, error: err.message })),
+        apiRequest('/api/groups').catch(err => ({ total: 0, active: 0, error: err.message })),
+        apiRequest('/api/system').catch(err => ({ error: err.message })),
+        apiRequest('/api/bot/info').catch(err => ({ name: 'Luna Bot v1', commandsLoaded: 0, error: err.message })),
+        apiRequest('/api/analytics/overview').catch(err => ({ totalMessages: 0, commandsUsed: 0, error: err.message }))
     ]).then(([users, groups, system, botInfo, analytics]) => {
-        // Update stats
+        // Update stats with error handling
         const setText = (id, value) => {
             const el = document.getElementById(id);
             if (el) el.textContent = value;
         };
+        
         setText('totalUsers', users.total || 0);
         setText('totalGroups', groups.total || 0);
         setText('activeUsers', users.active || 0);
         setText('activeGroups', groups.active || 0);
-        setText('botName', botInfo.name || 'Goat Bot');
+        setText('botName', botInfo.name || 'Luna Bot v1');
         setText('commandsLoaded', botInfo.commandsLoaded || 0);
-        if (analytics) {
+        
+        if (analytics && !analytics.error) {
             updateAnalyticsDisplay(analytics);
         }
+        
         const loadingEl = document.getElementById('loading');
         if (loadingEl) loadingEl.style.display = 'none';
+        
+        // Log any individual errors without breaking the dashboard
+        [users, groups, system, botInfo, analytics].forEach((data, index) => {
+            if (data.error) {
+                const endpoints = ['/api/users', '/api/groups', '/api/system', '/api/bot/info', '/api/analytics/overview'];
+                console.warn(`Warning: ${endpoints[index]} returned error:`, data.error);
+            }
+        });
     }).catch(error => {
         console.error('Error loading dashboard:', error);
         const errorEl = document.getElementById('error');
