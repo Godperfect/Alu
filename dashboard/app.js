@@ -745,6 +745,10 @@ function initializeApp() {
 
   app.get("/api/bot/info", requireAuth, async (req, res) => {
     try {
+      // Read package.json for real version and name info
+      const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+      const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
+      
       const formatUptime = (seconds) => {
         const days = Math.floor(seconds / (24 * 3600));
         const hours = Math.floor((seconds % (24 * 3600)) / 3600);
@@ -754,6 +758,54 @@ function initializeApp() {
         if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
         if (minutes > 0) return `${minutes}m ${secs}s`;
         return `${secs}s`;
+      };
+
+      const getCommandCount = () => {
+        try {
+          const commandFiles = fs
+            .readdirSync(path.join(__dirname, '..', 'scripts', 'cmds'))
+            .filter((f) => f.endsWith('.js'));
+          return commandFiles.length;
+        } catch (error) {
+          return 0;
+        }
+      };
+
+      const getEventCount = () => {
+        try {
+          const eventFiles = fs
+            .readdirSync(path.join(__dirname, '..', 'scripts', 'events'))
+            .filter((f) => f.endsWith('.js'));
+          return eventFiles.length;
+        } catch (error) {
+          return 0;
+        }
+      };
+
+      const getAdminCount = async () => {
+        try {
+          const adminNumbers = config.adminOnly?.adminNumbers || [];
+          return adminNumbers.length;
+        } catch (error) {
+          return 0;
+        }
+      };
+
+      const botInfo = {
+        name: config.botSettings?.botName || packageJson.name || 'Luna Bot v1',
+        version: packageJson.version || '1.0.0',
+        status: global.botConnected ? 'Online' : 'Offline',
+        uptime: formatUptime(process.uptime()),
+        commandsLoaded: getCommandCount(),
+        eventsLoaded: getEventCount(),
+        lastRestart: new Date(global.GoatBot?.startTime || Date.now()).toLocaleString(),
+        adminUsers: await getAdminCount(),
+        prefix: config.botSettings?.prefix || '+',
+        language: config.botSettings?.language || 'en',
+        timeZone: config.botSettings?.timeZone || 'UTC',
+        phoneNumber: config.whatsappAccount?.phoneNumber || 'Not configured',
+        database: config.database?.type || 'sqlite',
+        autoRestart: config.autoRestart?.enable || falseecs}s`;
       };
 
       const getCommandCount = () => {
@@ -802,8 +854,10 @@ function initializeApp() {
       };
       res.json(botInfo);
     } catch (error) {
-      logError("Error fetching bot info:", error);
+      console.error("Error fetching bot info:", error);
       res.status(500).json({ error: error.message });
+    }
+  }); });
     }
   });
 
