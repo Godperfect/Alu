@@ -1,4 +1,3 @@
-
 const { logError } = require("../../utils");
 
 module.exports = {
@@ -31,20 +30,20 @@ module.exports = {
             // Check if phone number provided as argument or mention
             else if (args.length > 0) {
                 let phoneNumber = args[0];
-                
+
                 // Handle WhatsApp mentions (e.g., @77210878738630)
                 if (phoneNumber.startsWith('@')) {
                     phoneNumber = phoneNumber.substring(1);
                 }
-                
+
                 // Remove all non-numeric characters
                 phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-                
+
                 // Add country code if missing (assuming India +91 as default)
                 if (phoneNumber.length === 10) {
                     phoneNumber = '91' + phoneNumber;
                 }
-                
+
                 targetJid = phoneNumber + '@s.whatsapp.net';
                 targetNumber = phoneNumber;
             }
@@ -64,7 +63,7 @@ module.exports = {
             }
 
             const chatId = m?.key?.remoteJid;
-            
+
             // Send loading message
             await sock.sendMessage(chatId, {
                 text: "🔍 *Gathering intelligence...*\n\n⏳ Please wait while I collect available information..."
@@ -74,14 +73,14 @@ module.exports = {
             spyInfo += `═══════════════════════\n\n`;
             // Detect if target is using LID system
             const isLidUser = targetJid.includes('@lid');
-            
+
             if (isLidUser) {
                 spyInfo += `📱 *Target:* ${targetNumber} (LID User)\n`;
                 spyInfo += `🆔 *LID:* ${targetJid}\n\n`;
             } else {
                 spyInfo += `📱 *Target:* +${targetNumber}\n\n`;
             }
-            
+
             let accessibleData = [];
             let restrictedData = [];
 
@@ -130,7 +129,7 @@ module.exports = {
                         console.log('Contact check error:', err.message);
                     }
                 }
-                
+
                 if (!displayName) {
                     restrictedData.push("❌ Display Name");
                 }
@@ -169,7 +168,7 @@ module.exports = {
                         console.log('Profile picture error:', err2.message);
                     }
                 }
-                
+
                 if (profilePicUrl) {
                     spyInfo += `🖼️ *Profile Picture:* Available ✅\n`;
                     accessibleData.push("✅ Profile Picture");
@@ -197,33 +196,33 @@ module.exports = {
                     hasBusiness = true;
                     spyInfo += `\n🏢 *BUSINESS PROFILE DETECTED*\n`;
                     spyInfo += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
-                    
+
                     if (businessProfile.business_name || businessProfile.name) {
                         const businessName = businessProfile.business_name || businessProfile.name;
                         spyInfo += `🏪 *Business Name:* ${businessName}\n`;
                         accessibleData.push("✅ Business Name");
                     }
-                    
+
                     if (businessProfile.description) {
                         spyInfo += `📋 *Description:* ${businessProfile.description}\n`;
                         accessibleData.push("✅ Business Description");
                     }
-                    
+
                     if (businessProfile.website && businessProfile.website.length > 0) {
                         spyInfo += `🌐 *Website:* ${businessProfile.website[0]}\n`;
                         accessibleData.push("✅ Business Website");
                     }
-                    
+
                     if (businessProfile.email) {
                         spyInfo += `📧 *Email:* ${businessProfile.email}\n`;
                         accessibleData.push("✅ Business Email");
                     }
-                    
+
                     if (businessProfile.address) {
                         spyInfo += `📍 *Address:* ${businessProfile.address}\n`;
                         accessibleData.push("✅ Business Address");
                     }
-                    
+
                     if (businessProfile.category) {
                         spyInfo += `🏷️ *Category:* ${businessProfile.category}\n`;
                         accessibleData.push("✅ Business Category");
@@ -259,9 +258,9 @@ module.exports = {
             // Summary section
             spyInfo += `\n🔍 *INTELLIGENCE SUMMARY*\n`;
             spyInfo += `═══════════════════════\n\n`;
-            
+
             spyInfo += `📊 *Data Accessibility Report:*\n\n`;
-            
+
             if (accessibleData.length > 0) {
                 spyInfo += `✅ *ACCESSIBLE DATA (${accessibleData.length}):*\n`;
                 accessibleData.forEach(item => {
@@ -269,7 +268,7 @@ module.exports = {
                 });
                 spyInfo += `\n`;
             }
-            
+
             spyInfo += `❌ *RESTRICTED/UNAVAILABLE (${restrictedData.length}):*\n`;
             restrictedData.forEach(item => {
                 spyInfo += `   ${item}\n`;
@@ -280,11 +279,13 @@ module.exports = {
             spyInfo += `• Business profiles reveal more information\n`;
             spyInfo += `• WhatsApp protects user privacy by default\n`;
             if (isLidUser) {
+                spyInfo += `• LID = Linked Device identifier for multi-device users\n`;
                 spyInfo += `• LID users have enhanced privacy protection\n`;
                 spyInfo += `• Limited data available for non-contact LID users\n`;
+                spyInfo += `• Profile pics may not be accessible via LID\n`;
             }
             spyInfo += `• Some data may be cached or outdated\n\n`;
-            
+
             spyInfo += `🤖 *Luna Bot Spy Module v1.0*\n`;
             spyInfo += `⚡ *Report generated in real-time*`;
 
