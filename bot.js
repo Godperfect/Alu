@@ -50,6 +50,22 @@ let isLoggedIn = false;
 // Initialize bot status global
 global.botConnected = false;
 
+// Initialize global GoatBot object for dashboard
+global.GoatBot = {
+    stats: {
+        totalMessages: 0,
+        messagesToday: 0,
+        commandsUsed: 0,
+        commandsExecuted: 0,
+        errors: 0,
+        successRate: 100,
+        topCommands: [],
+        daily: 0
+    },
+    startTime: Date.now(),
+    authTokens: new Map()
+};
+
 async function startBotz() {
     try {
         // Initialize globals first

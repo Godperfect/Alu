@@ -46,8 +46,28 @@ class SQLiteDB {
     }
 
     async initializeTables() {
+        // Drop existing tables to clean up any inconsistencies
+        const dropTables = [
+            'DROP TABLE IF EXISTS users',
+            'DROP TABLE IF EXISTS groups', 
+            'DROP TABLE IF EXISTS commandLogs',
+            'DROP TABLE IF EXISTS botSettings',
+            'DROP TABLE IF EXISTS cooldowns',
+            'DROP TABLE IF EXISTS messages',
+            'DROP TABLE IF EXISTS group_activities',
+            'DROP TABLE IF EXISTS user_stats'
+        ];
+
+        for (const dropTable of dropTables) {
+            try {
+                await this.run(dropTable);
+            } catch (error) {
+                // Ignore errors
+            }
+        }
+
         const tables = [
-            `CREATE TABLE IF NOT EXISTS users (
+            `CREATE TABLE users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 phoneNumber TEXT UNIQUE NOT NULL,
                 name TEXT,
@@ -59,7 +79,7 @@ class SQLiteDB {
                 lastSeen DATETIME DEFAULT CURRENT_TIMESTAMP,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
-            `CREATE TABLE IF NOT EXISTS groups (
+            `CREATE TABLE groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 groupId TEXT UNIQUE NOT NULL,
                 groupName TEXT,
@@ -73,7 +93,7 @@ class SQLiteDB {
                 lastActivity DATETIME DEFAULT CURRENT_TIMESTAMP,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
-            `CREATE TABLE IF NOT EXISTS commandLogs (
+            `CREATE TABLE commandLogs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 commandName TEXT NOT NULL,
                 userId TEXT NOT NULL,
@@ -82,20 +102,20 @@ class SQLiteDB {
                 executionTime INTEGER,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
-            `CREATE TABLE IF NOT EXISTS botSettings (
+            `CREATE TABLE botSettings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 key TEXT UNIQUE NOT NULL,
                 value TEXT,
                 updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
-            `CREATE TABLE IF NOT EXISTS cooldowns (
+            `CREATE TABLE cooldowns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 userId TEXT NOT NULL,
                 commandName TEXT NOT NULL,
                 expiresAt DATETIME NOT NULL,
                 UNIQUE(userId, commandName)
             )`,
-            `CREATE TABLE IF NOT EXISTS messages (
+            `CREATE TABLE messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 messageId TEXT UNIQUE NOT NULL,
                 userId TEXT NOT NULL,
@@ -107,7 +127,7 @@ class SQLiteDB {
                 isReply BOOLEAN DEFAULT 0,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
-            `CREATE TABLE IF NOT EXISTS group_activities (
+            `CREATE TABLE group_activities (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 groupId TEXT NOT NULL,
                 activityType TEXT NOT NULL,
@@ -115,7 +135,7 @@ class SQLiteDB {
                 details TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
-            `CREATE TABLE IF NOT EXISTS user_stats (
+            `CREATE TABLE user_stats (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 userId TEXT UNIQUE NOT NULL,
                 totalMessages INTEGER DEFAULT 0,
@@ -133,10 +153,6 @@ class SQLiteDB {
         for (const table of tables) {
             await this.run(table);
         }
-
-        // Add missing columns if they don't exist
-        await this.addColumnIfNotExists('users', 'messageCount', 'INTEGER DEFAULT 0');
-        await this.addColumnIfNotExists('groups', 'messageCount', 'INTEGER DEFAULT 0');
 
         // Create indexes separately
         const indexes = [
