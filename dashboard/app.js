@@ -805,59 +805,14 @@ function initializeApp() {
         timeZone: config.botSettings?.timeZone || 'UTC',
         phoneNumber: config.whatsappAccount?.phoneNumber || 'Not configured',
         database: config.database?.type || 'sqlite',
-        autoRestart: config.autoRestart?.enable || falseecs}s`;
+        autoRestart: config.autoRestart?.enable || false
       };
 
-      const getCommandCount = () => {
-        try {
-          const commandFiles = fs
-            .readdirSync(path.join("plugins", "commands"))
-            .filter((f) => f.endsWith(".js"));
-          return commandFiles.length;
-        } catch (error) {
-          return 0;
-        }
-      };
-
-      const getEventCount = () => {
-        try {
-          const eventFiles = fs
-            .readdirSync(path.join("plugins", "events"))
-            .filter((f) => f.endsWith(".js"));
-          return eventFiles.length;
-        } catch (error) {
-          return 0;
-        }
-      };
-
-      const getAdminCount = async () => {
-        try {
-          const users = await db.getAllUsers();
-          const userArray = Array.isArray(users)
-            ? users
-            : Object.values(users || {});
-          return userArray.filter((user) => user && user.role >= 2).length;
-        } catch (error) {
-          return 0;
-        }
-      };
-
-      const botInfo = {
-        name: "Luna Bot v1",
-        version: "1.0.0",
-        status: "Online",
-        uptime: formatUptime(process.uptime()),
-        commandsLoaded: global.commands?.size || 0,
-        eventsLoaded: getEventCount(),
-        lastRestart: global.GoatBot?.startTime || new Date().toISOString(),
-        adminUsers: await getAdminCount(),
-      };
       res.json(botInfo);
     } catch (error) {
-      console.error("Error fetching bot info:", error);
+      console.error('Error fetching bot info:', error);
       res.status(500).json({ error: error.message });
     }
-  }); });
     }
   });
 
