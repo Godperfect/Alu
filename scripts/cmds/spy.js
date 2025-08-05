@@ -64,11 +64,6 @@ module.exports = {
 
             const chatId = m?.key?.remoteJid;
 
-            // Send loading message
-            await sock.sendMessage(chatId, {
-                text: "🔍 *Gathering intelligence...*\n\n⏳ Please wait while I collect available information..."
-            }, { quoted: m });
-
             let spyInfo = `🕵️ *SPY REPORT* 🕵️\n`;
             spyInfo += `═══════════════════════\n\n`;
             // Detect if target is using LID system
