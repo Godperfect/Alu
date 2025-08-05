@@ -1,3 +1,5 @@
 
-const startBot = require('./bot');
+const startBotz = require('./bot');
 
+// Start the bot
+startBotz();
