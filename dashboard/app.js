@@ -715,16 +715,27 @@ function initializeApp() {
 
   app.get("/api/analytics", requireAuth, async (req, res) => {
     try {
-      const stats = global.GoatBot.stats || {};
-      const uptime = Date.now() - (global.GoatBot.startTime || Date.now());
-      const users = await db.getAllUsers();
-      const userArray = Array.isArray(users)
-        ? users
-        : Object.values(users || {});
-      const threads = await db.getAllThreads();
-      const threadArray = Array.isArray(threads)
-        ? threads
-        : Object.values(threads || {});
+      const stats = global.GoatBot?.stats || {};
+      const uptime = Date.now() - (global.GoatBot?.startTime || Date.now());
+      
+      // Initialize default values
+      let userArray = [];
+      let threadArray = [];
+      
+      try {
+        const users = await db.getAllUsers();
+        userArray = Array.isArray(users) ? users : Object.values(users || {});
+      } catch (dbError) {
+        console.error("Error fetching users for analytics:", dbError);
+      }
+      
+      try {
+        const threads = await db.getAllThreads();
+        threadArray = Array.isArray(threads) ? threads : Object.values(threads || {});
+      } catch (dbError) {
+        console.error("Error fetching threads for analytics:", dbError);
+      }
+
       const analytics = {
         overview: {
           totalUsers: userArray.length,
@@ -747,9 +758,7 @@ function initializeApp() {
         },
         messagesToday: stats.messagesToday || 0,
         commandsUsed: stats.commandsUsed || 0,
-        activeSessions:
-          (global.GoatBot?.authTokens?.size || 0) +
-          (dashboardSessions?.size || 0),
+        activeSessions: (global.GoatBot?.authTokens?.size || 0),
         topCommands: stats.topCommands || [],
         userGrowth: {
           daily: stats.dailyUserGrowth || 0,
@@ -764,8 +773,8 @@ function initializeApp() {
       };
       res.json(analytics);
     } catch (error) {
-      logError("Error fetching analytics:", error);
-      res.status(500).json({ error: error.message });
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch analytics" });
     }
   });
 
@@ -807,23 +816,36 @@ function initializeApp() {
 
   app.get("/api/analytics/overview", requireAuth, async (req, res) => {
     try {
-      const stats = global.GoatBot.stats || {};
-      const uptime = Date.now() - (global.GoatBot.startTime || Date.now());
+      const stats = global.GoatBot?.stats || {};
+      const uptime = Date.now() - (global.GoatBot?.startTime || Date.now());
+      
+      // Initialize stats if they don't exist
+      if (!global.GoatBot.stats) {
+        global.GoatBot.stats = {
+          totalMessages: 0,
+          messagesToday: 0,
+          commandsUsed: 0,
+          commandsExecuted: 0,
+          errors: 0,
+          successRate: 100,
+          topCommands: [],
+          daily: 0
+        };
+      }
+
       const overview = {
         totalMessages: stats.totalMessages || 0,
         messagesToday: stats.messagesToday || 0,
         commandsUsed: stats.commandsUsed || 0,
-        activeSessions:
-          (global.GoatBot?.authTokens?.size || 0) +
-          (dashboardSessions?.size || 0),
+        activeSessions: (global.GoatBot?.authTokens?.size || 0),
         uptime,
         errorCount: stats.errors || 0,
         successRate: stats.successRate || 100,
       };
       res.json(overview);
     } catch (error) {
-      logError("Error fetching analytics overview:", error);
-      res.status(500).json({ error: error.message });
+      console.error("Error fetching analytics overview:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch analytics overview" });
     }
   });
 
