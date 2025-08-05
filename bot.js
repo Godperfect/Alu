@@ -143,11 +143,12 @@ async function startBotz() {
             }, config.autoRestart.time * 1000 * 60);
         }
 
-        // Start web dashboard silently
+        // Start web dashboard
         try {
             const WebServer = require('./dashboard/app');
             const webServer = new WebServer();
             webServer.start();
+            logSuccess('Dashboard is connected to port 5000');
             logInfo('Dashboard started on port 5000');
             console.log('─────────────────────────────────────────');
         } catch (error) {
