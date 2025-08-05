@@ -195,36 +195,42 @@ class DataHandler {
             if (messageInfo.key) {
                 if (messageInfo.key.participant && messageInfo.key.participant.endsWith('@s.whatsapp.net')) {
                     // Group message - participant is the sender
-                    userId = messageInfo.key.participant.replace('@s.whatsapp.net', '');
+                    userId = messageInfo.key.participant;
                 } else if (messageInfo.key.remoteJid && messageInfo.key.remoteJid.endsWith('@s.whatsapp.net')) {
                     // Private message - remoteJid is the sender
-                    userId = messageInfo.key.remoteJid.replace('@s.whatsapp.net', '');
+                    userId = messageInfo.key.remoteJid;
+                } else if (messageInfo.key.remoteJid && messageInfo.key.remoteJid.includes('@lid')) {
+                    // LID user
+                    userId = messageInfo.key.remoteJid;
                 } else if (messageInfo.key.fromMe && messageInfo.key.remoteJid.endsWith('@g.us')) {
                     // Bot's own message in group - skip logging
                     return false;
                 }
             }
 
-            // Validate userId - must be a proper phone number
-            if (userId && !/^\d{10,15}$/.test(userId)) {
-                console.log(`[WARN] Invalid userId format, skipping message log: ${userId}`);
-                return false;
-            }
-
-            // Fallback to sender field
+            // Fallback to sender field if available and userId is not set yet
             if (!userId && messageInfo.sender) {
-                userId = messageInfo.sender.replace(/[^0-9]/g, '');
+                userId = messageInfo.sender;
             }
 
-            // Final validation - userId must be a valid phone number (at least 10 digits)
-            if (!userId || userId.length < 10) {
+            // Clean up userId to extract the core identifier
+            let cleanUserId = userId ? userId.replace(/@s.whatsapp.net|@lid/g, '') : null;
+
+            // Validate userId - must be a proper phone number or LID identifier
+            if (!cleanUserId || (cleanUserId.length < 10 && !userId.includes('@lid'))) {
                 console.log(`Skipping message log - invalid userId: ${userId}`);
                 return false;
             }
 
+            const senderName = getSenderName(messageInfo); // Use the utility function
+
+            // Update user activity, passing the original userId
+            await updateUserActivity(userId, senderName, messageInfo);
+
+
             const messageData = {
                 messageId: messageInfo.key?.id || messageInfo.id || Date.now().toString(),
-                userId: userId,
+                userId: cleanUserId, // Store the cleaned userId
                 groupId: messageInfo.key?.remoteJid?.endsWith('@g.us') ? messageInfo.key.remoteJid : null,
                 messageType: this.getMessageType(messageInfo),
                 messageLength: this.getMessageLength(messageInfo),
@@ -310,5 +316,41 @@ class DataHandler {
         };
     }
 }
+
+const updateUserActivity = async (userId, senderName, messageInfo) => {
+    try {
+        if (!userId) {
+            console.log('[SQLite] No user ID provided');
+            return;
+        }
+
+        console.log(`[SQLite] Updating user activity for: ${userId}`);
+
+        // Extract phone number for storage (keep original format for LID users)
+        let phoneNumber = userId;
+        if (userId.includes('@lid')) {
+            phoneNumber = userId.replace('@lid', '');
+        } else if (userId.includes('@s.whatsapp.net')) {
+            phoneNumber = userId.replace('@s.whatsapp.net', '');
+        }
+
+        const userData = {
+            phoneNumber: phoneNumber,
+            userId: userId, // Store original user ID
+            name: senderName || 'Unknown',
+            lastSeen: new Date().toISOString(),
+            messageCount: 1,
+            isActive: true,
+            userType: userId.includes('@lid') ? 'lid' : 'regular'
+        };
+
+        // Use phoneNumber as key for database consistency
+        await db.updateUser(phoneNumber, userData);
+        console.log('[SQLite] User activity updated successfully');
+    } catch (error) {
+        logError('Error updating user activity:', error);
+    }
+};
+
 
 module.exports = new DataHandler();
