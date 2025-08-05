@@ -103,7 +103,6 @@ async function startBotz() {
                 }
             } else if (connection === 'open') {
                 global.botConnected = true;
-                logSuccess('BOT IS SUCCESSFULLY CONNECTED');
                 console.log('─────────────────────────────────────────');
 
                 // Load commands and events after successful connection
