@@ -283,7 +283,8 @@ class WebServer {
             
             try {
                 const database = require('./connectDB');
-                if (database.getStatus().isConnected) {
+                const dbStatus = database.getStatus();
+                if (dbStatus && dbStatus.isConnected) {
                     userCount = await database.getUserCount();
                     groupCount = await database.getGroupCount();
                 }

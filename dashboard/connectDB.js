@@ -84,10 +84,11 @@ class DatabaseManager {
     // Health check
     getStatus() {
         return {
+            connected: this.isConnected,
             isConnected: this.isConnected,
             primaryDB: this.primaryDB === this.mongodb ? 'MongoDB' : 'SQLite',
-            mongodb: this.mongodb.isConnected,
-            sqlite: this.sqlite.isConnected
+            mongodb: this.mongodb ? this.mongodb.isConnected : false,
+            sqlite: this.sqlite ? this.sqlite.isConnected : false
         };
     }
 
@@ -100,6 +101,16 @@ class DatabaseManager {
     async updateUserMessageStats(userId, hasMedia = false) {
         if (!this.isConnected) return false;
         return await this.primaryDB.updateUserMessageStats(userId, hasMedia);
+    }
+
+    async getUserCount() {
+        if (!this.isConnected) return 0;
+        return await this.primaryDB.getUserCount();
+    }
+
+    async getGroupCount() {
+        if (!this.isConnected) return 0;
+        return await this.primaryDB.getGroupCount();
     }
 
     async logGroupActivity(groupId, activityType, userId = null, details = null) {
