@@ -236,7 +236,7 @@ class LunaDashboard {
             html += '<tr><td colspan="4" class="no-data">No users found</td></tr>';
         } else {
             users.forEach(user => {
-                const lastSeen = user.lastSeen ? new Date(user.lastSeen).toLocaleString() : 'Never';
+                const lastSeen = user.lastSeen ? this.formatDate(user.lastSeen) : 'Never';
                 const messageCount = user.commandCount || user.messageCount || 0;
                 html += `
                     <tr>
@@ -281,7 +281,7 @@ class LunaDashboard {
             html += '<tr><td colspan="4" class="no-data">No groups found</td></tr>';
         } else {
             groups.forEach(group => {
-                const lastActivity = group.lastActivity ? new Date(group.lastActivity).toLocaleString() : 'Never';
+                const lastActivity = group.lastActivity ? this.formatDate(group.lastActivity) : 'Never';
                 const messageCount = group.messageCount || 0;
                 const participantCount = group.memberCount || group.participantCount || 0;
                 html += `
@@ -365,7 +365,7 @@ class LunaDashboard {
                 <tr>
                     <td>${user.phoneNumber || user.userNumber || 'N/A'}</td>
                     <td>${user.name || user.userName || 'Unknown'}</td>
-                    <td>${user.commandCount || user.messageCount || 0}</td>
+                    <td>${user.messageCount || 0}</td>
                     <td><span class="status-badge ${statusClass}">${status}</span></td>
                     <td>${lastSeen}</td>
                 </tr>

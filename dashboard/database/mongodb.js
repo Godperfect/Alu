@@ -44,7 +44,10 @@ class MongoDB {
             const users = this.db.collection('users');
             await users.updateOne(
                 { phoneNumber: userData.phoneNumber },
-                { $set: { ...userData, lastSeen: new Date() } },
+                { 
+                    $set: { ...userData, lastSeen: new Date() },
+                    $setOnInsert: { messageCount: 0 }
+                },
                 { upsert: true }
             );
             return true;
@@ -70,7 +73,10 @@ class MongoDB {
             const groups = this.db.collection('groups');
             await groups.updateOne(
                 { groupId: groupData.groupId },
-                { $set: { ...groupData, lastActivity: new Date() } },
+                { 
+                    $set: { ...groupData, lastActivity: new Date() },
+                    $setOnInsert: { messageCount: 0 }
+                },
                 { upsert: true }
             );
             return true;
@@ -276,18 +282,27 @@ class MongoDB {
 
             console.log(`[MongoDB] Updating user activity for: ${phoneNumber}`);
 
-            const userData = {
-                phoneNumber: phoneNumber,
-                name: userName || 'Unknown',
-                profilePic: '',
-                isAdmin: false,
-                isBanned: false,
-                commandCount: 0
-            };
+            const users = this.db.collection('users');
+            await users.updateOne(
+                { phoneNumber: phoneNumber },
+                {
+                    $set: {
+                        name: userName || 'Unknown',
+                        lastSeen: new Date()
+                    },
+                    $inc: { messageCount: 1 },
+                    $setOnInsert: {
+                        profilePic: '',
+                        isAdmin: false,
+                        isBanned: false,
+                        commandCount: 0
+                    }
+                },
+                { upsert: true }
+            );
 
-            const result = await this.saveUser(userData);
-            console.log(`[MongoDB] User activity update result: ${result}`);
-            return result;
+            console.log(`[MongoDB] User activity updated successfully`);
+            return true;
         } catch (error) {
             logError(`Failed to update user activity: ${error.message}`);
             return false;
@@ -303,20 +318,29 @@ class MongoDB {
 
             console.log(`[MongoDB] Updating group activity for: ${groupId} - ${groupName}`);
 
-            const groupData = {
-                groupId: groupId,
-                groupName: groupName || 'Unknown Group',
-                description: '',
-                adminNumbers: [],
-                memberCount: participantCount || 0,
-                isActive: true,
-                customPrefix: '',
-                settings: {}
-            };
+            const groups = this.db.collection('groups');
+            await groups.updateOne(
+                { groupId: groupId },
+                {
+                    $set: {
+                        groupName: groupName || 'Unknown Group',
+                        memberCount: participantCount || 0,
+                        lastActivity: new Date()
+                    },
+                    $inc: { messageCount: 1 },
+                    $setOnInsert: {
+                        description: '',
+                        adminNumbers: [],
+                        isActive: true,
+                        customPrefix: '',
+                        settings: {}
+                    }
+                },
+                { upsert: true }
+            );
 
-            const result = await this.saveGroup(groupData);
-            console.log(`[MongoDB] Group activity update result: ${result}`);
-            return result;
+            console.log(`[MongoDB] Group activity updated successfully`);
+            return true;
         } catch (error) {
             logError(`Failed to update group activity: ${error.message}`);
             return false;
