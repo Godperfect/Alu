@@ -120,6 +120,19 @@ class SQLiteDB {
             await this.run(table);
         }
 
+        // Add missing columns if they don't exist
+        try {
+            await this.run('ALTER TABLE users ADD COLUMN messageCount INTEGER DEFAULT 0');
+        } catch (error) {
+            // Column already exists, ignore
+        }
+
+        try {
+            await this.run('ALTER TABLE groups ADD COLUMN messageCount INTEGER DEFAULT 0');
+        } catch (error) {
+            // Column already exists, ignore
+        }
+
         // Create indexes separately
         const indexes = [
             'CREATE INDEX IF NOT EXISTS idx_messages_userId ON messages(userId)',

@@ -19,7 +19,7 @@ module.exports = {
         }
     },
 
-    onStart: async function({ api: sock, message: mek, args, event }) {
+    onStart: async function({ sock, mek, args, event }) {
         try {
             const isGroup = mek.key.remoteJid.endsWith('@g.us');
             
