@@ -102,7 +102,7 @@ const handlerAction = {
 
                 await cmd.run({
                     sock,
-                    m: mek,
+                    mek,
                     args,
                     command,
                     sender,
