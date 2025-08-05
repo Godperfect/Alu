@@ -99,7 +99,7 @@
   "dashboard": {
     "enabled": true,
     "port": 3000,
-    "adminPassword": "lunabot",
-    "sessionTimeout": 1800000
+    "host": "0.0.0.0",
+    "adminPassword": "lunabot"
   }
 }
