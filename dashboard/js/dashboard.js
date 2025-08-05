@@ -590,7 +590,7 @@ function loadDashboardData() {
 function loadBotInfo() {
     apiRequest('/api/bot/info')
         .then(data => {
-            document.getElementById('botName').textContent = data.name || 'Goat Bot';
+            document.getElementById('botName').textContent = data.name || 'Luna v1';
             document.getElementById('botVersion').textContent = data.version || '1.0.0';
             document.getElementById('botStatusText').textContent = data.status || 'Online';
             document.getElementById('botUptime').textContent = data.uptime || '0 seconds';

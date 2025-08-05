@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Goat Bot Dashboard</title>
+    <title>Luna v1 Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,10 +14,10 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <h2><i class="fas fa-robot"></i> Goat Bot Dashboard</h2>
+                <h2><i class="fas fa-robot"></i> Luna v1 Dashboard</h2>
                 <p>Secure access to your WhatsApp bot</p>
             </div>
-            
+
             <!-- Login Options -->
             <div class="login-options">
                 <div class="login-tabs">
@@ -29,7 +29,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <!-- OTP Login -->
             <div id="otp-login" class="login-method active">
                 <!-- Request OTP Form -->
@@ -86,16 +86,16 @@
         <button class="sidebar-toggle-mobile" id="sidebar-toggle-mobile">
             <i class="fas fa-bars"></i>
         </button>
-        
+
         <!-- Sidebar Overlay (for mobile) -->
         <div class="sidebar-overlay" id="sidebar-overlay"></div>
-        
+
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <i class="fas fa-robot"></i>
-                    <span class="logo-text">Goat Bot</span>
+                    <span class="logo-text">Luna v1</span>
                 </div>
                 <div class="sidebar-buttons">
                     <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
@@ -106,7 +106,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="sidebar-content">
                 <nav class="sidebar-nav">
                     <a href="#" class="nav-link active" onclick="showTab('dashboard')">
@@ -147,7 +147,7 @@
                     </a>
                 </nav>
             </div>
-            
+
             <div class="sidebar-footer">
                 <button class="logout-btn" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i>
@@ -173,7 +173,7 @@
                         </div>
                         <p>Loading dashboard...</p>
                     </div>
-                    
+
                     <div class="error" id="error" style="display: none;">
                         <div class="alert alert-danger" role="alert">
                             <i class="fas fa-exclamation-triangle"></i>
@@ -227,7 +227,7 @@
                         <div class="info-grid">
                             <div class="info-item">
                                 <span class="info-label">Bot Name:</span>
-                                <span class="info-value" id="botName">Goat Bot</span>
+                                <span class="info-value" id="botName">Luna v1</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Memory Usage:</span>
@@ -275,7 +275,7 @@
                         <div class="info-grid">
                             <div class="info-item">
                                 <span class="info-label">Bot Name:</span>
-                                <span class="info-value" id="botName">Goat Bot</span>
+                                <span class="info-value" id="botName">Luna v1</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Version:</span>
@@ -400,7 +400,7 @@
                                     <span class="status-text" id="connectionText">Checking connection...</span>
                                 </div>
                             </div>
-                            
+
                             <div class="auth-actions">
                                 <button id="startAuthBtn" class="btn btn-success" onclick="startWhatsAppAuth()">
                                     <i class="fas fa-play"></i> Start Authentication
@@ -412,21 +412,21 @@
                                     <i class="fas fa-redo"></i> Restart Authentication
                                 </button>
                             </div>
-                            
+
                             <div class="auth-methods">
                                 <div class="qr-code-container" id="qrCodeContainer" style="display: none;">
                                     <h6>Scan QR Code</h6>
                                     <div class="qr-code" id="qrCode"></div>
                                     <p class="text-muted">Open WhatsApp on your phone and scan this QR code</p>
                                 </div>
-                                
+
                                 <div class="pairing-code-container" id="pairingCodeContainer" style="display: none;">
                                     <h6>Pairing Code</h6>
                                     <div class="pairing-code" id="pairingCode"></div>
                                     <p class="text-muted">Enter this code in WhatsApp Web</p>
                                 </div>
                             </div>
-                            
+
                             <div class="auth-logs">
                                 <h6>Authentication Logs</h6>
                                 <div class="log-container" id="authLogs">

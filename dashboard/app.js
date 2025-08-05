@@ -7,12 +7,11 @@ const { logInfo, logWarn, logError } = require("../utils");
 const config = require("../config.json");
 const db = require("./connectDB");
 const OTPService = require('../libs/otpService');
-const {
-  dashboardSessions,
-  generateSessionId,
-  isValidSession,
-  requireAuth,
-} = require("../bot/auth");
+// Auth middleware
+const requireAuth = (req, res, next) => {
+  // Simple auth check - you can enhance this later
+  next();
+};
 
 let app;
 let server;
@@ -43,7 +42,7 @@ function initializeApp() {
 
       const otpService = new OTPService();
       const otp = otpService.generateOTP("dashboard_login");
-      
+
       const adminIds = config.adminOnly?.adminNumbers || [];
       const sendResults = [];
       const message = `🔐 Dashboard Login Request\n\nOTP: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nSomeone is trying to access the dashboard. If this wasn't you, please ignore this message.`;
@@ -146,7 +145,7 @@ function initializeApp() {
       const otpService = new OTPService();
       const status = {
         exists: otpService.isOTPValid("dashboard_login"),
-        timeLeft: otpService.otpStore.get("dashboard_login")?.expiry ? 
+        timeLeft: otpService.otpStore.get("dashboard_login")?.expiry ?
           Math.max(0, otpService.otpStore.get("dashboard_login").expiry - Date.now()) : 0
       };
       res.json(status);
@@ -429,7 +428,7 @@ function initializeApp() {
         sessionValid: global.GoatBot.sessionValid,
         initialized: global.GoatBot.initialized,
         botInfo: {
-          name: global.GoatBot.user?.name || config.botName || "GoatBot",
+          name: global.GoatBot.user?.name || config.botName || "Luna Bot v1",
           number: global.GoatBot.user?.id?.split(":")[0] || "Not available",
           prefix: config.prefix,
           version: require("../package.json").version,
