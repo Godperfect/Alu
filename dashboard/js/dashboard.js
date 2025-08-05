@@ -1,830 +1,982 @@
-class LunaDashboard {
-    constructor() {
-        this.socket = null;
-        this.isConnected = false;
-        this.stats = {
-            users: 0,
-            groups: 0,
-            commands: 0,
-            uptime: 0
-        };
-        this.init();
-    }
-
-    init() {
-        this.createFallingStars();
-        this.loadInitialData();
-        this.setupEventListeners();
-        this.setupTabs();
-        this.startStatsUpdate();
-        this.animateElements();
-        this.loadCommands();
-    }
-
-    createFallingStars() {
-        const starsContainer = document.createElement('div');
-        starsContainer.className = 'stars';
-        document.body.appendChild(starsContainer);
-
-        // Create multiple stars with different sizes and animation durations
-        for (let i = 0; i < 15; i++) {
-            this.createStar(starsContainer);
-        }
-
-        // Continue creating stars at intervals
-        setInterval(() => {
-            if (document.querySelectorAll('.star').length < 20) {
-                this.createStar(starsContainer);
-            }
-        }, 2000);
-    }
-
-    createStar(container) {
-        const star = document.createElement('div');
-        star.className = 'star';
-
-        // Random properties for each star
-        const size = Math.random() * 4 + 2; // 2-6px
-        const left = Math.random() * 100; // 0-100%
-        const duration = Math.random() * 3 + 4; // 4-7 seconds
-        const delay = Math.random() * 2; // 0-2 seconds delay
-
-        star.style.width = `${size}px`;
-        star.style.height = `${size}px`;
-        star.style.left = `${left}%`;
-        star.style.animationDuration = `${duration}s`;
-        star.style.animationDelay = `${delay}s`;
-
-        container.appendChild(star);
-
-        // Remove star after animation completes
-        setTimeout(() => {
-            if (star.parentNode) {
-                star.parentNode.removeChild(star);
-            }
-        }, (duration + delay) * 1000);
-    }
-
-    animateElements() {
-        // Stagger animation for stat cards
-        const statCards = document.querySelectorAll('.stat-card');
-        statCards.forEach((card, index) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(30px)';
-
-            setTimeout(() => {
-                card.style.transition = 'all 0.6s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, index * 150);
-        });
-
-        // Animate command items
-        const commandItems = document.querySelectorAll('.command-item');
-        commandItems.forEach((item, index) => {
-            item.style.opacity = '0';
-            item.style.transform = 'translateY(20px)';
-
-            setTimeout(() => {
-                item.style.transition = 'all 0.5s ease';
-                item.style.opacity = '1';
-                item.style.transform = 'translateY(0)';
-            }, 800 + (index * 100));
-        });
-    }
-
-    async loadInitialData() {
-        try {
-            const response = await fetch('/api/stats');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            if (data && data.success && data.stats) {
-                this.updateStats(data);
-                this.updateStatus(data.stats.botStatus || data.status || 'offline');
-            } else {
-                console.error('API returned error:', data?.error || 'Invalid response');
-                this.showNotification('Failed to load dashboard data', 'error');
-                this.updateStats({ stats: { users: 0, groups: 0, commands: 0, uptime: 0 } });
-                this.updateStatus('offline');
-            }
-        } catch (error) {
-            console.error('Failed to load initial data:', error);
-            this.showNotification('Failed to load dashboard data', 'error');
-            // Set default values when API fails
-            this.updateStats({ stats: { users: 0, groups: 0, commands: 0, uptime: 0 } });
-            this.updateStatus('offline');
-        }
-    }
-
-    setupEventListeners() {
-        // Refresh button with enhanced feedback
-        const refreshBtn = document.getElementById('refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                refreshBtn.style.transform = 'scale(0.95)';
-                refreshBtn.textContent = 'Refreshing...';
-
-                await this.loadInitialData();
-                await this.loadUsersData();
-                await this.loadGroupsData();
-                await this.loadCommands();
-
-                setTimeout(() => {
-                    refreshBtn.style.transform = 'scale(1)';
-                    refreshBtn.textContent = 'Refresh';
-                    this.showNotification('Dashboard refreshed successfully', 'success');
-                }, 500);
-            });
-        }
-
-        // Add hover effects to command items
-        const commandItems = document.querySelectorAll('.command-item');
-        commandItems.forEach(item => {
-            item.addEventListener('mouseenter', () => {
-                item.style.transform = 'translateY(-5px) scale(1.02)';
-            });
-
-            item.addEventListener('mouseleave', () => {
-                item.style.transform = 'translateY(0) scale(1)';
-            });
-        });
-    }
-
-    setupTabs() {
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabName = btn.getAttribute('data-tab');
-
-                // Remove active class from all tabs
-                tabBtns.forEach(b => b.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
-
-                // Add active class to clicked tab
-                btn.classList.add('active');
-                const tabContent = document.getElementById(`${tabName}-tab`);
-                if (tabContent) {
-                    tabContent.classList.add('active');
-                }
-
-                // Load data based on tab
-                if (tabName === 'users') {
-                    this.loadUsersData();
-                } else if (tabName === 'groups') {
-                    this.loadGroupsData();
-                }
-            });
-        });
-
-        // Load initial data for users and groups
-        this.loadUsersData();
-        this.loadGroupsData();
-    }
-
-    async loadUsersData() {
-        try {
-            const response = await fetch('/api/users');
-            const data = await response.json();
-
-            if (data.success) {
-                this.renderUsersTable(data.users);
-            }
-        } catch (error) {
-            console.error('Failed to load users:', error);
-            this.showNotification('Failed to load users data', 'error');
-        }
-    }
-
-    async loadGroupsData() {
-        try {
-            const response = await fetch('/api/groups');
-            const data = await response.json();
-
-            if (data.success) {
-                this.renderGroupsTable(data.groups);
-            }
-        } catch (error) {
-            console.error('Failed to load groups:', error);
-            this.showNotification('Failed to load groups data', 'error');
-        }
-    }
-
-    renderUsersTable(users) {
-        const usersTab = document.getElementById('users-tab');
-        if (!usersTab) return;
-
-        let html = `
-            <h2>Active Users (${users.length})</h2>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>User Number</th>
-                            <th>User Name</th>
-                            <th>Messages</th>
-                            <th>Last Seen</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        if (users.length === 0) {
-            html += '<tr><td colspan="4" class="no-data">No users found</td></tr>';
-        } else {
-            users.forEach(user => {
-                const lastSeen = user.lastSeen ? this.formatDate(user.lastSeen) : 'Never';
-                const messageCount = user.commandCount || user.messageCount || 0;
-                html += `
-                    <tr>
-                        <td>${user.phoneNumber || user.userNumber || 'Unknown'}</td>
-                        <td>${user.name || user.userName || 'Unknown'}</td>
-                        <td>${messageCount}</td>
-                        <td>${lastSeen}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-        usersTab.innerHTML = html;
-    }
-
-    renderGroupsTable(groups) {
-        const groupsTab = document.getElementById('groups-tab');
-        if (!groupsTab) return;
-
-        let html = `
-            <h2>Active Groups (${groups.length})</h2>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Group Name</th>
-                            <th>Participants</th>
-                            <th>Messages</th>
-                            <th>Last Activity</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        if (groups.length === 0) {
-            html += '<tr><td colspan="4" class="no-data">No groups found</td></tr>';
-        } else {
-            groups.forEach(group => {
-                const lastActivity = group.lastActivity ? this.formatDate(group.lastActivity) : 'Never';
-                const messageCount = group.messageCount || 0;
-                const participantCount = group.memberCount || group.participantCount || 0;
-                html += `
-                    <tr>
-                        <td>${group.groupName || 'Unknown Group'}</td>
-                        <td>${participantCount}</td>
-                        <td>${messageCount}</td>
-                        <td>${lastActivity}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-        groupsTab.innerHTML = html;
-    }
-
-    async loadCommands() {
-        try {
-            const response = await fetch('/api/commands');
-            const data = await response.json();
-
-            if (data.success) {
-                this.displayCommands(data.commands);
-            } else {
-                const commandsGrid = document.getElementById('commands-grid');
-                if (commandsGrid) {
-                    commandsGrid.innerHTML = '<div class="error">Failed to load commands</div>';
-                }
-            }
-        } catch (error) {
-            console.error('Error loading commands:', error);
-            const commandsGrid = document.getElementById('commands-grid');
-            if (commandsGrid) {
-                commandsGrid.innerHTML = '<div class="error">Error loading commands</div>';
-            }
-        }
-    }
-
-    displayCommands(commands) {
-        const commandsGrid = document.getElementById('commands-grid');
-        if (!commandsGrid) return;
-
-        if (commands.length === 0) {
-            commandsGrid.innerHTML = '<div class="no-data">No commands found</div>';
-            return;
-        }
-
-        commandsGrid.innerHTML = commands.map(cmd => `
-            <div class="command-item">
-                <h4>${cmd.name}</h4>
-                <p>${cmd.description}</p>
-                <div class="command-meta">
-                    <span class="category">${cmd.category}</span>
-                    <span class="role">Role: ${cmd.role}</span>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    renderUsersTable(users) {
-        const tbody = document.getElementById('users-table-body') || document.getElementById('users-tbody');
-        if (!tbody) return;
-
-        if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading">No users found</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = users.map(user => {
-            const status = user.isBanned ? 'banned' : user.isAdmin ? 'admin' : 'active';
-            const statusClass = user.isBanned ? 'status-banned' : user.isAdmin ? 'status-admin' : 'status-active';
-            const lastSeen = user.lastSeen ? this.formatDate(user.lastSeen) : 'Never';
-
-            return `
-                <tr>
-                    <td>${user.phoneNumber || user.userNumber || 'N/A'}</td>
-                    <td>${user.name || user.userName || 'Unknown'}</td>
-                    <td>${user.messageCount || 0}</td>
-                    <td><span class="status-badge ${statusClass}">${status}</span></td>
-                    <td>${lastSeen}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    renderGroupsTable(groups) {
-        const tbody = document.getElementById('groups-table-body') || document.getElementById('groups-tbody');
-        if (!tbody) return;
-
-        if (groups.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading">No groups found</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = groups.map(group => {
-            const status = group.isActive ? 'active' : 'inactive';
-            const statusClass = group.isActive ? 'status-active' : 'status-banned';
-            const lastActivity = group.lastActivity ? this.formatDate(group.lastActivity) : 'Never';
-
-            return `
-                <tr>
-                    <td>${group.groupName || 'Unknown Group'}</td>
-                    <td>${group.groupId}</td>
-                    <td>${group.memberCount || group.participantCount || 0}</td>
-                    <td><span class="status-badge ${statusClass}">${status}</span></td>
-                    <td>${lastActivity}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    updateStats(data) {
-        if (data && data.stats) {
-            this.stats = { ...this.stats, ...data.stats };
-
-            // Animate number changes
-            this.animateNumber('user-count', this.stats.users || 0);
-            this.animateNumber('group-count', this.stats.groups || 0);
-            this.animateNumber('command-count', this.stats.commands || 0);
-            this.updateElement('uptime', this.formatUptime(this.stats.uptime || 0));
-        }
-    }
-
-    animateNumber(elementId, targetValue) {
-        const element = document.getElementById(elementId);
-        if (!element) return;
-
-        const currentValue = parseInt(element.textContent) || 0;
-        const increment = Math.ceil((targetValue - currentValue) / 20);
-        let current = currentValue;
-
-        const timer = setInterval(() => {
-            current += increment;
-            if ((increment > 0 && current >= targetValue) || (increment < 0 && current <= targetValue)) {
-                current = targetValue;
-                clearInterval(timer);
-            }
-            element.textContent = current;
-        }, 50);
-    }
-
-    updateStatus(status) {
-        const statusIndicator = document.querySelector('.status-indicator');
-        const statusText = document.getElementById('status-text');
-
-        if (statusIndicator && statusText) {
-            // Add transition effect
-            statusIndicator.style.transition = 'all 0.3s ease';
-
-            if (status === 'online') {
-                statusIndicator.className = 'status-indicator status-online';
-                statusText.textContent = 'Bot is Online';
-                this.isConnected = true;
-
-                // Add success glow effect
-                statusIndicator.style.boxShadow = '0 0 30px rgba(0, 255, 136, 0.8)';
-            } else {
-                statusIndicator.className = 'status-indicator status-offline';
-                statusText.textContent = 'Bot is Offline';
-                this.isConnected = false;
-
-                // Add error glow effect
-                statusIndicator.style.boxShadow = '0 0 30px rgba(255, 71, 87, 0.8)';
-            }
-        }
-    }
-
-    updateElement(id, value) {
-        const element = document.getElementById(id);
-        if (element) {
-            element.textContent = value;
-        }
-    }
-
-    formatUptime(seconds) {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-
-        if (days > 0) {
-            return `${days}d ${hours}h ${mins}m`;
-        } else if (hours > 0) {
-            return `${hours}h ${mins}m`;
-        } else {
-            return `${mins}m`;
-        }
-    }
-
-    formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-    }
-
-    startStatsUpdate() {
-        setInterval(() => {
-            this.loadInitialData();
-            this.loadUsersData();
-            this.loadGroupsData();
-        }, 30000); // Update every 30 seconds
-    }
-
-    // Enhanced notification system
-    showNotification(message, type = 'info') {
-        // Remove existing notifications
-        const existingNotifications = document.querySelectorAll('.notification');
-        existingNotifications.forEach(notification => {
-            notification.remove();
-        });
-
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.textContent = message;
-
-        document.body.appendChild(notification);
-
-        // Add entrance animation
-        setTimeout(() => {
-            notification.classList.add('show');
-        }, 100);
-
-        // Add exit animation
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 400);
-        }, 4000);
-    }
-
-    // Command execution with enhanced feedback
-    async executeCommand(command) {
-        try {
-            this.showNotification(`Executing command: ${command}`, 'info');
-
-            const response = await fetch('/api/execute', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ command })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.showNotification('Command executed successfully', 'success');
-            } else {
-                this.showNotification('Command execution failed', 'error');
-            }
-        } catch (error) {
-            this.showNotification('Failed to execute command', 'error');
-        }
-    }
-
-    // Add particle effect on click
-    createClickEffect(event) {
-        const particles = 8;
-        for (let i = 0; i < particles; i++) {
-            const particle = document.createElement('div');
-            particle.style.position = 'absolute';
-            particle.style.width = '4px';
-            particle.style.height = '4px';
-            particle.style.background = 'linear-gradient(45deg, #667eea, #764ba2)';
-            particle.style.borderRadius = '50%';
-            particle.style.pointerEvents = 'none';
-            particle.style.zIndex = '1000';
-
-            const angle = (i * 360) / particles;
-            const velocity = 50;
-            const x = event.clientX + Math.cos(angle * Math.PI / 180) * velocity;
-            const y = event.clientY + Math.sin(angle * Math.PI / 180) * velocity;
-
-            particle.style.left = event.clientX + 'px';
-            particle.style.top = event.clientY + 'px';
-
-            document.body.appendChild(particle);
-
-            // Animate particle
-            particle.animate([
-                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-                { transform: `translate(${x - event.clientX}px, ${y - event.clientY}px) scale(0)`, opacity: 0 }
-            ], {
-                duration: 600,
-                easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-            }).onfinish = () => {
-                particle.remove();
-            };
-        }
-    }
-
-    updateStats(data) {
-        const stats = data?.stats || { users: 0, groups: 0, commands: 0, uptime: 0 };
-        this.stats = stats;
-
-        const userCountEl = document.getElementById('user-count');
-        const groupCountEl = document.getElementById('group-count');
-        const commandCountEl = document.getElementById('command-count');
-        const uptimeEl = document.getElementById('uptime');
-
-        if (userCountEl) userCountEl.textContent = stats.users || 0;
-        if (groupCountEl) groupCountEl.textContent = stats.groups || 0;
-        if (commandCountEl) commandCountEl.textContent = stats.commands || 0;
-        if (uptimeEl) uptimeEl.textContent = this.formatUptime(stats.uptime || 0);
-    }
-
-    updateStatus(status) {
-        const statusEl = document.getElementById('status-text');
-        const statusIndicator = document.querySelector('.status-indicator');
-
-        if (statusEl) {
-            statusEl.textContent = status === 'online' ? 'Bot is Online' : 'Bot is Offline';
-        }
-
-        if (statusIndicator) {
-            statusIndicator.className = `status-indicator status-${status || 'offline'}`;
-        }
-
-        this.isConnected = status === 'online';
-    }
-
-    formatUptime(seconds) {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-
-        if (days > 0) {
-            return `${days}d ${hours}h ${minutes}m`;
-        } else if (hours > 0) {
-            return `${hours}h ${minutes}m`;
-        } else {
-            return `${minutes}m`;
-        }
-    }
-
-    showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.textContent = message;
-
-        document.body.appendChild(notification);
-
-        setTimeout(() => notification.classList.add('show'), 100);
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => notification.remove(), 400);
-        }, 3000);
-    }
+// Global variables
+let currentTab = 'dashboard';
+let sidebarCollapsed = false;
+let isAuthenticated = false;
+let otpTimer = null;
+let otpTimeLeft = 300; // 5 minutes
+let currentTheme = localStorage.getItem('theme') || 'auto'; // theme can be 'light', 'dark' or 'auto'
+
+// Authentication functions
+function showLogin() {
+    document.querySelector('.login-container').style.display = 'flex';
+    document.querySelector('.dashboard').style.display = 'none';
 }
 
-// Dashboard functionality
-let statsInterval;
-
-function loadStats() {
-    fetch('/api/stats')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success && data.stats) {
-                updateStatsDisplay(data.stats);
-                updateBotStatus(data.stats.botStatus || data.status || 'offline');
-            } else {
-                console.error('Stats API returned error:', data.error || 'Unknown error');
-                // Set default values on error
-                updateStatsDisplay({
-                    users: 0,
-                    groups: 0,
-                    messages24h: 0,
-                    botStatus: 'offline',
-                    uptime: 0
-                });
-                updateBotStatus('offline');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading stats:', error.message);
-            // Set default values on error
-            updateStatsDisplay({
-                users: 0,
-                groups: 0,
-                messages24h: 0,
-                botStatus: 'offline',
-                uptime: 0
-            });
-            updateBotStatus('offline');
-        });
+function showDashboard() {
+    document.querySelector('.login-container').style.display = 'none';
+    document.querySelector('.dashboard').style.display = 'block';
+    isAuthenticated = true;
+    loadDashboardData();
 }
 
-function updateStatsDisplay(stats) {
-    const userCountEl = document.getElementById('user-count');
-    const groupCountEl = document.getElementById('group-count');
-    const commandCountEl = document.getElementById('command-count');
-    const uptimeEl = document.getElementById('uptime');
+function showLoginTab(tabName) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.login-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
 
-    if (userCountEl) userCountEl.textContent = stats?.users || 0;
-    if (groupCountEl) groupCountEl.textContent = stats?.groups || 0;
-    if (commandCountEl) commandCountEl.textContent = stats?.commands || 0;
-    if (uptimeEl) uptimeEl.textContent = formatUptime(stats?.uptime || 0);
+    // Remove active class from all methods
+    document.querySelectorAll('.login-method').forEach(method => {
+        method.classList.remove('active');
+    });
+
+    // Add active class to clicked tab
+    event.target.classList.add('active');
+
+    // Show corresponding method
+    document.getElementById(tabName + '-login').classList.add('active');
 }
 
-function updateBotStatus(status) {
-    const statusElement = document.getElementById('bot-status');
-    if (statusElement) {
-        statusElement.textContent = status || 'offline';
-        statusElement.className = `status ${status || 'offline'}`;
+function passwordLogin() {
+    const password = document.getElementById('adminPassword').value;
+    if (!password) {
+        showAlert('Please enter your password', 'error');
+        return;
     }
-}
 
-function formatUptime(seconds) {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const loginBtn = document.getElementById('passwordLoginBtn');
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="spinner"></span>Logging in...';
 
-    if (days > 0) {
-        return `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-        return `${hours}h ${minutes}m`;
-    } else {
-        return `${minutes}m`;
-    }
-}
-
-function loadUserAnalytics(userId) {
-    fetch(`/api/analytics/user/${userId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.userStats) {
-                displayUserAnalytics(data.userStats);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading user analytics:', error);
-        });
-}
-
-function loadGroupAnalytics(groupId, days = 7) {
-    fetch(`/api/analytics/group/${groupId}?days=${days}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                displayGroupAnalytics(data.groupStats, data.recentActivities);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading group analytics:', error);
-        });
-}
-
-function displayUserAnalytics(stats) {
-    const analyticsDiv = document.getElementById('user-analytics');
-    if (analyticsDiv) {
-        analyticsDiv.innerHTML = `
-            <h3>User Analytics</h3>
-            <p>Total Messages: ${stats.totalMessages || 0}</p>
-            <p>Media Sent: ${stats.totalMediaSent || 0}</p>
-            <p>Weekly Messages: ${stats.weeklyMessageCount || 0}</p>
-            <p>Monthly Messages: ${stats.monthlyMessageCount || 0}</p>
-            <p>Last Activity: ${stats.lastActivityType || 'N/A'}</p>
-        `;
-    }
-}
-
-function displayGroupAnalytics(stats, activities) {
-    const analyticsDiv = document.getElementById('group-analytics');
-    if (analyticsDiv && stats) {
-        let html = `
-            <h3>Group Analytics</h3>
-            <p>Total Messages: ${stats.totalMessages || 0}</p>
-            <p>Active Users: ${stats.activeUsers || 0}</p>
-            <p>Media Messages: ${stats.mediaMessages || 0}</p>
-            <p>Forwarded Messages: ${stats.forwardedMessages || 0}</p>
-        `;
-
-        if (stats.topUsers && stats.topUsers.length > 0) {
-            html += '<h4>Top Users:</h4><ul>';
-            stats.topUsers.forEach(user => {
-                html += `<li>${user.userId || user._id}: ${user.messageCount} messages</li>`;
-            });
-            html += '</ul>';
-        }
-
-        if (activities && activities.length > 0) {
-            html += '<h4>Recent Activities:</h4><ul>';
-            activities.slice(0, 5).forEach(activity => {
-                html += `<li>${activity.activityType} - ${new Date(activity.timestamp).toLocaleString()}</li>`;
-            });
-            html += '</ul>';
-        }
-
-        analyticsDiv.innerHTML = html;
-    }
-}
-
-function cleanupMessages() {
-    const days = prompt('Enter number of days to keep messages (default: 30):') || 30;
-
-    fetch('/api/maintenance/cleanup', {
+    fetch('/api/auth/login', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ daysToKeep: parseInt(days) })
+        body: JSON.stringify({ password: password })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`Successfully cleaned ${data.deletedCount} old messages`);
+            localStorage.setItem('authToken', data.token);
+            showDashboard();
+            showAlert('Login successful!', 'success');
         } else {
-            alert('Failed to cleanup messages: ' + data.error);
+            showAlert(data.message || 'Invalid password', 'error');
         }
     })
     .catch(error => {
-        console.error('Error cleaning messages:', error);
-        alert('Error cleaning messages');
+        console.error('Error:', error);
+        showAlert('Error during login. Please try again.', 'error');
+    })
+    .finally(() => {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
     });
 }
 
-// Initialize dashboard
+function requestOTP() {
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span>Sending OTP...';
+
+    fetch('/api/auth/request-otp', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showOTPForm();
+            startOTPTimer();
+            showAlert('OTP sent to all admins successfully!', 'success');
+        } else {
+            showAlert(data.message || 'Failed to send OTP', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Error sending OTP. Please try again.', 'error');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Request OTP';
+    });
+}
+
+function verifyOTP() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    const otp = Array.from(otpInputs).map(input => input.value).join('');
+
+    if (otp.length !== 6) {
+        showAlert('Please enter complete OTP', 'error');
+        return;
+    }
+
+    const verifyBtn = document.getElementById('verifyBtn');
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<span class="spinner"></span>Verifying...';
+
+    fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ otp: otp })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            localStorage.setItem('authToken', data.token || data.sessionId);
+            showDashboard();
+            showAlert('Login successful!', 'success');
+        } else {
+            showAlert(data.message || 'Invalid OTP', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Error verifying OTP. Please try again.', 'error');
+    })
+    .finally(() => {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = 'Verify OTP';
+    });
+}
+
+function showOTPForm() {
+    document.querySelector('.phone-container').style.display = 'none';
+    document.querySelector('.otp-container').style.display = 'block';
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+
+    const container = document.querySelector('.login-card');
+    const existingAlert = container.querySelector('.alert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+
+    container.insertBefore(alertDiv, container.firstChild);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+function startOTPTimer() {
+    otpTimeLeft = 300;
+    const timerElement = document.getElementById('otpTimer');
+    const resendBtn = document.getElementById('resendOTP');
+
+    resendBtn.style.display = 'none';
+
+    otpTimer = setInterval(() => {
+        const minutes = Math.floor(otpTimeLeft / 60);
+        const seconds = otpTimeLeft % 60;
+        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        if (otpTimeLeft <= 0) {
+            clearInterval(otpTimer);
+            timerElement.textContent = '';
+            resendBtn.style.display = 'inline-block';
+        }
+
+        otpTimeLeft--;
+    }, 1000);
+}
+
+function resendOTP() {
+    clearInterval(otpTimer);
+    requestOTP();
+}
+
+function logout() {
+    localStorage.removeItem('authToken');
+    isAuthenticated = false;
+    showLogin();
+    // Clear OTP form
+    document.querySelector('.phone-container').style.display = 'block';
+    document.querySelector('.otp-container').style.display = 'none';
+    document.querySelectorAll('.otp-input').forEach(input => input.value = '');
+    clearInterval(otpTimer);
+}
+
+// OTP input handling
+function setupOTPInputs() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            if (e.target.value.length === 1) {
+                if (index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !e.target.value) {
+                if (index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            }
+        });
+    });
+}
+
+// Dashboard functions
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+
+    document.getElementById(tabName + '-tab').classList.add('active');
+    event.target.classList.add('active');
+
+    currentTab = tabName;
+    loadTabData(tabName);
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+
+    // Check if we're on mobile or desktop
+    if (window.innerWidth <= 992) {
+        // Mobile logic: open/close sidebar
+        if (sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+        } else {
+            sidebar.classList.add('open');
+        }
+    } else {
+        // Desktop logic: collapse/expand sidebar
+        sidebarCollapsed = !sidebarCollapsed;
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('expanded');
+        } else {
+            sidebar.classList.remove('collapsed');
+            mainContent.classList.remove('expanded');
+        }
+    }
+}
+
+function formatUptime(seconds) {
+    const years = Math.floor(seconds / (365.25 * 24 * 3600));
+    const months = Math.floor((seconds % (365.25 * 24 * 3600)) / (30.44 * 24 * 3600));
+    const days = Math.floor((seconds % (30.44 * 24 * 3600)) / (24 * 3600));
+    const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    return { years, months, days, hours, minutes, seconds: secs };
+}
+
+function updateUptime() {
+    if (!isAuthenticated) return;
+
+    fetch('/api/system', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.uptime) {
+            const uptime = formatUptime(data.uptime);
+            document.getElementById('uptimeYears').textContent = uptime.years;
+            document.getElementById('uptimeMonths').textContent = uptime.months;
+            document.getElementById('uptimeDays').textContent = uptime.days;
+            document.getElementById('uptimeHours').textContent = uptime.hours;
+            document.getElementById('uptimeMinutes').textContent = uptime.minutes;
+            document.getElementById('uptimeSeconds').textContent = uptime.seconds;
+        }
+
+        if (data.memory) {
+            document.getElementById('memoryUsage').textContent = Math.round(data.memory.used / 1024 / 1024) + ' MB';
+        }
+    })
+    .catch(error => console.error('Error updating uptime:', error));
+}
+
+function loadTabData(tabName) {
+    if (!isAuthenticated) return;
+
+    switch(tabName) {
+        case 'dashboard':
+            loadDashboardData();
+            break;
+        case 'bot-info':
+            loadBotInfo();
+            break;
+        case 'commands':
+            loadCommands();
+            break;
+        case 'users':
+            loadUsers();
+            break;
+        case 'groups':
+            loadGroups();
+            break;
+        case 'system':
+            loadSystemInfo();
+            break;
+        case 'analytics':
+            loadAnalytics();
+            break;
+        case 'settings':
+            loadSettings();
+            break;
+        case 'whatsapp-auth':
+            loadWhatsAppAuth();
+            break;
+    }
+}
+
+// WhatsApp Authentication functions
+function loadWhatsAppAuth() {
+    checkWhatsAppStatus();
+    // Auto-refresh status every 5 seconds
+    setInterval(checkWhatsAppStatus, 5000);
+}
+
+function checkWhatsAppStatus() {
+    apiRequest('/api/whatsapp/auth/status')
+        .then(data => {
+            updateAuthStatus(data);
+        })
+        .catch(error => {
+            console.error('Error checking WhatsApp status:', error);
+            addAuthLog('Error checking WhatsApp status: ' + error.message);
+        });
+}
+
+function updateAuthStatus(data) {
+    const statusDot = document.getElementById('connectionStatus');
+    const statusText = document.getElementById('connectionText');
+
+    if (data.connected) {
+        statusDot.className = 'status-dot connected';
+        statusText.textContent = 'Connected to WhatsApp';
+        addAuthLog('WhatsApp connection established');
+    } else {
+        statusDot.className = data.connectionStatus === 'connecting' ? 'status-dot connecting' : 'status-dot';
+        statusText.textContent = data.connectionStatus === 'connecting' ? 'Connecting to WhatsApp...' : 'Disconnected from WhatsApp';
+
+        if (data.lastError) {
+            addAuthLog('Error: ' + data.lastError);
+        }
+    }
+
+    // Update QR code or pairing code
+    if (data.qrCode) {
+        showQRCode(data.qrCode);
+    } else {
+        hideQRCode();
+    }
+
+    if (data.pairingCode) {
+        showPairingCode(data.pairingCode);
+    } else {
+        hidePairingCode();
+    }
+}
+
+function showQRCode(qrCode) {
+    const container = document.getElementById('qrCodeContainer');
+    const qrElement = document.getElementById('qrCode');
+
+    // Check if it's already a data URL, otherwise treat as raw QR data
+    if (qrCode.startsWith('data:image/')) {
+        qrElement.innerHTML = `<img src="${qrCode}" alt="WhatsApp QR Code" style="max-width: 100%; height: auto;">`;
+    } else {
+        // For raw QR data, we'll need to generate it client-side or request it from server
+        qrElement.innerHTML = `<div class="qr-placeholder">QR Code Available - Please scan with WhatsApp</div>`;
+    }
+
+    container.style.display = 'block';
+}
+
+function hideQRCode() {
+    document.getElementById('qrCodeContainer').style.display = 'none';
+}
+
+function showPairingCode(code) {
+    const container = document.getElementById('pairingCodeContainer');
+    const codeElement = document.getElementById('pairingCode');
+
+    codeElement.textContent = code;
+    container.style.display = 'block';
+}
+
+function hidePairingCode() {
+    document.getElementById('pairingCodeContainer').style.display = 'none';
+}
+
+function addAuthLog(message) {
+    const logContainer = document.getElementById('authLogs');
+    const logEntry = document.createElement('div');
+    logEntry.className = 'log-entry';
+
+    const timestamp = new Date().toLocaleTimeString();
+    logEntry.innerHTML = `
+        <span class="log-time">${timestamp}</span>
+        <span class="log-message">${message}</span>
+    `;
+
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+
+    // Keep only last 50 entries
+    const entries = logContainer.querySelectorAll('.log-entry');
+    if (entries.length > 50) {
+        entries[0].remove();
+    }
+}
+
+function startWhatsAppAuth() {
+    const btn = document.getElementById('startAuthBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Starting...';
+
+    apiRequest('/api/whatsapp/auth/request-code', { method: 'POST' })
+        .then(data => {
+            if (data.success) {
+                addAuthLog('WhatsApp authentication started');
+                showAlert('WhatsApp authentication started', 'success');
+            } else {
+                addAuthLog('Failed to start authentication: ' + data.message);
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error starting WhatsApp auth:', error);
+            addAuthLog('Error starting authentication: ' + error.message);
+            showAlert('Error starting authentication', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play"></i> Start Authentication';
+        });
+}
+
+function disconnectWhatsApp() {
+    const btn = document.getElementById('disconnectBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Disconnecting...';
+
+    apiRequest('/api/whatsapp/auth/disconnect', { method: 'POST' })
+        .then(data => {
+            if (data.success) {
+                addAuthLog('Disconnected from WhatsApp');
+                showAlert('Disconnected from WhatsApp', 'success');
+            } else {
+                addAuthLog('Failed to disconnect: ' + data.message);
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error disconnecting from WhatsApp:', error);
+            addAuthLog('Error disconnecting: ' + error.message);
+            showAlert('Error disconnecting from WhatsApp', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-unlink"></i> Disconnect';
+        });
+}
+
+function restartWhatsAppAuth() {
+    const btn = document.getElementById('restartAuthBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Restarting...';
+
+    apiRequest('/api/whatsapp/auth/restart', { method: 'POST' })
+        .then(data => {
+            if (data.success) {
+                addAuthLog('WhatsApp authentication restarted');
+                showAlert('WhatsApp authentication restarted', 'success');
+            } else {
+                addAuthLog('Failed to restart authentication: ' + data.message);
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error restarting WhatsApp auth:', error);
+            addAuthLog('Error restarting authentication: ' + error.message);
+            showAlert('Error restarting authentication', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-redo"></i> Restart Authentication';
+        });
+}
+
+function apiRequest(endpoint, options = {}) {
+    const token = localStorage.getItem('authToken');
+    const defaultOptions = {
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        }
+    };
+
+    return fetch(endpoint, { ...defaultOptions, ...options })
+        .then(response => {
+            if (response.status === 401) {
+                logout();
+                throw new Error('Unauthorized');
+            }
+            return response.json();
+        });
+}
+
+function loadDashboardData() {
+    Promise.all([
+        apiRequest('/api/users'),
+        apiRequest('/api/groups'),
+        apiRequest('/api/system'),
+        apiRequest('/api/bot/info'),
+        apiRequest('/api/analytics/overview')
+    ]).then(([users, groups, system, botInfo, analytics]) => {
+        // Update stats
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        setText('totalUsers', users.total || 0);
+        setText('totalGroups', groups.total || 0);
+        setText('activeUsers', users.active || 0);
+        setText('activeGroups', groups.active || 0);
+        setText('botName', botInfo.name || 'Goat Bot');
+        setText('commandsLoaded', botInfo.commandsLoaded || 0);
+        if (analytics) {
+            updateAnalyticsDisplay(analytics);
+        }
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.style.display = 'none';
+    }).catch(error => {
+        console.error('Error loading dashboard:', error);
+        const errorEl = document.getElementById('error');
+        if (errorEl) {
+            errorEl.innerHTML = '<div class="error-message">Error loading dashboard data: ' + (error.message || error) + '</div>';
+            errorEl.style.display = 'block';
+        }
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.style.display = 'none';
+    });
+}
+
+function loadBotInfo() {
+    apiRequest('/api/bot/info')
+        .then(data => {
+            document.getElementById('botName').textContent = data.name || 'Goat Bot';
+            document.getElementById('botVersion').textContent = data.version || '1.0.0';
+            document.getElementById('botStatusText').textContent = data.status || 'Online';
+            document.getElementById('botUptime').textContent = data.uptime || '0 seconds';
+            document.getElementById('commandsLoaded').textContent = data.commandsLoaded || 0;
+            document.getElementById('eventsLoaded').textContent = data.eventsLoaded || 0;
+            document.getElementById('lastRestart').textContent = data.lastRestart || 'Never';
+            document.getElementById('adminUsers').textContent = data.adminUsers || 0;
+        })
+        .catch(error => {
+            console.error('Error loading bot info:', error);
+            showAlert('Error loading bot information: ' + error.message, 'error');
+        });
+}
+
+function loadCommands() {
+    apiRequest('/api/commands')
+        .then(data => {
+            const commandsList = document.getElementById('commandsList');
+            commandsList.innerHTML = '';
+
+            if (data.commands && data.commands.length > 0) {
+                data.commands.forEach(command => {
+                    const commandItem = document.createElement('div');
+                    commandItem.className = 'list-item';
+                    commandItem.innerHTML = `
+                        <div class="item-info">
+                            <h6>${command.name}</h6>
+                            <p>${command.description || 'No description available'}</p>
+                            <small class="text-muted">Usage: ${command.usage || 'N/A'}</small>
+                        </div>
+                        <div class="item-badges">
+                            <span class="badge command-category">${command.category || 'General'}</span>
+                            ${command.role ? `<span class="badge bg-info">Role: ${command.role}</span>` : ''}
+                        </div>
+                    `;
+                    commandsList.appendChild(commandItem);
+                });
+            } else {
+                commandsList.innerHTML = '<div class="text-center text-muted">No commands found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading commands:', error);
+            document.getElementById('commandsList').innerHTML = '<div class="error-message">Error loading commands</div>';
+        });
+}
+
+function loadUsers() {
+    apiRequest('/api/users')
+        .then(data => {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '';
+
+            if (data.users && data.users.length > 0) {
+                data.users.forEach(user => {
+                    const userItem = document.createElement('div');
+                    userItem.className = 'list-item';
+                    userItem.innerHTML = `
+                        <div class="item-info">
+                            <h6>${user.name || 'Unknown'}</h6>
+                            <p>${user.id}</p>
+                            <small class="text-muted">Exp: ${user.exp || 0} | Messages: ${user.messageCount || 0}</small>
+                        </div>
+                        <div class="item-badges">
+                            <span class="badge bg-warning">Level ${user.level || 1}</span>
+                            <span class="badge ${user.banned ? 'bg-danger' : 'bg-success'}">${user.banned ? 'Banned' : 'Active'}</span>
+                            ${user.role > 0 ? `<span class="badge bg-info">Role: ${user.role}</span>` : ''}
+                        </div>
+                    `;
+                    usersList.appendChild(userItem);
+                });
+            } else {
+                usersList.innerHTML = '<div class="text-center text-muted">No users found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading users:', error);
+            document.getElementById('usersList').innerHTML = '<div class="error-message">Error loading users</div>';
+        });
+}
+
+function loadGroups() {
+    apiRequest('/api/groups')
+        .then(data => {
+            const groupsList = document.getElementById('groupsList');
+            groupsList.innerHTML = '';
+
+            if (data.groups && data.groups.length > 0) {
+                data.groups.forEach(group => {
+                    const groupItem = document.createElement('div');
+                    groupItem.className = 'list-item';
+                    groupItem.innerHTML = `
+                        <div class="item-info">
+                            <h6>${group.name || 'Unknown Group'}</h6>
+                            <p>${group.id}</p>
+                            <small class="text-muted">Messages: ${group.messageCount || 0}</small>
+                        </div>
+                        <div class="item-badges">
+                            <span class="badge bg-info">${group.memberCount || 0} members</span>
+                            <span class="badge ${group.isActive ? 'bg-success' : 'bg-secondary'}">${group.isActive ? 'Active' : 'Inactive'}</span>
+                        </div>
+                    `;
+                    groupsList.appendChild(groupItem);
+                });
+            } else {
+                groupsList.innerHTML = '<div class="text-center text-muted">No groups found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading groups:', error);
+            document.getElementById('groupsList').innerHTML = '<div class="error-message">Error loading groups</div>';
+        });
+}
+
+function loadSystemInfo() {
+    apiRequest('/api/system')
+        .then(data => {
+            document.getElementById('platform').textContent = data.platform || 'Unknown';
+            document.getElementById('architecture').textContent = data.architecture || 'Unknown';
+            document.getElementById('nodeVersion').textContent = data.nodeVersion || 'Unknown';
+            document.getElementById('memoryTotal').textContent = Math.round((data.memory?.total || 0) / 1024 / 1024) + ' MB';
+            document.getElementById('systemMemoryUsage').textContent = Math.round((data.memory?.used || 0) / 1024 / 1024) + ' MB';
+            document.getElementById('loadAverage').textContent = data.loadAverage?.join(', ') || 'N/A';
+            document.getElementById('freeMemory').textContent = Math.round((data.memory?.free || 0) / 1024 / 1024) + ' MB';
+        })
+        .catch(error => {
+            console.error('Error loading system info:', error);
+            showAlert('Error loading system information: ' + error.message, 'error');
+        });
+}
+
+function loadAnalytics() {
+    apiRequest('/api/analytics')
+        .then(data => {
+            // Update analytics display
+            updateAnalyticsDisplay(data);
+        })
+        .catch(error => {
+            console.error('Error loading analytics:', error);
+            showAlert('Error loading analytics: ' + error.message, 'error');
+        });
+}
+
+function loadSettings() {
+    apiRequest('/api/settings')
+        .then(data => {
+            // Update settings display
+            updateSettingsDisplay(data);
+        })
+        .catch(error => {
+            console.error('Error loading settings:', error);
+            showAlert('Error loading settings: ' + error.message, 'error');
+        });
+}
+
+function updateAnalyticsDisplay(data) {
+    if (!data) return;
+
+    // Update charts and analytics displays
+    const analyticsContainer = document.getElementById('analyticsContainer');
+    if (analyticsContainer) {
+        analyticsContainer.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>Messages Today</h6>
+                            <h3 class="text-primary">${data.messagesToday || 0}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>Commands Used</h6>
+                            <h3 class="text-success">${data.commandsUsed || 0}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>Active Sessions</h6>
+                            <h3 class="text-info">${data.activeSessions || 0}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function updateSettingsDisplay(data) {
+    if (!data) return;
+
+    const settingsContainer = document.getElementById('settingsContainer');
+    if (settingsContainer) {
+        settingsContainer.innerHTML = `
+            <div class="card">
+                <div class="card-body">
+                    <h6>Bot Configuration</h6>
+                    <div class="system-metric">
+                        <span class="metric-label">Prefix</span>
+                        <span class="metric-value">${data.prefix || '.'}</span>
+                    </div>
+                    <div class="system-metric">
+                        <span class="metric-label">Admin Only</span>
+                        <span class="metric-value">${data.adminOnly ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div class="system-metric">
+                        <span class="metric-label">Auto Restart</span>
+                        <span class="metric-value">${data.autoRestart ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Search functionality
+function setupSearch() {
+    const searchInputs = [
+        { input: 'commandSearch', container: '#commandsList .list-item' },
+        { input: 'userSearch', container: '#usersList .list-item' },
+        { input: 'groupSearch', container: '#groupsList .list-item' }
+    ];
+
+    searchInputs.forEach(({ input, container }) => {
+        const searchInput = document.getElementById(input);
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const search = this.value.toLowerCase();
+                document.querySelectorAll(container).forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    item.style.display = text.includes(search) ? 'flex' : 'none';
+                });
+            });
+        }
+    });
+}
+
+// Authentication check
+function checkAuth() {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        fetch('/api/auth/verify', {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.valid) {
+                showDashboard();
+            } else {
+                localStorage.removeItem('authToken');
+                showLogin();
+            }
+        })
+        .catch(() => {
+            localStorage.removeItem('authToken');
+            showLogin();
+        });
+    } else {
+        showLogin();
+    }
+}
+
+// Theme Functions
+function detectSystemTheme() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function setTheme(theme) {
+    // If theme is auto, detect system preference
+    const appliedTheme = theme === 'auto' ? detectSystemTheme() : theme;
+
+    // Apply theme to document
+    document.documentElement.setAttribute('data-theme', appliedTheme);
+
+    // Update icon
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.innerHTML = appliedTheme === 'dark' 
+            ? '<i class="fas fa-sun"></i>' 
+            : '<i class="fas fa-moon"></i>';
+    }
+
+    // Save preference
+    currentTheme = theme;
+    localStorage.setItem('theme', theme);
+}
+
+function toggleTheme() {
+    // If current theme is auto, switch to specific theme based on current applied theme
+    if (currentTheme === 'auto') {
+        const systemTheme = detectSystemTheme();
+        setTheme(systemTheme === 'dark' ? 'light' : 'dark');
+    } 
+    // If light, switch to dark
+    else if (currentTheme === 'light') {
+        setTheme('dark');
+    } 
+    // If dark, switch to light
+    else {
+        setTheme('light');
+    }
+}
+
+// System theme change detection
+function setupThemeListener() {
+    if (window.matchMedia) {
+        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+        // Add change listener
+        try {
+            // Chrome & Firefox
+            colorSchemeQuery.addEventListener('change', (e) => {
+                if (currentTheme === 'auto') {
+                    setTheme('auto');
+                }
+            });
+        } catch (e1) {
+            try {
+                // Safari
+                colorSchemeQuery.addListener((e) => {
+                    if (currentTheme === 'auto') {
+                        setTheme('auto');
+                    }
+                });
+            } catch (e2) {
+                console.error("Could not add theme change listener");
+            }
+        }
+    }
+}
+
+// Initialize application
 document.addEventListener('DOMContentLoaded', function() {
-    const dashboard = new LunaDashboard();
-    loadStats();
-    statsInterval = setInterval(loadStats, 30000); // Refresh every 30 seconds
+    setupOTPInputs();
+    setupSearch();
+    checkAuth();
+
+    // Initialize theme
+    setTheme(currentTheme);
+    setupThemeListener();
+
+    // Auto-refresh data
+    setInterval(() => {
+        if (isAuthenticated) {
+            updateUptime();
+            if (currentTab === 'dashboard') {
+                loadDashboardData();
+            }
+        }
+    }, 30000);
+
+    // Update uptime every second
+    setInterval(updateUptime, 1000);
 });
 
-// Stop interval when page is unloaded
-window.addEventListener('beforeunload', function() {
-    if (statsInterval) {
-        clearInterval(statsInterval);
+// Event listeners
+document.getElementById('submitBtn')?.addEventListener('click', requestOTP);
+document.getElementById('verifyBtn')?.addEventListener('click', verifyOTP);
+document.getElementById('resendOTP')?.addEventListener('click', resendOTP);
+document.getElementById('passwordLoginBtn')?.addEventListener('click', passwordLogin);
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
+document.getElementById('sidebar-toggle-mobile')?.addEventListener('click', toggleSidebar);
+document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+document.getElementById('sidebar-overlay')?.addEventListener('click', () => {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.remove('open');
+});
+
+// Handle Enter key for password login
+document.getElementById('adminPassword')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        passwordLogin();
     }
 });
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = LunaDashboard;
-}
+// OTP inputs - prevent non-digit input
+document.querySelectorAll('.otp-input').forEach(input => {
+    input.addEventListener('input', function(e) {
+        this.value = this.value.replace(/\D/g, '');
+    });
+});
+
+// Export functions for global access
+window.showTab = showTab;
+window.toggleSidebar = toggleSidebar;
+window.logout = logout;
+window.showLoginTab = showLoginTab;
+window.startWhatsAppAuth = startWhatsAppAuth;
+window.disconnectWhatsApp = disconnectWhatsApp;
+window.restartWhatsAppAuth = restartWhatsAppAuth;
+window.toggleTheme = toggleTheme;
