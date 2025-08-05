@@ -1,4 +1,3 @@
-
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -18,16 +17,16 @@ class WebServer {
     setupMiddleware() {
         // CORS middleware
         this.app.use(cors());
-        
+
         // JSON parsing middleware
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
-        
+
         // Static files
         this.app.use('/css', express.static(path.join(__dirname, 'css')));
         this.app.use('/js', express.static(path.join(__dirname, 'js')));
         this.app.use('/images', express.static(path.join(__dirname, 'images')));
-        
+
         // Request logging middleware (disabled for cleaner console)
         // this.app.use((req, res, next) => {
         //     logInfo(`${req.method} ${req.path} - ${req.ip}`);
@@ -44,44 +43,44 @@ class WebServer {
         // API Routes
         this.app.get('/api/stats', async (req, res) => {
             try {
-                const stats = await this.getStats();
-                const botStatus = global.botConnected ? 'online' : 'offline';
-                res.json({
-                    success: true,
-                    stats: stats || { users: 0, groups: 0, commands: 0, uptime: 0 },
-                    status: botStatus,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (error) {
-                logError(`Stats API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch stats',
-                    stats: { users: 0, groups: 0, commands: 0, uptime: 0 },
-                    status: 'offline'
-                });
-            }
-        });
+                const db = require('./connectDB');
 
-        this.app.get('/api/commands', (req, res) => {
-            try {
-                const commands = Array.from(global.commands.values()).map(cmd => ({
-                    name: cmd.config?.name || cmd.name,
-                    description: cmd.config?.description || cmd.description || 'No description',
-                    category: cmd.config?.category || 'general',
-                    role: cmd.config?.role || 0
-                }));
+                if (!db.getStatus().connected) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Database not connected'
+                    });
+                }
+
+                const userCount = await db.getUserCount();
+                const groupCount = await db.getGroupCount();
+
+                // Get message stats for last 24 hours
+                const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                const messageStats = await db.all(
+                    'SELECT COUNT(*) as count FROM messages WHERE timestamp >= ?',
+                    [last24h]
+                );
+
+                const botStatus = global.botConnected === true ? 'online' : 'offline';
+                const uptime = process.uptime();
 
                 res.json({
                     success: true,
-                    commands,
-                    total: commands.length
+                    stats: {
+                        users: userCount || 0,
+                        groups: groupCount || 0,
+                        messages24h: messageStats[0]?.count || 0,
+                        botStatus: botStatus,
+                        uptime: Math.floor(uptime)
+                    },
+                    status: botStatus
                 });
             } catch (error) {
-                logError(`Commands API error: ${error.message}`);
+                console.error('Stats API error:', error);
                 res.status(500).json({
                     success: false,
-                    error: 'Failed to fetch commands'
+                    error: 'Failed to fetch stats'
                 });
             }
         });
@@ -90,11 +89,11 @@ class WebServer {
             try {
                 const db = require('./connectDB');
                 let users = [];
-                
+
                 if (db.getStatus().connected) {
                     users = await db.getAllUsers();
                 }
-                
+
                 res.json({
                     success: true,
                     users: users,
@@ -113,11 +112,11 @@ class WebServer {
             try {
                 const db = require('./connectDB');
                 let groups = [];
-                
+
                 if (db.getStatus().connected) {
                     groups = await db.getAllGroups();
                 }
-                
+
                 res.json({
                     success: true,
                     groups: groups,
@@ -137,7 +136,7 @@ class WebServer {
             try {
                 const { userId } = req.params;
                 const db = require('./connectDB');
-                
+
                 if (!db.getStatus().connected) {
                     return res.status(503).json({
                         success: false,
@@ -164,7 +163,7 @@ class WebServer {
                 const { groupId } = req.params;
                 const { days = 7 } = req.query;
                 const db = require('./connectDB');
-                
+
                 if (!db.getStatus().connected) {
                     return res.status(503).json({
                         success: false,
@@ -174,7 +173,7 @@ class WebServer {
 
                 const stats = await db.getGroupMessageStats(groupId, parseInt(days));
                 const activities = await db.getRecentGroupActivities(groupId, 20);
-                
+
                 res.json({
                     success: true,
                     groupStats: stats,
@@ -193,7 +192,7 @@ class WebServer {
             try {
                 const { daysToKeep = 30 } = req.body;
                 const db = require('./connectDB');
-                
+
                 if (!db.getStatus().connected) {
                     return res.status(503).json({
                         success: false,
@@ -202,7 +201,7 @@ class WebServer {
                 }
 
                 const deletedCount = await db.cleanOldMessages(daysToKeep);
-                
+
                 res.json({
                     success: true,
                     message: `Cleaned ${deletedCount} old messages`,
@@ -220,7 +219,7 @@ class WebServer {
         this.app.post('/api/execute', async (req, res) => {
             try {
                 const { command } = req.body;
-                
+
                 if (!command) {
                     return res.status(400).json({
                         success: false,
@@ -230,7 +229,7 @@ class WebServer {
 
                 // Here you would implement command execution logic
                 // For security, only allow specific admin commands
-                
+
                 res.json({
                     success: true,
                     message: 'Command execution not implemented yet',
@@ -276,11 +275,11 @@ class WebServer {
     async getStats() {
         try {
             const uptime = Math.floor((Date.now() - this.startTime) / 1000);
-            
+
             // Get user and group counts from database
             let userCount = 0;
             let groupCount = 0;
-            
+
             try {
                 const database = require('./connectDB');
                 const dbStatus = database.getStatus();
@@ -291,7 +290,7 @@ class WebServer {
             } catch (dbError) {
                 logError(`Database error in getStats: ${dbError.message}`);
             }
-            
+
             return {
                 users: userCount || 0,
                 groups: groupCount || 0,

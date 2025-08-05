@@ -102,7 +102,7 @@ class LunaDashboard {
             const data = await response.json();
             if (data && data.success && data.stats) {
                 this.updateStats(data);
-                this.updateStatus(data.status || 'offline');
+                this.updateStatus(data.stats.botStatus || data.status || 'offline');
             } else {
                 console.error('API returned error:', data?.error || 'Invalid response');
                 this.showNotification('Failed to load dashboard data', 'error');
@@ -492,12 +492,12 @@ class LunaDashboard {
     updateStats(data) {
         const stats = data?.stats || { users: 0, groups: 0, commands: 0, uptime: 0 };
         this.stats = stats;
-        
+
         const userCountEl = document.getElementById('user-count');
         const groupCountEl = document.getElementById('group-count');
         const commandCountEl = document.getElementById('command-count');
         const uptimeEl = document.getElementById('uptime');
-        
+
         if (userCountEl) userCountEl.textContent = stats.users || 0;
         if (groupCountEl) groupCountEl.textContent = stats.groups || 0;
         if (commandCountEl) commandCountEl.textContent = stats.commands || 0;
@@ -507,15 +507,15 @@ class LunaDashboard {
     updateStatus(status) {
         const statusEl = document.getElementById('status-text');
         const statusIndicator = document.querySelector('.status-indicator');
-        
+
         if (statusEl) {
             statusEl.textContent = status === 'online' ? 'Bot is Online' : 'Bot is Offline';
         }
-        
+
         if (statusIndicator) {
             statusIndicator.className = `status-indicator status-${status || 'offline'}`;
         }
-        
+
         this.isConnected = status === 'online';
     }
 
@@ -537,9 +537,9 @@ class LunaDashboard {
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.textContent = message;
-        
+
         document.body.appendChild(notification);
-        
+
         setTimeout(() => notification.classList.add('show'), 100);
         setTimeout(() => {
             notification.classList.remove('show');
@@ -555,23 +555,37 @@ function loadStats() {
     fetch('/api/stats')
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             return response.json();
         })
         .then(data => {
-            if (data && data.success && data.stats) {
+            if (data.success && data.stats) {
                 updateStatsDisplay(data.stats);
-                updateBotStatus(data.status || 'offline');
+                updateBotStatus(data.stats.botStatus || data.status || 'offline');
             } else {
-                console.error('Invalid stats data received:', data);
-                updateStatsDisplay({ users: 0, groups: 0, commands: 0, uptime: 0 });
+                console.error('Stats API returned error:', data.error || 'Unknown error');
+                // Set default values on error
+                updateStatsDisplay({
+                    users: 0,
+                    groups: 0,
+                    messages24h: 0,
+                    botStatus: 'offline',
+                    uptime: 0
+                });
                 updateBotStatus('offline');
             }
         })
         .catch(error => {
-            console.error('Error loading stats:', error);
-            updateStatsDisplay({ users: 0, groups: 0, commands: 0, uptime: 0 });
+            console.error('Error loading stats:', error.message);
+            // Set default values on error
+            updateStatsDisplay({
+                users: 0,
+                groups: 0,
+                messages24h: 0,
+                botStatus: 'offline',
+                uptime: 0
+            });
             updateBotStatus('offline');
         });
 }
@@ -581,7 +595,7 @@ function updateStatsDisplay(stats) {
     const groupCountEl = document.getElementById('group-count');
     const commandCountEl = document.getElementById('command-count');
     const uptimeEl = document.getElementById('uptime');
-    
+
     if (userCountEl) userCountEl.textContent = stats?.users || 0;
     if (groupCountEl) groupCountEl.textContent = stats?.groups || 0;
     if (commandCountEl) commandCountEl.textContent = stats?.commands || 0;

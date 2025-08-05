@@ -48,6 +48,9 @@ const eventManager = new EventManager();
 
 let isLoggedIn = false;
 
+// Initialize bot status global
+global.botConnected = false;
+
 async function startBotz() {
     try {
         // Initialize globals first
