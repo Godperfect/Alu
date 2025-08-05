@@ -87,7 +87,7 @@ class EventHandler {
             if (mek.key && mek.key.remoteJid === 'status@broadcast') return;
 
 
-            // Determine message context with improved channel/community support
+            // Determine message context with proper sender identification
             let sender, senderNumber;
 
             if (mek.key.fromMe) {
@@ -102,25 +102,25 @@ class EventHandler {
                              mek.pushName || 
                              'channel_user';
                 } else if (mek.key.remoteJid.endsWith('@g.us')) {
-                    // Group message (including community)
-                    sender = mek.key.participant || mek.key.remoteJid;
+                    // Group message - use participant (this is the correct approach for groups)
+                    const senderJid = mek.key.participant; // 'XXXXXXXXXXXX@s.whatsapp.net'
+                    sender = senderJid;
+                    senderNumber = senderJid ? senderJid.split('@')[0] : ''; // 'XXXXXXXXXXXX'
                 } else {
                     // Private message
                     sender = mek.key.remoteJid;
+                    senderNumber = mek.key.remoteJid ? mek.key.remoteJid.split('@')[0] : '';
                 }
 
-                // Extract phone number more robustly
-                if (typeof sender === 'string' && sender !== 'channel_user') {
-                    // Handle different ID formats
+                // For non-group messages, extract phone number
+                if (!mek.key.remoteJid.endsWith('@g.us') && typeof sender === 'string' && sender !== 'channel_user') {
+                    // Handle different ID formats for private messages
                     if (sender.includes('@lid')) {
                         // LinkedIn ID format - extract numbers only
                         senderNumber = sender.replace(/[^0-9]/g, '');
                     } else if (sender.includes('@s.whatsapp.net') || sender.includes('@c.us')) {
                         // Standard WhatsApp format
                         senderNumber = sender.split('@')[0];
-                    } else if (sender.includes('@g.us')) {
-                        // Group ID - extract from participant if available
-                        senderNumber = '';
                     } else {
                         // Other formats - try to extract numbers
                         senderNumber = sender.replace(/[^0-9]/g, '');
@@ -130,8 +130,6 @@ class EventHandler {
                     if (sender && !sender.includes('@') && senderNumber.length > 0) {
                         sender = senderNumber + '@s.whatsapp.net';
                     }
-                } else {
-                    senderNumber = '';
                 }
             }
 
