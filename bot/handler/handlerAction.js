@@ -20,12 +20,16 @@ const handlerAction = {
     handleCommand: async function({ sock, mek, args, command, sender, botNumber, messageInfo, isGroup }) {
         try {
             const threadID = mek.key.remoteJid;
+            const isChannel = threadID.endsWith('@newsletter');
+            const isCommunity = messageInfo.messageType === 'community';
 
-             if (!command) {
+            if (!command) {
                 return sock.sendMessage(threadID, { 
                     text: lang.get('handler.noCommandProvided', global.prefix) 
                 }, { quoted: mek });
-            }  const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
+            }
+            
+            const cmd = global.commands.get(command) || [...global.commands.values()].find(cmd => cmd.alias && cmd.alias.includes(command));
   if (!cmd) {
 
  return sock.sendMessage(threadID, { 
@@ -36,7 +40,34 @@ const handlerAction = {
 
 
             if (typeof cmd.run === 'function') {
-                const userNumber = sender.replace(/[^0-9]/g, '');
+                // Improved user number extraction for channels and communities
+                let userNumber = '';
+                if (sender && typeof sender === 'string') {
+                    userNumber = sender.replace(/[^0-9]/g, '');
+                    
+                    // For channels, if we can't extract a valid number, check other sources
+                    if (isChannel && (!userNumber || userNumber.length < 10)) {
+                        // Try to get from push name or context
+                        const altSender = mek.pushName || mek.message?.contextInfo?.participant;
+                        if (altSender) {
+                            userNumber = altSender.replace(/[^0-9]/g, '');
+                        }
+                    }
+                    
+                    // Validate phone number format
+                    if (!userNumber || userNumber.length < 10 || !/^\d{10,15}$/.test(userNumber)) {
+                        if (isChannel) {
+                            // For channels, we might not have proper user identification
+                            logWarning(`Channel message from unidentified user in ${messageInfo.chatName}`);
+                            return sock.sendMessage(threadID, { 
+                                text: "❌ Unable to identify user in channel. Commands may not work properly."
+                            }, { quoted: mek });
+                        }
+                        userNumber = ''; // Set empty for validation below
+                    }
+                } else {
+                    userNumber = '';
+                }
 
 
                 if (Array.isArray(global.bannedUsers) && global.bannedUsers.includes(userNumber)) {

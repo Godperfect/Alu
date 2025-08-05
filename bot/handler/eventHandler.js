@@ -87,23 +87,52 @@ class EventHandler {
             if (mek.key && mek.key.remoteJid === 'status@broadcast') return;
 
 
-            const sender = mek.key.fromMe
-                ? sock.user.id.split(':')[0] + '@s.whatsapp.net'
-                : mek.key.participant || mek.key.remoteJid;
+            // Determine message context with improved channel/community support
+            let sender, senderNumber;
 
-            const senderNumber = sender.replace(/[^0-9]/g, '');
+            if (mek.key.fromMe) {
+                sender = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                senderNumber = sock.user.id.split(':')[0];
+            } else {
+                // Handle different message types
+                if (mek.key.remoteJid.endsWith('@newsletter')) {
+                    // Channel message - sender info might be in different places
+                    sender = mek.key.participant || 
+                             mek.message?.contextInfo?.participant ||
+                             mek.pushName || 
+                             'channel_user';
+                } else if (mek.key.remoteJid.endsWith('@g.us')) {
+                    // Group message (including community)
+                    sender = mek.key.participant || mek.key.remoteJid;
+                } else {
+                    // Private message
+                    sender = mek.key.remoteJid;
+                }
 
+                // Extract phone number more robustly
+                if (typeof sender === 'string') {
+                    senderNumber = sender.replace(/[^0-9]/g, '');
+                    // Ensure sender has proper format
+                    if (sender && !sender.includes('@') && sender !== 'channel_user') {
+                        sender = sender + '@s.whatsapp.net';
+                    }
+                } else {
+                    senderNumber = '';
+                }
+            }
 
+            // Initialize variables
             let messageType = 'unknown';
             let chatName = '';
 
-
+            // Determine context type with better detection
             const isGroup = mek.key.remoteJid.endsWith('@g.us');
-
-            const isCommunity = isGroup && mek.message?.senderKeyDistributionMessage?.groupId;
-
             const isChannel = mek.key.remoteJid.endsWith('@newsletter');
-
+            const isCommunity = isGroup && (
+                mek.message?.senderKeyDistributionMessage?.groupId ||
+                mek.message?.contextInfo?.groupMentionedJid ||
+                mek.key.remoteJid.includes('community')
+            );
             const isPrivate = !isGroup && !isChannel;
 
 
@@ -506,6 +535,7 @@ function extractPhoneNumber(senderJid) {
             return phoneNumber;
         }
     }
+    // Return null for non-WhatsApp IDs or malformed senderJids
     return null;
 }
 
