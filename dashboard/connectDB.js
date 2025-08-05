@@ -138,16 +138,6 @@ class DatabaseManager {
         return await this.primaryDB.cleanOldMessages(daysToKeep);
     }
 
-    async getUserCount() {
-        if (!this.isConnected) return 0;
-        return await this.primaryDB.getUserCount();
-    }
-
-    async getGroupCount() {
-        if (!this.isConnected) return 0;
-        return await this.primaryDB.getGroupCount();
-    }
-
     async getAllUsers() {
         if (!this.isConnected) return [];
         return await this.primaryDB.getAllUsers();
@@ -156,6 +146,22 @@ class DatabaseManager {
     async getAllGroups() {
         if (!this.isConnected) return [];
         return await this.primaryDB.getAllGroups();
+    }
+
+    // Add missing database query methods
+    async all(sql, params = []) {
+        if (!this.isConnected) return [];
+        return await this.primaryDB.all(sql, params);
+    }
+
+    async get(sql, params = []) {
+        if (!this.isConnected) return null;
+        return await this.primaryDB.get(sql, params);
+    }
+
+    async run(sql, params = []) {
+        if (!this.isConnected) return { changes: 0 };
+        return await this.primaryDB.run(sql, params);
     }
 }
 
