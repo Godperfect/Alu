@@ -59,7 +59,7 @@ class EventManager {
 
         if (!m) {
             logError("handleEvents called but 'm' is undefined or null!");
-            return; 
+            return;
         }
 
         global.events.forEach(event => {
