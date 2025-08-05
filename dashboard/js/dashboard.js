@@ -96,12 +96,23 @@ class LunaDashboard {
     async loadInitialData() {
         try {
             const response = await fetch('/api/stats');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const data = await response.json();
-            this.updateStats(data);
-            this.updateStatus(data.status);
+            if (data.success) {
+                this.updateStats(data);
+                this.updateStatus(data.status);
+            } else {
+                console.error('API returned error:', data.error);
+                this.showNotification('Failed to load dashboard data', 'error');
+            }
         } catch (error) {
             console.error('Failed to load initial data:', error);
             this.showNotification('Failed to load dashboard data', 'error');
+            // Set default values when API fails
+            this.updateStats({ stats: { users: 0, groups: 0, commands: 0, uptime: 0 } });
+            this.updateStatus('offline');
         }
     }
 
@@ -296,14 +307,14 @@ class LunaDashboard {
     }
 
     updateStats(data) {
-        if (data.stats) {
+        if (data && data.stats) {
             this.stats = { ...this.stats, ...data.stats };
 
             // Animate number changes
-            this.animateNumber('user-count', this.stats.users);
-            this.animateNumber('group-count', this.stats.groups);
-            this.animateNumber('command-count', this.stats.commands);
-            this.updateElement('uptime', this.formatUptime(this.stats.uptime));
+            this.animateNumber('user-count', this.stats.users || 0);
+            this.animateNumber('group-count', this.stats.groups || 0);
+            this.animateNumber('command-count', this.stats.commands || 0);
+            this.updateElement('uptime', this.formatUptime(this.stats.uptime || 0));
         }
     }
 
