@@ -586,59 +586,69 @@ function initializeApp() {
 
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
+        console.log('Fetching users from database...');
+
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Request timeout')), 5000)
         );
 
         const getUsersPromise = (async () => {
-            const users = await db.getAllUsers();
-            const userCount = await db.getUserCount();
+            let users = [];
+            let userCount = 0;
 
-            // Filter and validate users
-            const validUsers = users ? users.filter(u => {
-                // Check if phoneNumber exists and is valid
-                if (!u.phoneNumber) return false;
+            try {
+                users = await db.getAllUsers() || [];
+                userCount = await db.getUserCount() || 0;
+                console.log(`Retrieved ${users.length} users from database`);
+            } catch (dbError) {
+                console.error('Database error in users fetch:', dbError);
+                users = [];
+                userCount = 0;
+            }
 
-                // Allow both numeric phone numbers and lid format
-                const phoneStr = String(u.phoneNumber);
-                return /^\d{10,15}$/.test(phoneStr) || phoneStr.includes('lid');
-            }).map(u => ({
-                ...u,
-                id: u.phoneNumber,
+            // Ensure users is an array and properly formatted
+            const userArray = Array.isArray(users) ? users : [];
+            const validUsers = userArray.filter(u => u && (u.phoneNumber || u.userNumber || u.id)).map(u => ({
+                id: u.phoneNumber || u.userNumber || u.id || 'unknown',
                 name: u.name || u.userName || 'Unknown',
-                exp: u.exp || 0,
-                level: u.level || 1,
-                banned: u.isBanned || false,
-                role: u.isAdmin ? 2 : 0,
-                messageCount: u.messageCount || 0,
-                lastSeen: u.lastSeen || new Date().toISOString()
-            })) : [];
+                messageCount: parseInt(u.messageCount) || 0,
+                level: parseInt(u.level) || 1,
+                exp: parseInt(u.exp) || 0,
+                banned: Boolean(u.banned || u.isBanned),
+                role: parseInt(u.role) || 0,
+                lastSeen: u.lastSeen || new Date().toISOString(),
+                isAdmin: Boolean(u.isAdmin),
+                profilePic: u.profilePic || '',
+                commandCount: parseInt(u.commandCount) || 0
+            }));
 
             const now = new Date();
-            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-            return {
+            const activeUsers = validUsers.filter(u => {
+                const lastSeen = new Date(u.lastSeen);
+                return lastSeen > oneWeekAgo;
+            }).length;
+
+            const result = {
                 success: true,
-                users: validUsers.slice(0, 50), // Limit to 50 users for performance
-                total: userCount || validUsers.length,
-                active: validUsers.filter(u => {
-                    try {
-                        return new Date(u.lastSeen) > oneDayAgo;
-                    } catch {
-                        return false;
-                    }
-                }).length
+                users: validUsers,
+                total: Math.max(userCount, validUsers.length),
+                active: activeUsers
             };
+
+            console.log(`Returning ${validUsers.length} valid users, ${activeUsers} active`);
+            return result;
         })();
 
         const result = await Promise.race([getUsersPromise, timeoutPromise]);
         res.json(result);
     } catch (error) {
         console.error('Error fetching users:', error);
-        res.json({ 
+        res.status(500).json({ 
             success: false, 
-            error: 'Failed to fetch users',
+            error: error.message || 'Failed to fetch users',
             users: [],
             total: 0,
             active: 0
@@ -648,52 +658,71 @@ function initializeApp() {
 
   app.get("/api/groups", requireAuth, async (req, res) => {
     try {
+        console.log('Fetching groups from database...');
+
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Request timeout')), 5000)
         );
 
         const getGroupsPromise = (async () => {
-            const groups = await db.getAllGroups();
-            const groupCount = await db.getGroupCount();
+            let groups = [];
+            let groupCount = 0;
+
+            try {
+                groups = await db.getAllGroups() || [];
+                groupCount = await db.getGroupCount() || 0;
+                console.log(`Retrieved ${groups.length} groups from database`);
+            } catch (dbError) {
+                console.error('Database error in groups fetch:', dbError);
+                groups = [];
+                groupCount = 0;
+            }
 
             // Filter and validate groups
-            const validGroups = groups ? groups.filter(g => 
-                g.groupId && g.groupId.endsWith('@g.us')
+            const groupArray = Array.isArray(groups) ? groups : [];
+            const validGroups = groupArray.filter(g => 
+                g && (g.groupId || g.id) && (g.groupId?.endsWith('@g.us') || g.id?.endsWith('@g.us'))
             ).map(g => ({
-                ...g,
-                id: g.groupId,
+                id: g.groupId || g.id || 'unknown',
+                groupId: g.groupId || g.id || 'unknown',
                 name: g.groupName || g.name || 'Unknown Group',
-                memberCount: g.memberCount || g.participantCount || 0,
-                messageCount: g.messageCount || 0,
+                memberCount: parseInt(g.memberCount || g.participantCount) || 0,
+                messageCount: parseInt(g.messageCount) || 0,
                 isActive: g.isActive !== false, // Default to true if not specified
-                lastActivity: g.lastActivity || new Date().toISOString()
-            })) : [];
+                lastActivity: g.lastActivity || new Date().toISOString(),
+                description: g.description || '',
+                adminNumbers: g.adminNumbers || [],
+                customPrefix: g.customPrefix || '',
+                settings: g.settings || {}
+            }));
 
             const now = new Date();
             const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-            return {
+            const activeGroups = validGroups.filter(g => {
+                const lastActivity = new Date(g.lastActivity);
+                return lastActivity > oneWeekAgo;
+            }).length;
+
+            const result = {
                 success: true,
-                groups: validGroups.slice(0, 50), // Limit to 50 groups for performance
-                total: groupCount || validGroups.length,
-                active: validGroups.filter(g => {
-                    try {
-                        return new Date(g.lastActivity) > oneWeekAgo;
-                    } catch {
-                        return false;
-                    }
-                }).length
+                groups: validGroups,
+                total: Math.max(groupCount, validGroups.length),
+                active: activeGroups
             };
+
+            console.log(`Returning ${validGroups.length} valid groups, ${activeGroups} active`);
+            return result;
         })();
 
         const result = await Promise.race([getGroupsPromise, timeoutPromise]);
         res.json(result);
     } catch (error) {
         console.error('Error fetching groups:', error);
-        res.json({ 
+        res.status(500).json({ 
             success: false, 
-            error: 'Failed to fetch groups',
+            error: error.message || 'Failed to fetch groups',
             groups: [],
             total: 0,
             active: 0
@@ -701,64 +730,54 @@ function initializeApp() {
     }
 });
 
-  app.get("/api/system", (req, res) => {
+  app.get("/api/system", requireAuth, async (req, res) => {
     try {
-      const token = req.headers.authorization?.replace("Bearer ", "");
+        const memUsage = process.memoryUsage();
+        const systemInfo = {
+            uptime: Math.floor(process.uptime()),
+            platform: process.platform || 'unknown',
+            architecture: process.arch || 'unknown',
+            nodeVersion: process.version || 'unknown',
+            memory: {
+                used: Math.round(memUsage.heapUsed / 1024 / 1024), // Convert to MB
+                total: Math.round(memUsage.heapTotal / 1024 / 1024), // Convert to MB
+                free: Math.round((memUsage.heapTotal - memUsage.heapUsed) / 1024 / 1024) // Convert to MB
+            },
+            loadAverage: os.loadavg() || [0, 0, 0]
+        };
 
-      if (!token) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const authTokens = global.GoatBot.authTokens || new Map();
-      const tokenData = authTokens.get(token);
-
-      if (!tokenData || Date.now() > tokenData.expiryTime) {
-        if (tokenData) authTokens.delete(token);
-        return res.status(401).json({ error: "Invalid or expired token" });
-      }
-
-      const memoryUsage = process.memoryUsage();
-      const cpuUsage = process.cpuUsage();
-      res.json({
-        memory: {
-          rss: Math.round(memoryUsage.rss / 1024 / 1024),
-          heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-          external: Math.round(memoryUsage.external / 1024 / 1024),
-          total: os.totalmem(),
-          free: os.freemem(),
-          used: os.totalmem() - os.freemem(),
-        },
-        cpu: { user: cpuUsage.user, system: cpuUsage.system },
-        uptime: process.uptime(),
-        platform: process.platform,
-        architecture: os.arch(),
-        nodeVersion: process.version,
-        pid: process.pid,
-        loadAverage: os.loadavg(),
-      });
+        console.log('System info response:', systemInfo);
+        res.json(systemInfo);
     } catch (error) {
-      console.error('System endpoint error:', error);
-      res.status(500).json({ error: error.message });
+        console.error('Error fetching system info:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch system information',
+            uptime: 0,
+            platform: 'unknown',
+            architecture: 'unknown',
+            nodeVersion: 'unknown',
+            memory: { used: 0, total: 0, free: 0 },
+            loadAverage: [0, 0, 0]
+        });
     }
-  });
+});
 
   app.get("/api/bot/info", requireAuth, async (req, res) => {
     try {
-      // Read package.json for real version and name info
-      const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-      const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
-      
-      const formatUptime = (seconds) => {
-        const days = Math.floor(seconds / (24 * 3600));
-        const hours = Math.floor((seconds % (24 * 3600)) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-        if (days > 0) return `${days}d ${hours}h ${minutes}m ${secs}s`;
-        if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
-        if (minutes > 0) return `${minutes}m ${secs}s`;
-        return `${secs}s`;
-      };
+        // Read package.json for real version and name info
+        const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+        const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
+
+        const formatUptime = (seconds) => {
+            const days = Math.floor(seconds / (24 * 3600));
+            const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            if (days > 0) return `${days}d ${hours}h ${minutes}m ${secs}s`;
+            if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+            if (minutes > 0) return `${minutes}m ${secs}s`;
+            return `${secs}s`;
+        };
 
       const getCommandCount = () => {
         try {
@@ -808,10 +827,27 @@ function initializeApp() {
         autoRestart: config.autoRestart?.enable || false
       };
 
+      console.log('Bot info response:', botInfo);
       res.json(botInfo);
     } catch (error) {
       console.error('Error fetching bot info:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+            error: 'Failed to fetch bot information',
+            name: "Luna Bot v1",
+            version: "1.0.0",
+            status: "Error",
+            uptime: "0 seconds",
+            commandsLoaded: 0,
+            eventsLoaded: 0,
+            lastRestart: "Never",
+            adminUsers: 0,
+            prefix: "+",
+            language: "en",
+            timeZone: "UTC",
+            phoneNumber: "Not configured",
+            database: "sqlite",
+            autoRestart: false
+        });
     }
   });
 

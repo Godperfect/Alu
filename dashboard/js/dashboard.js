@@ -666,8 +666,10 @@ function apiRequest(endpoint, options = {}) {
 }
 
 function loadDashboardData() {
+    console.log('Loading dashboard data...');
+    
     // Create timeout wrapper for API requests with shorter timeout
-    const apiRequestWithTimeout = (url, timeout = 3000) => {
+    const apiRequestWithTimeout = (url, timeout = 5000) => {
         return Promise.race([
             apiRequest(url),
             new Promise((_, reject) => 
@@ -681,50 +683,49 @@ function loadDashboardData() {
 
     // Load data with fallbacks
     Promise.all([
-        apiRequestWithTimeout('/api/users').catch(() => ({ total: 0, active: 0, users: [] })),
-        apiRequestWithTimeout('/api/groups').catch(() => ({ total: 0, active: 0, groups: [] })),
-        apiRequestWithTimeout('/api/system').catch(() => ({ uptime: 0, memory: { used: 0, total: 0, free: 0 } })),
-        apiRequestWithTimeout('/api/bot/info').catch(() => ({ name: 'Luna Bot v1', commandsLoaded: 0 })),
-        apiRequestWithTimeout('/api/analytics/overview').catch(() => ({ totalMessages: 0, commandsUsed: 0 }))
+        apiRequestWithTimeout('/api/users').catch(() => ({ success: false, total: 0, active: 0, users: [] })),
+        apiRequestWithTimeout('/api/groups').catch(() => ({ success: false, total: 0, active: 0, groups: [] })),
+        apiRequestWithTimeout('/api/system').catch(() => ({ error: true, uptime: 0, memory: { used: 0, total: 0, free: 0 } })),
+        apiRequestWithTimeout('/api/bot/info').catch(() => ({ error: true, name: 'Luna Bot v1', commandsLoaded: 0 })),
+        apiRequestWithTimeout('/api/analytics/overview').catch(() => ({ error: true, totalMessages: 0, commandsUsed: 0 }))
     ]).then(([users, groups, system, botInfo, analytics]) => {
+        console.log('API responses:', { users, groups, system, botInfo, analytics });
+        
         // Update stats with safe fallbacks
         const setText = (id, value) => {
             const el = document.getElementById(id);
-            if (el) el.textContent = String(value || 0);
+            if (el) {
+                el.textContent = String(value || 0);
+            } else {
+                console.warn(`Element not found: ${id}`);
+            }
         };
 
-        // Dashboard stats
-        setText('totalUsers', users.total);
-        setText('totalGroups', groups.total);
-        setText('activeUsers', users.active);
-        setText('activeGroups', groups.active);
-        setText('botName', botInfo.name);
-        setText('commandsLoaded', botInfo.commandsLoaded);
+        // Dashboard stats - handle both success and error cases
+        setText('totalUsers', users.total || 0);
+        setText('totalGroups', groups.total || 0);
+        setText('activeUsers', users.active || 0);
+        setText('activeGroups', groups.active || 0);
+        setText('botName', botInfo.name || 'Luna Bot v1');
+        setText('commandsLoaded', botInfo.commandsLoaded || 0);
 
         // Update memory usage if available
-        if (system && system.memory && system.memory.used) {
-            const memoryElement = document.getElementById('memoryUsage');
-            if (memoryElement) {
-                // Handle different memory units - if value is already in MB or too large
+        const memoryElement = document.getElementById('memoryUsage');
+        if (memoryElement) {
+            if (system && system.memory && typeof system.memory.used === 'number') {
                 let memoryUsageMB = system.memory.used;
                 
-                // If the value seems to be in bytes (> 1000000), convert to MB
-                if (memoryUsageMB > 1000000) {
-                    memoryUsageMB = Math.round(memoryUsageMB / 1024 / 1024);
-                } else {
-                    // Value might already be in MB or KB, ensure it's reasonable
+                // If the value is already in MB (reasonable range)
+                if (memoryUsageMB < 10000) {
                     memoryUsageMB = Math.round(memoryUsageMB);
-                }
-                
-                // Cap at reasonable values (max 8GB = 8192MB for typical systems)
-                if (memoryUsageMB > 8192) {
-                    memoryUsageMB = Math.round(memoryUsageMB / 1024); // Try converting from KB to MB
-                    if (memoryUsageMB > 8192) {
-                        memoryUsageMB = Math.round(memoryUsageMB / 1024); // Convert from bytes if still too high
-                    }
+                } else {
+                    // Convert from bytes to MB
+                    memoryUsageMB = Math.round(memoryUsageMB / 1024 / 1024);
                 }
                 
                 memoryElement.textContent = memoryUsageMB + ' MB';
+            } else {
+                memoryElement.textContent = '-- MB';
             }
         }
 
@@ -749,6 +750,11 @@ function loadDashboardData() {
         setText('activeGroups', 0);
         setText('botName', 'Luna Bot v1');
         setText('commandsLoaded', 0);
+        
+        const memoryElement = document.getElementById('memoryUsage');
+        if (memoryElement) {
+            memoryElement.textContent = '-- MB';
+        }
     });
 }
 
@@ -917,86 +923,162 @@ function getRoleText(role) {
 }
 
 function loadUsers() {
+    console.log('Loading users...');
+    
     apiRequest('/api/users')
         .then(data => {
+            console.log('Users data received:', data);
+            
             const usersList = document.getElementById('usersList');
+            if (!usersList) {
+                console.error('Users list element not found');
+                return;
+            }
+            
             usersList.innerHTML = '';
 
-            if (data.users && data.users.length > 0) {
+            if (data && data.users && Array.isArray(data.users) && data.users.length > 0) {
                 data.users.forEach(user => {
+                    if (!user) return;
+                    
                     const userItem = document.createElement('div');
                     userItem.className = 'list-item';
                     userItem.innerHTML = `
                         <div class="item-info">
                             <h6>${user.name || 'Unknown'}</h6>
-                            <p>${user.id}</p>
+                            <p>${user.id || 'No ID'}</p>
                             <small class="text-muted">Exp: ${user.exp || 0} | Messages: ${user.messageCount || 0}</small>
                         </div>
                         <div class="item-badges">
                             <span class="badge bg-warning">Level ${user.level || 1}</span>
                             <span class="badge ${user.banned ? 'bg-danger' : 'bg-success'}">${user.banned ? 'Banned' : 'Active'}</span>
                             ${user.role > 0 ? `<span class="badge bg-info">Role: ${user.role}</span>` : ''}
+                            ${user.isAdmin ? `<span class="badge bg-primary">Admin</span>` : ''}
                         </div>
                     `;
                     usersList.appendChild(userItem);
                 });
+                console.log(`Loaded ${data.users.length} users`);
             } else {
                 usersList.innerHTML = '<div class="text-center text-muted">No users found</div>';
+                console.log('No users data available');
             }
         })
         .catch(error => {
             console.error('Error loading users:', error);
-            document.getElementById('usersList').innerHTML = '<div class="error-message">Error loading users</div>';
+            const usersList = document.getElementById('usersList');
+            if (usersList) {
+                usersList.innerHTML = '<div class="error-message">Error loading users: ' + (error.message || 'Unknown error') + '</div>';
+            }
         });
 }
 
 function loadGroups() {
+    console.log('Loading groups...');
+    
     apiRequest('/api/groups')
         .then(data => {
+            console.log('Groups data received:', data);
+            
             const groupsList = document.getElementById('groupsList');
+            if (!groupsList) {
+                console.error('Groups list element not found');
+                return;
+            }
+            
             groupsList.innerHTML = '';
 
-            if (data.groups && data.groups.length > 0) {
+            if (data && data.groups && Array.isArray(data.groups) && data.groups.length > 0) {
                 data.groups.forEach(group => {
+                    if (!group) return;
+                    
                     const groupItem = document.createElement('div');
                     groupItem.className = 'list-item';
                     groupItem.innerHTML = `
                         <div class="item-info">
                             <h6>${group.name || 'Unknown Group'}</h6>
-                            <p>${group.id}</p>
+                            <p>${group.id || group.groupId || 'No ID'}</p>
                             <small class="text-muted">Messages: ${group.messageCount || 0}</small>
+                            ${group.description ? `<small class="text-muted">Description: ${group.description}</small>` : ''}
                         </div>
                         <div class="item-badges">
                             <span class="badge bg-info">${group.memberCount || 0} members</span>
                             <span class="badge ${group.isActive ? 'bg-success' : 'bg-secondary'}">${group.isActive ? 'Active' : 'Inactive'}</span>
+                            ${group.customPrefix ? `<span class="badge bg-warning">Prefix: ${group.customPrefix}</span>` : ''}
                         </div>
                     `;
                     groupsList.appendChild(groupItem);
                 });
+                console.log(`Loaded ${data.groups.length} groups`);
             } else {
                 groupsList.innerHTML = '<div class="text-center text-muted">No groups found</div>';
+                console.log('No groups data available');
             }
         })
         .catch(error => {
             console.error('Error loading groups:', error);
-            document.getElementById('groupsList').innerHTML = '<div class="error-message">Error loading groups</div>';
+            const groupsList = document.getElementById('groupsList');
+            if (groupsList) {
+                groupsList.innerHTML = '<div class="error-message">Error loading groups: ' + (error.message || 'Unknown error') + '</div>';
+            }
         });
 }
 
 function loadSystemInfo() {
+    console.log('Loading system info...');
+    
     apiRequest('/api/system')
         .then(data => {
-            document.getElementById('platform').textContent = data.platform || 'Unknown';
-            document.getElementById('architecture').textContent = data.architecture || 'Unknown';
-            document.getElementById('nodeVersion').textContent = data.nodeVersion || 'Unknown';
-            document.getElementById('memoryTotal').textContent = Math.round((data.memory?.total || 0) / 1024 / 1024) + ' MB';
-            document.getElementById('systemMemoryUsage').textContent = Math.round((data.memory?.used || 0) / 1024 / 1024) + ' MB';
-            document.getElementById('loadAverage').textContent = data.loadAverage?.join(', ') || 'N/A';
-            document.getElementById('freeMemory').textContent = Math.round((data.memory?.free || 0) / 1024 / 1024) + ' MB';
+            console.log('System info data received:', data);
+            
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                } else {
+                    console.warn(`System info element not found: ${id}`);
+                }
+            };
+            
+            if (data && !data.error) {
+                setText('platform', data.platform || 'Unknown');
+                setText('architecture', data.architecture || 'Unknown');
+                setText('nodeVersion', data.nodeVersion || 'Unknown');
+                setText('memoryTotal', (data.memory?.total || 0) + ' MB');
+                setText('systemMemoryUsage', (data.memory?.used || 0) + ' MB');
+                setText('loadAverage', data.loadAverage?.join(', ') || 'N/A');
+                setText('freeMemory', (data.memory?.free || 0) + ' MB');
+            } else {
+                // Set fallback values
+                setText('platform', 'Unknown');
+                setText('architecture', 'Unknown');
+                setText('nodeVersion', 'Unknown');
+                setText('memoryTotal', '0 MB');
+                setText('systemMemoryUsage', '0 MB');
+                setText('loadAverage', 'N/A');
+                setText('freeMemory', '0 MB');
+            }
         })
         .catch(error => {
             console.error('Error loading system info:', error);
-            showAlert('Error loading system information: ' + error.message, 'error');
+            
+            // Set fallback values on error
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+            
+            setText('platform', 'Error');
+            setText('architecture', 'Error');
+            setText('nodeVersion', 'Error');
+            setText('memoryTotal', 'Error');
+            setText('systemMemoryUsage', 'Error');
+            setText('loadAverage', 'Error');
+            setText('freeMemory', 'Error');
+            
+            if (typeof showAlert === 'function') {
+                showAlert('Error loading system information: ' + (error.message || 'Unknown error'), 'error');
+            }
         });
 }
 
