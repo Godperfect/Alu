@@ -58,10 +58,9 @@ function initializeApp() {
   app.post("/api/auth/request-otp", async (req, res) => {
     try {
       if (!global.sock || !global.botConnected) {
-        return res.status(503).json({ 
-          success: false,
-          message: "Bot is not connected to WhatsApp" 
-        });
+        return res
+          .status(503)
+          .json({ error: "Bot is not connected to WhatsApp" });
       }
 
       const otpService = new OTPService();
@@ -81,27 +80,20 @@ function initializeApp() {
         }
       }
 
-      const successCount = sendResults.filter(r => r.success).length;
+      const result = {
+        expiryTime: Date.now() + 5 * 60 * 1000,
+        sendResults: sendResults
+      };
 
-      if (successCount > 0) {
-        res.json({
-          success: true,
-          message: `OTP sent to ${successCount} admin(s)`,
-          expiryTime: Date.now() + 5 * 60 * 1000,
-          sendResults
-        });
-      } else {
-        res.status(500).json({ 
-          success: false, 
-          message: "Failed to send OTP to any admin" 
-        });
-      }
+      res.json({
+        success: true,
+        message: "OTP sent to admin(s)",
+        expiryTime: result.expiryTime,
+        sendResults: result.sendResults,
+      });
     } catch (error) {
       console.error("Error generating OTP:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Failed to generate OTP" 
-      });
+      res.status(500).json({ error: "Failed to generate OTP" });
     }
   });
 
@@ -202,7 +194,61 @@ function initializeApp() {
     res.json({ valid });
   });
 
-  
+  // Token-based authentication endpoints
+  app.post("/api/auth/request-otp", async (req, res) => {
+    try {
+      if (!global.sock || !global.botConnected) {
+        return res.status(503).json({
+          success: false,
+          message: "Bot is not connected to WhatsApp",
+        });
+      }
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiryTime = Date.now() + 5 * 60 * 1000;
+
+      global.GoatBot.dashboardOTP = { otp, expiryTime, attempts: 0 };
+
+      const adminIds = config.admins || [];
+      const sendResults = [];
+
+      const message = `🔐 Dashboard Login Request\n\nOTP: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nSomeone is trying to access the dashboard. If this wasn't you, please ignore this message.`;
+
+      for (const adminId of adminIds) {
+        try {
+          await global.sock.sendMessage(adminId, { text: message });
+          sendResults.push({ id: adminId, success: true });
+        } catch (sendError) {
+          console.error(`Error sending OTP to ${adminId}:`, sendError);
+          sendResults.push({
+            id: adminId,
+            success: false,
+            error: sendError.message,
+          });
+        }
+      }
+
+      const successCount = sendResults.filter((r) => r.success).length;
+
+      if (successCount > 0) {
+        res.json({
+          success: true,
+          message: `OTP sent to ${successCount} admin(s)`,
+          expiryTime,
+          sendResults,
+        });
+      } else {
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to send OTP to any admin" });
+      }
+    } catch (error) {
+      console.error("Error in request-otp:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  });
 
   // Password login endpoint
   app.post("/api/auth/login-password", (req, res) => {
@@ -561,8 +607,22 @@ function initializeApp() {
     }
   });
 
-  app.get("/api/system", requireAuth, (req, res) => {
+  app.get("/api/system", (req, res) => {
     try {
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      
+      if (!token) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const authTokens = global.GoatBot.authTokens || new Map();
+      const tokenData = authTokens.get(token);
+      
+      if (!tokenData || Date.now() > tokenData.expiryTime) {
+        if (tokenData) authTokens.delete(token);
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
       const memoryUsage = process.memoryUsage();
       const cpuUsage = process.cpuUsage();
       res.json({
@@ -571,9 +631,9 @@ function initializeApp() {
           heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
           heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
           external: Math.round(memoryUsage.external / 1024 / 1024),
-          total: Math.round(os.totalmem() / 1024 / 1024),
-          free: Math.round(os.freemem() / 1024 / 1024),
-          used: Math.round((os.totalmem() - os.freemem()) / 1024 / 1024),
+          total: os.totalmem(),
+          free: os.freemem(),
+          used: os.totalmem() - os.freemem(),
         },
         cpu: { user: cpuUsage.user, system: cpuUsage.system },
         uptime: process.uptime(),

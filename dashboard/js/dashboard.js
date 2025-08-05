@@ -296,10 +296,7 @@ function updateUptime() {
     if (!isAuthenticated) return;
 
     const token = localStorage.getItem('authToken');
-    if (!token) {
-        isAuthenticated = false;
-        return;
-    }
+    if (!token) return;
 
     fetch('/api/system', {
         headers: {
@@ -308,20 +305,13 @@ function updateUptime() {
         }
     })
     .then(response => {
-        if (response.status === 401) {
-            isAuthenticated = false;
-            logout();
-            return null;
-        }
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.json();
     })
     .then(data => {
-        if (!data) return;
-        
-        if (data.uptime !== undefined) {
+        if (data && data.uptime) {
             const uptime = formatUptime(data.uptime);
             const elements = {
                 'uptimeYears': uptime.years,
@@ -340,22 +330,18 @@ function updateUptime() {
             }
         }
 
-        if (data.memory && data.memory.used) {
+        if (data && data.memory && data.memory.used) {
             const memoryElement = document.getElementById('memoryUsage');
             if (memoryElement) {
-                memoryElement.textContent = data.memory.used + ' MB';
+                memoryElement.textContent = Math.round(data.memory.used / 1024 / 1024) + ' MB';
             }
         }
     })
     .catch(error => {
-        // Only log errors that aren't 401/502 to reduce console spam
-        if (!error.message.includes('401') && !error.message.includes('502')) {
-            console.error('Error updating uptime:', error.message || error);
-        }
-        
-        if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
+        console.error('Error updating uptime:', error.message || error);
+        // Stop trying to update if there's an authentication error
+        if (error.message && error.message.includes('401')) {
             isAuthenticated = false;
-            logout();
         }
     });
 }

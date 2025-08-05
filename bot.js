@@ -63,12 +63,7 @@ global.GoatBot = {
         daily: 0
     },
     startTime: Date.now(),
-    authTokens: new Map(),
-    connectionStatus: 'disconnected',
-    isConnected: false,
-    commands: new Map(),
-    events: new Map(),
-    initialized: false
+    authTokens: new Map()
 };
 
 async function startBotz() {
