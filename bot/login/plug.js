@@ -44,8 +44,7 @@ function handleConnection(ptz, startBotz) {
                 ptz.end(`Unknown DisconnectReason: ${reason}|${connection}`);
             }
         } else if (connection === 'open') {
-
-
+            // Connection opened - handled in bot.js
         }
     });
 }
