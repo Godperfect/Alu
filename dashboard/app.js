@@ -1,399 +1,820 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const { logInfo, logError, logSuccess } = require('../utils');
-const db = require('./connectDB');
-const { config } = require('../config/globals');
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs-extra");
+const os = require("os");
+const { logger } = require("../libs/logger");
+const config = require("../config.json");
+const db = require("../database/manager");
+const OTPService = require("../libs/otpService");
+const connect = require("../bot/connect");
+const {
+  dashboardSessions,
+  generateSessionId,
+  isValidSession,
+  requireAuth,
+} = require("../bot/auth");
 
-class WebServer {
-    constructor() {
-        this.app = express();
-        this.port = 5000;
-        this.startTime = Date.now();
-        this.setupMiddleware();
-        this.setupRoutes();
+let app;
+let server;
+
+function invalidateSessionAndRestart() {
+  global.GoatBot.sessionValid = false;
+  global.GoatBot.authMethod = null;
+  global.GoatBot.connectionStatus = "awaiting-login";
+  logger.warn("🔄 Session invalidated by request – restarting auth flow…");
+  process.exit(2);
+}
+
+function initializeApp() {
+  if (app) return app;
+  app = express();
+  app.use(cors());
+  app.use(express.json());
+  app.use(express.static(__dirname));
+
+  // Request OTP endpoint
+  app.post("/api/auth/request-otp", async (req, res) => {
+    try {
+      if (!global.GoatBot.sock || !global.GoatBot.isConnected) {
+        return res
+          .status(503)
+          .json({ error: "Bot is not connected to WhatsApp" });
+      }
+
+      const result = await OTPService.generateAndSendOTP(
+        global.GoatBot.sock,
+        config
+      );
+
+      res.json({
+        success: true,
+        message: "OTP sent to admin(s)",
+        expiryTime: result.expiryTime,
+        sendResults: result.sendResults,
+      });
+    } catch (error) {
+      console.error("Error generating OTP:", error);
+      res.status(500).json({ error: "Failed to generate OTP" });
     }
+  });
 
-    setupMiddleware() {
-        // CORS middleware
-        this.app.use(cors());
+  // Verify OTP and login endpoint
+  app.post("/api/auth/verify-otp", (req, res) => {
+    try {
+      const { otp } = req.body;
 
-        // JSON parsing middleware
-        this.app.use(express.json());
-        this.app.use(express.urlencoded({ extended: true }));
+      if (!otp) {
+        return res.status(400).json({ error: "OTP is required" });
+      }
 
-        // Static files
-        this.app.use('/css', express.static(path.join(__dirname, 'css')));
-        this.app.use('/js', express.static(path.join(__dirname, 'js')));
-        this.app.use('/images', express.static(path.join(__dirname, 'images')));
+      const verification = OTPService.verifyOTP("dashboard_login", otp);
 
-        // Request logging middleware (disabled for cleaner console)
-        // this.app.use((req, res, next) => {
-        //     logInfo(`${req.method} ${req.path} - ${req.ip}`);
-        //     next();
-        // });
+      if (verification.success) {
+        // Create a proper auth token for consistent authentication
+        const token = require("crypto").randomBytes(32).toString("hex");
+        const expiryTime = Date.now() + 24 * 60 * 60 * 1000;
+
+        global.GoatBot.authTokens = global.GoatBot.authTokens || new Map();
+        global.GoatBot.authTokens.set(token, {
+          createdAt: Date.now(),
+          expiryTime,
+          method: "otp"
+        });
+
+        res.json({
+          success: true,
+          token,
+          expiryTime,
+          message: "Login successful",
+        });
+      } else {
+        res.status(401).json({ error: verification.error });
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ error: "Failed to verify OTP" });
     }
+  });
 
-    setupRoutes() {
-        // Dashboard route
-        this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
-        });
+  // Legacy password login endpoint
+  app.post("/api/auth/login", (req, res) => {
+    const { password } = req.body;
 
-        // API Routes
-        this.app.get('/api/stats', async (req, res) => {
-            try {
-                const db = require('./connectDB');
+    if (password === config.dashboard.adminPassword) {
+      const token = require("crypto").randomBytes(32).toString("hex");
+      const expiryTime = Date.now() + 24 * 60 * 60 * 1000;
 
-                if (!db.getStatus().connected) {
-                    return res.status(503).json({
-                        success: false,
-                        error: 'Database not connected'
-                    });
-                }
+      global.GoatBot.authTokens = global.GoatBot.authTokens || new Map();
+      global.GoatBot.authTokens.set(token, {
+        createdAt: Date.now(),
+        expiryTime,
+        method: "password"
+      });
 
-                const userCount = await db.getUserCount();
-                const groupCount = await db.getGroupCount();
-
-                // Get message stats for last 24 hours
-                let messageStats = [{ count: 0 }];
-                try {
-                    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                    if (db.getStatus().primaryDB === 'SQLite') {
-                        messageStats = await db.all(
-                            'SELECT COUNT(*) as count FROM messages WHERE timestamp >= ?',
-                            [last24h]
-                        );
-                    } else {
-                        // For MongoDB, we need to use a different approach
-                        const count = await db.primaryDB.db.collection('messages').countDocuments({
-                            timestamp: { $gte: new Date(last24h) }
-                        });
-                        messageStats = [{ count }];
-                    }
-                } catch (statsError) {
-                    console.error('Error getting message stats:', statsError);
-                }
-
-                const botStatus = global.botConnected === true ? 'online' : 'offline';
-                const uptime = process.uptime();
-
-                res.json({
-                    success: true,
-                    stats: {
-                        users: userCount || 0,
-                        groups: groupCount || 0,
-                        messages24h: messageStats[0]?.count || 0,
-                        botStatus: botStatus,
-                        uptime: Math.floor(uptime)
-                    },
-                    status: botStatus
-                });
-            } catch (error) {
-                console.error('Stats API error:', error);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch stats'
-                });
-            }
-        });
-
-        this.app.get('/api/users', async (req, res) => {
-            try {
-                const db = require('./connectDB');
-                let users = [];
-
-                if (db.getStatus().connected) {
-                    users = await db.getAllUsers();
-                }
-
-                res.json({
-                    success: true,
-                    users: users,
-                    total: users.length
-                });
-            } catch (error) {
-                logError(`Users API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch users'
-                });
-            }
-        });
-
-        this.app.get('/api/groups', async (req, res) => {
-            try {
-                const db = require('./connectDB');
-                let groups = [];
-
-                if (db.getStatus().connected) {
-                    groups = await db.getAllGroups();
-                }
-
-                res.json({
-                    success: true,
-                    groups: groups,
-                    total: groups.length
-                });
-            } catch (error) {
-                logError(`Groups API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch groups'
-                });
-            }
-        });
-
-        // Message analytics endpoints
-        this.app.get('/api/analytics/user/:userId', async (req, res) => {
-            try {
-                const { userId } = req.params;
-                const db = require('./connectDB');
-
-                if (!db.getStatus().connected) {
-                    return res.status(503).json({
-                        success: false,
-                        error: 'Database not connected'
-                    });
-                }
-
-                const stats = await db.getUserMessageStats(userId);
-                res.json({
-                    success: true,
-                    userStats: stats
-                });
-            } catch (error) {
-                logError(`User analytics API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch user analytics'
-                });
-            }
-        });
-
-        // Users API endpoint
-        this.app.get('/api/users', async (req, res) => {
-            try {
-                const db = require('./connectDB');
-
-                if (!db.getStatus().connected) {
-                    return res.status(503).json({
-                        success: false,
-                        error: 'Database not connected'
-                    });
-                }
-
-                const users = await db.getAllUsers();
-                res.json({
-                    success: true,
-                    users: users || []
-                });
-            } catch (error) {
-                console.error('Users API error:', error);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch users',
-                    users: []
-                });
-            }
-        });
-
-        // Groups API endpoint
-        this.app.get('/api/groups', async (req, res) => {
-            try {
-                const db = require('./connectDB');
-
-                if (!db.getStatus().connected) {
-                    return res.status(503).json({
-                        success: false,
-                        error: 'Database not connected'
-                    });
-                }
-
-                const groups = await db.getAllGroups();
-                res.json({
-                    success: true,
-                    groups: groups || []
-                });
-            } catch (error) {
-                console.error('Groups API error:', error);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch groups',
-                    groups: []
-                });
-            }
-        });
-
-        this.app.get('/api/analytics/group/:groupId', async (req, res) => {
-            try {
-                const { groupId } = req.params;
-                const { days = 7 } = req.query;
-                const db = require('./connectDB');
-
-                if (!db.getStatus().connected) {
-                    return res.status(503).json({
-                        success: false,
-                        error: 'Database not connected'
-                    });
-                }
-
-                const stats = await db.getGroupMessageStats(groupId, parseInt(days));
-                const activities = await db.getRecentGroupActivities(groupId, 20);
-
-                res.json({
-                    success: true,
-                    groupStats: stats,
-                    recentActivities: activities
-                });
-            } catch (error) {
-                logError(`Group analytics API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to fetch group analytics'
-                });
-            }
-        });
-
-        this.app.post('/api/maintenance/cleanup', async (req, res) => {
-            try {
-                const { daysToKeep = 30 } = req.body;
-                const db = require('./connectDB');
-
-                if (!db.getStatus().connected) {
-                    return res.status(503).json({
-                        success: false,
-                        error: 'Database not connected'
-                    });
-                }
-
-                const deletedCount = await db.cleanOldMessages(daysToKeep);
-
-                res.json({
-                    success: true,
-                    message: `Cleaned ${deletedCount} old messages`,
-                    deletedCount
-                });
-            } catch (error) {
-                logError(`Cleanup API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to cleanup messages'
-                });
-            }
-        });
-
-        this.app.post('/api/execute', async (req, res) => {
-            try {
-                const { command } = req.body;
-
-                if (!command) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Command is required'
-                    });
-                }
-
-                // Here you would implement command execution logic
-                // For security, only allow specific admin commands
-
-                res.json({
-                    success: true,
-                    message: 'Command execution not implemented yet',
-                    command
-                });
-            } catch (error) {
-                logError(`Execute API error: ${error.message}`);
-                res.status(500).json({
-                    success: false,
-                    error: 'Failed to execute command'
-                });
-            }
-        });
-
-        // Health check endpoint
-        this.app.get('/health', (req, res) => {
-            res.json({
-                status: 'healthy',
-                uptime: Date.now() - this.startTime,
-                timestamp: new Date().toISOString(),
-                database: db.getStatus()
-            });
-        });
-
-        // 404 handler
-        this.app.use((req, res) => {
-            res.status(404).json({
-                success: false,
-                error: 'Endpoint not found'
-            });
-        });
-
-        // Error handler
-        this.app.use((error, req, res, next) => {
-            logError(`Server error: ${error.message}`);
-            res.status(500).json({
-                success: false,
-                error: 'Internal server error'
-            });
-        });
+      res.json({
+        success: true,
+        token,
+        expiryTime,
+        message: "Login successful"
+      });
+    } else {
+      res.status(401).json({ error: "Invalid password" });
     }
+  });
 
-    async getStats() {
+  // Get OTP status endpoint
+  app.get("/api/auth/otp-status", (req, res) => {
+    try {
+      const status = OTPService.getOTPStatus("dashboard_login");
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting OTP status:", error);
+      res.status(500).json({ error: "Failed to get OTP status" });
+    }
+  });
+
+  // Logout endpoint
+  app.post("/api/auth/logout", (req, res) => {
+    const sessionId = req.headers["x-session-id"] || req.query.sessionId;
+    if (sessionId) {
+      dashboardSessions.delete(sessionId);
+    }
+    res.json({ success: true });
+  });
+
+  // Check session endpoint
+  app.get("/api/auth/check", (req, res) => {
+    const sessionId = req.headers["x-session-id"] || req.query.sessionId;
+    const valid = sessionId && isValidSession(sessionId);
+    res.json({ valid });
+  });
+
+  // Token-based authentication endpoints
+  app.post("/api/auth/request-otp", async (req, res) => {
+    try {
+      if (!global.GoatBot.sock || !global.GoatBot.isConnected) {
+        return res.status(503).json({
+          success: false,
+          message: "Bot is not connected to WhatsApp",
+        });
+      }
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiryTime = Date.now() + 5 * 60 * 1000;
+
+      global.GoatBot.dashboardOTP = { otp, expiryTime, attempts: 0 };
+
+      const adminIds = config.admins || [];
+      const sendResults = [];
+
+      const message = `🔐 Dashboard Login Request\n\nOTP: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nSomeone is trying to access the dashboard. If this wasn't you, please ignore this message.`;
+
+      for (const adminId of adminIds) {
         try {
-            const uptime = Math.floor((Date.now() - this.startTime) / 1000);
-
-            // Get user and group counts from database
-            let userCount = 0;
-            let groupCount = 0;
-
-            try {
-                const database = require('./connectDB');
-                const dbStatus = database.getStatus();
-                if (dbStatus && dbStatus.isConnected) {
-                    userCount = await database.getUserCount();
-                    groupCount = await database.getGroupCount();
-                }
-            } catch (dbError) {
-                logError(`Database error in getStats: ${dbError.message}`);
-            }
-
-            return {
-                users: userCount || 0,
-                groups: groupCount || 0,
-                commands: global.commands ? global.commands.size : 0,
-                uptime: uptime || 0,
-                memory: process.memoryUsage(),
-                nodeVersion: process.version,
-                platform: process.platform
-            };
-        } catch (error) {
-            logError(`Error getting stats: ${error.message}`);
-            return {
-                users: 0,
-                groups: 0,
-                commands: 0,
-                uptime: 0
-            };
+          await global.GoatBot.sock.sendMessage(adminId, { text: message });
+          sendResults.push({ id: adminId, success: true });
+        } catch (sendError) {
+          console.error(`Error sending OTP to ${adminId}:`, sendError);
+          sendResults.push({
+            id: adminId,
+            success: false,
+            error: sendError.message,
+          });
         }
-    }
+      }
 
-    start() {
-        this.app.listen(this.port, '0.0.0.0', () => {
-            logSuccess(`Dashboard is connected to port ${this.port}`);
+      const successCount = sendResults.filter((r) => r.success).length;
+
+      if (successCount > 0) {
+        res.json({
+          success: true,
+          message: `OTP sent to ${successCount} admin(s)`,
+          expiryTime,
+          sendResults,
         });
+      } else {
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to send OTP to any admin" });
+      }
+    } catch (error) {
+      console.error("Error in request-otp:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
+  });
 
-    stop() {
-        // Graceful shutdown logic would go here
-        logInfo('Web server stopped');
+  // Password login endpoint
+  app.post("/api/auth/login-password", (req, res) => {
+    try {
+      const { password } = req.body;
+
+      if (!password) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Password is required" });
+      }
+
+      if (password !== config.dashboard.adminPassword) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid password" });
+      }
+
+      const token = require("crypto").randomBytes(32).toString("hex");
+      const expiryTime = Date.now() + 24 * 60 * 60 * 1000;
+
+      global.GoatBot.authTokens = global.GoatBot.authTokens || new Map();
+      global.GoatBot.authTokens.set(token, {
+        createdAt: Date.now(),
+        expiryTime,
+        method: "password",
+      });
+
+      res.json({
+        success: true,
+        token,
+        expiryTime,
+        message: "Login successful",
+      });
+    } catch (error) {
+      console.error("Error in login-password:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
+  });
+
+  // The first OTP verification handler is used instead
+
+  app.get("/api/auth/verify", (req, res) => {
+    try {
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) return res.json({ valid: false });
+
+      const authTokens = global.GoatBot.authTokens || new Map();
+      const tokenData = authTokens.get(token);
+      if (!tokenData) return res.json({ valid: false });
+
+      if (Date.now() > tokenData.expiryTime) {
+        authTokens.delete(token);
+        return res.json({ valid: false });
+      }
+
+      res.json({ valid: true });
+    } catch (error) {
+      console.error("Error in verify token:", error);
+      res.json({ valid: false });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/request-code", requireAuth, async (req, res) => {
+    try {
+      if (global.GoatBot.isConnected) {
+        return res.json({
+          success: false,
+          message: "Bot is already connected to WhatsApp",
+        });
+      }
+
+      await global.GoatBot.startAuthentication();
+
+      res.json({
+        success: true,
+        message:
+          "WhatsApp authentication started. Please scan the QR code or enter the pairing code.",
+        qrCode: global.GoatBot.qrCode || null,
+        pairingCode: global.GoatBot.pairingCode || null,
+      });
+    } catch (error) {
+      console.error("Error starting WhatsApp auth:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to start WhatsApp authentication",
+      });
+    }
+  });
+
+  app.get("/api/whatsapp/auth/status", requireAuth, (req, res) => {
+    try {
+      res.json({
+        connected: global.GoatBot.isConnected || false,
+        connectionStatus: global.GoatBot.connectionStatus || "disconnected",
+        qrCode: global.GoatBot.qrCode || null,
+        pairingCode: global.GoatBot.pairingCode || null,
+        lastError: global.GoatBot.lastError || null,
+      });
+    } catch (error) {
+      console.error("Error getting WhatsApp auth status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get WhatsApp authentication status",
+      });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/disconnect", requireAuth, async (req, res) => {
+    try {
+      if (global.GoatBot.sock) {
+        await global.GoatBot.sock.logout();
+      }
+
+      global.GoatBot.isConnected = false;
+      global.GoatBot.connectionStatus = "disconnected";
+
+      res.json({ success: true, message: "Disconnected from WhatsApp" });
+    } catch (error) {
+      console.error("Error disconnecting from WhatsApp:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to disconnect from WhatsApp",
+      });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/restart", requireAuth, async (req, res) => {
+    try {
+      logger.info("🔄 Restarting WhatsApp authentication...");
+
+      const sessionPath = path.join(__dirname, "..", "session");
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      }
+
+      if (global.GoatBot.sock) {
+        global.GoatBot.sock.end();
+      }
+
+      global.GoatBot.isConnected = false;
+      global.GoatBot.connectionStatus = "disconnected";
+      global.GoatBot.qrCode = null;
+      global.GoatBot.waitingForAuth = true;
+
+      setTimeout(async () => {
+        try {
+          await connect.connect({ method: "qr" });
+        } catch (error) {
+          logger.error("Error starting new authentication:", error);
+        }
+      }, 2000);
+
+      res.json({
+        success: true,
+        message:
+          "WhatsApp authentication restarted. Please check the authentication tab for QR code.",
+      });
+    } catch (error) {
+      console.error("Error restarting WhatsApp auth:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to restart WhatsApp authentication",
+      });
+    }
+  });
+
+  app.get("/api/status/basic", (req, res) => {
+    try {
+      res.json({
+        status: global.GoatBot.connectionStatus,
+        isConnected: global.GoatBot.isConnected,
+        uptime: Date.now() - global.GoatBot.startTime,
+        initialized: global.GoatBot.initialized,
+        botName: global.GoatBot.user?.name || config.botName || "GoatBot",
+        authRequired: true,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/status", requireAuth, async (req, res) => {
+    try {
+      const dbStats = await db.getStats();
+      const uptime = Date.now() - global.GoatBot.startTime;
+
+      res.json({
+        status: global.GoatBot.connectionStatus,
+        isConnected: global.GoatBot.isConnected,
+        uptime,
+        uptimeFormatted: formatUptime(uptime),
+        stats: global.GoatBot.stats,
+        commands: Array.from(global.GoatBot.commands.keys()),
+        events: Array.from(global.GoatBot.events.keys()),
+        authMethod: global.GoatBot.authMethod,
+        sessionValid: global.GoatBot.sessionValid,
+        initialized: global.GoatBot.initialized,
+        botInfo: {
+          name: global.GoatBot.user?.name || config.botName || "GoatBot",
+          number: global.GoatBot.user?.id?.split(":")[0] || "Not available",
+          prefix: config.prefix,
+          version: require("../package.json").version,
+        },
+        database: { type: config.database.type, stats: dbStats },
+        system: {
+          platform: process.platform,
+          nodeVersion: process.version,
+          memory: process.memoryUsage(),
+          cpu: process.cpuUsage(),
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/commands", requireAuth, (req, res) => {
+    try {
+      let commands = [];
+
+      if (global.GoatBot?.commands) {
+        commands = Array.from(global.GoatBot.commands.entries()).map(
+          ([name, cmd]) => ({
+            name,
+            description:
+              cmd.config?.description ||
+              cmd.description ||
+              "No description available",
+            aliases: cmd.config?.aliases || cmd.aliases || [],
+            category: cmd.config?.category || cmd.category || "general",
+            permissions: cmd.config?.permissions || cmd.permissions || [],
+            cooldown: cmd.config?.cooldown || cmd.cooldown || 0,
+            usage: cmd.config?.usage || cmd.usage || `${config.prefix}${name}`,
+            guide: cmd.config?.guide || cmd.guide || "No guide available",
+          })
+        );
+      } else {
+        const commandFiles = fs
+          .readdirSync(path.join("plugins", "commands"))
+          .filter((f) => f.endsWith(".js"));
+        for (const file of commandFiles) {
+          try {
+            const command = require(path.join(
+              "..",
+              "plugins",
+              "commands",
+              file
+            ));
+            commands.push({
+              name: command.config?.name || file.replace(".js", ""),
+              description:
+                command.config?.description || "No description available",
+              usage: command.config?.usage || "N/A",
+              category: command.config?.category || "General",
+              role: command.config?.role || 0,
+              enabled: command.config?.enabled !== false,
+            });
+          } catch (error) {
+            logger.error(`Error loading command ${file}:`, error);
+          }
+        }
+      }
+
+      res.json({ total: commands.length, commands });
+    } catch (error) {
+      logger.error("Error fetching commands:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/events", requireAuth, (req, res) => {
+    const events = Array.from(global.GoatBot.events.entries()).map(
+      ([name, event]) => ({
+        name,
+        description:
+          event.config?.description ||
+          event.description ||
+          "No description available",
+        type: event.config?.type || event.type || "message",
+      })
+    );
+    res.json(events);
+  });
+
+  app.get("/api/logs", requireAuth, (req, res) => {
+    try {
+      const logs = global.GoatBot.logs || [];
+      const recentLogs = logs.slice(-100);
+      res.json({ logs: recentLogs });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/users", requireAuth, async (req, res) => {
+    try {
+      const allUsers = await db.getAllUsers();
+      const users = Array.isArray(allUsers)
+        ? allUsers
+        : Object.values(allUsers || {});
+      const totalUsers = users.length;
+      const activeUsers = users.filter((u) => u && u.isActive !== false).length;
+      const bannedUsers = users.filter((u) => u && u.banned === true).length;
+      res.json({
+        total: totalUsers,
+        active: activeUsers,
+        banned: bannedUsers,
+        users: users.map((user) => ({
+          id: user.id,
+          name: user.name || "Unknown",
+          messageCount: user.messageCount || 0,
+          exp: user.exp || 0,
+          level: user.level || 1,
+          banned: user.banned || false,
+          role: user.role || 0,
+          lastSeen: user.lastSeen || null,
+        })),
+      });
+    } catch (error) {
+      logger.error("Error fetching users:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/groups", requireAuth, async (req, res) => {
+    try {
+      const allThreads = await db.getAllThreads();
+      const threads = Array.isArray(allThreads)
+        ? allThreads
+        : Object.values(allThreads || {});
+      const groups = threads.filter((thread) => thread && thread.isGroup);
+      const totalGroups = groups.length;
+      const activeGroups = groups.filter(
+        (g) => g && g.isActive !== false
+      ).length;
+      res.json({
+        total: totalGroups,
+        active: activeGroups,
+        groups: groups.map((group) => ({
+          id: group.id,
+          name: group.name || "Unknown Group",
+          memberCount: group.memberCount || 0,
+          messageCount: group.messageCount || 0,
+          isActive: group.isActive !== false,
+          settings: group.settings || {},
+          createdAt: group.createdAt || null,
+        })),
+      });
+    } catch (error) {
+      logger.error("Error fetching groups:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/system", requireAuth, (req, res) => {
+    try {
+      const memoryUsage = process.memoryUsage();
+      const cpuUsage = process.cpuUsage();
+      res.json({
+        memory: {
+          rss: Math.round(memoryUsage.rss / 1024 / 1024),
+          heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+          external: Math.round(memoryUsage.external / 1024 / 1024),
+          total: os.totalmem(),
+          free: os.freemem(),
+          used: os.totalmem() - os.freemem(),
+        },
+        cpu: { user: cpuUsage.user, system: cpuUsage.system },
+        uptime: process.uptime(),
+        platform: process.platform,
+        architecture: os.arch(),
+        nodeVersion: process.version,
+        pid: process.pid,
+        loadAverage: os.loadavg(),
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bot/info", requireAuth, async (req, res) => {
+    try {
+      const formatUptime = (seconds) => {
+        const days = Math.floor(seconds / (24 * 3600));
+        const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        if (days > 0) return `${days}d ${hours}h ${minutes}m ${secs}s`;
+        if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+        if (minutes > 0) return `${minutes}m ${secs}s`;
+        return `${secs}s`;
+      };
+
+      const getCommandCount = () => {
+        try {
+          const commandFiles = fs
+            .readdirSync(path.join("plugins", "commands"))
+            .filter((f) => f.endsWith(".js"));
+          return commandFiles.length;
+        } catch (error) {
+          return 0;
+        }
+      };
+
+      const getEventCount = () => {
+        try {
+          const eventFiles = fs
+            .readdirSync(path.join("plugins", "events"))
+            .filter((f) => f.endsWith(".js"));
+          return eventFiles.length;
+        } catch (error) {
+          return 0;
+        }
+      };
+
+      const getAdminCount = async () => {
+        try {
+          const users = await db.getAllUsers();
+          const userArray = Array.isArray(users)
+            ? users
+            : Object.values(users || {});
+          return userArray.filter((user) => user && user.role >= 2).length;
+        } catch (error) {
+          return 0;
+        }
+      };
+
+      const botInfo = {
+        name: "Goat Bot",
+        version: "1.0.0",
+        status: "Online",
+        uptime: formatUptime(process.uptime()),
+        commandsLoaded: getCommandCount(),
+        eventsLoaded: getEventCount(),
+        lastRestart: global.GoatBot?.startTime || new Date().toISOString(),
+        adminUsers: await getAdminCount(),
+      };
+      res.json(botInfo);
+    } catch (error) {
+      logger.error("Error fetching bot info:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/analytics", requireAuth, async (req, res) => {
+    try {
+      const stats = global.GoatBot.stats || {};
+      const uptime = Date.now() - (global.GoatBot.startTime || Date.now());
+      const users = await db.getAllUsers();
+      const userArray = Array.isArray(users)
+        ? users
+        : Object.values(users || {});
+      const threads = await db.getAllThreads();
+      const threadArray = Array.isArray(threads)
+        ? threads
+        : Object.values(threads || {});
+      const analytics = {
+        overview: {
+          totalUsers: userArray.length,
+          activeUsers: userArray.filter(
+            (user) =>
+              user &&
+              user.lastActive &&
+              Date.now() - user.lastActive < 7 * 24 * 60 * 60 * 1000
+          ).length,
+          totalGroups: threadArray.length,
+          activeGroups: threadArray.filter(
+            (thread) =>
+              thread &&
+              thread.lastActive &&
+              Date.now() - thread.lastActive < 7 * 24 * 60 * 60 * 1000
+          ).length,
+          totalMessages: stats.totalMessages || 0,
+          commandsExecuted: stats.commandsExecuted || 0,
+          uptime,
+        },
+        messagesToday: stats.messagesToday || 0,
+        commandsUsed: stats.commandsUsed || 0,
+        activeSessions:
+          (global.GoatBot.authTokens?.size || 0) +
+          (dashboardSessions?.size || 0),
+        topCommands: stats.topCommands || [],
+        userGrowth: {
+          daily: stats.dailyUserGrowth || 0,
+          weekly: stats.weeklyUserGrowth || 0,
+          monthly: stats.monthlyUserGrowth || 0,
+        },
+        messageStats: {
+          textMessages: stats.textMessages || 0,
+          mediaMessages: stats.mediaMessages || 0,
+          stickerMessages: stats.stickerMessages || 0,
+        },
+      };
+      res.json(analytics);
+    } catch (error) {
+      logger.error("Error fetching analytics:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/settings", requireAuth, (req, res) => {
+    try {
+      const settings = {
+        botName: config.botName || "Goat Bot",
+        prefix: config.prefix || ".",
+        adminOnly: config.adminOnly || false,
+        autoRestart: config.autoRestart || false,
+        logLevel: config.logLevel || "info",
+        database: {
+          type: config.database.type || "json",
+          connected: global.GoatBot.databaseConnected || false,
+        },
+        dashboard: {
+          enabled: config.dashboard.enabled || true,
+          port: config.dashboard.port || 3000,
+          sessionTimeout: config.dashboard.sessionTimeout || 1800000,
+        },
+        features: {
+          antiSpam: config.features?.antiSpam || false,
+          autoReply: config.features?.autoReply || false,
+          welcome: config.features?.welcome || true,
+          antiLink: config.features?.antiLink || false,
+        },
+        permissions: {
+          adminNumbers: config.dashboard.adminNumbers || [],
+          allowedGroups: config.allowedGroups || [],
+          bannedUsers: config.bannedUsers || [],
+        },
+      };
+      res.json(settings);
+    } catch (error) {
+      logger.error("Error fetching settings:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/analytics/overview", requireAuth, async (req, res) => {
+    try {
+      const stats = global.GoatBot.stats || {};
+      const uptime = Date.now() - (global.GoatBot.startTime || Date.now());
+      const overview = {
+        totalMessages: stats.totalMessages || 0,
+        messagesToday: stats.messagesToday || 0,
+        commandsUsed: stats.commandsUsed || 0,
+        activeSessions:
+          (global.GoatBot.authTokens?.size || 0) +
+          (dashboardSessions?.size || 0),
+        uptime,
+        errorCount: stats.errors || 0,
+        successRate: stats.successRate || 100,
+      };
+      res.json(overview);
+    } catch (error) {
+      logger.error("Error fetching analytics overview:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/auth/restart", requireAuth, (_, res) => {
+    res.json({ message: "Forcing auth re-initialisation…" });
+    invalidateSessionAndRestart();
+  });
+
+  app.get("/", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
+  return app;
 }
 
-module.exports = WebServer;
-
-// Start server if this file is run directly
-if (require.main === module) {
-    const server = new WebServer();
-    server.start();
+function formatUptime(uptime) {
+  const seconds = Math.floor(uptime / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
 }
+
+function startServer() {
+  if (server) return;
+  const PORT = process.env.PORT || config.dashboard.port || 3000;
+  const appInstance = initializeApp();
+  server = appInstance.listen(PORT, () =>
+    logger.info(`📊 Dashboard available at http://localhost:${PORT}`)
+  );
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      logger.error(`❌ Port ${PORT} is already in use.`);
+      process.exit(1);
+    }
+    logger.error("❌ Server error:", error);
+  });
+}
+
+function stopServer(callback) {
+  if (server) {
+    server.close(callback);
+    server = undefined;
+  } else if (callback) {
+    callback();
+  }
+}
+
+function getServer() {
+  return server;
+}
+
+module.exports = { initializeApp, startServer, stopServer, getServer };
