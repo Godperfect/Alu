@@ -25,7 +25,7 @@ module.exports = {
                 const squareUrl = `https://images.weserv.nl/?url=${url.replace("https://", "")}&w=512&h=512&fit=cover`;
 
                 let msg = "╔══════════════╗\n";
-                msg += "    *LUNA BOT V2* 🌙\n";
+                msg += "    *LUNA BOT V1* 🌙\n";
                 msg += "╚══════════════╝\n\n";
                 
                 // List all available commands

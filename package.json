@@ -1,7 +1,7 @@
 {
-  "name": "Luna",
-  "version": "1.3",
-  "description": "A simple Bot chat WhatsApp using pairing method. Made by Mr Perfect.",
+  "name": "luna-v1",
+  "version": "1.3.0",
+  "description": "Luna v1 - Advanced WhatsApp Multi Device Bot",
   "main": "index.js",
   "engines": {
     "node": ">=20.0.0"
