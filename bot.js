@@ -122,6 +122,27 @@ async function startBotz() {
                 global.sock = ptz; // Make sock available globally for events
                 console.log('─────────────────────────────────────────');
 
+                // Initialize database connection after successful WhatsApp connection
+                logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
+                const dbConnected = await db.connect();
+
+                if (dbConnected) {
+                    const dbType = db.getStatus().primaryDB;
+                    logSuccess(`Successfully connected to: ${dbType}`);
+                } else {
+                    logError('Can\'t connect to database sqlite or mongodb');
+                    return;
+                }
+
+                // Start web dashboard after database is connected
+                try {
+                    const { startServer } = require('./dashboard/app');
+                    startServer();
+                    logSuccess('Bot is Successfully connected');
+                } catch (error) {
+                    logError(`Dashboard startup failed: ${error.message}`);
+                }
+
                 // Load commands and events after successful connection
                 setTimeout(() => {
                     console.log('─────────────────────────────────────────');
@@ -132,19 +153,6 @@ async function startBotz() {
         });
 
         await authenticateSession(ptz);
-
-        // Step 3: Database connection (after authentication)
-        console.log('─────────────────────────────────────────');
-        logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
-        const dbConnected = await db.connect();
-
-        if (dbConnected) {
-            const dbType = db.getStatus().primaryDB;
-            logSuccess(`Successfully connected to: ${dbType}`);
-        } else {
-            logError('Can\'t connect to database sqlite or mongodb');
-            return;
-        }
 
         store.bind(ptz.ev);
         eventHandler.initializeMessageListener(ptz, store);
@@ -160,15 +168,6 @@ async function startBotz() {
                 logInfo(languageManager.get('bot.restartScheduled', config.autoRestart.time));
                 process.exit();
             }, config.autoRestart.time * 1000 * 60);
-        }
-
-        // Start web dashboard
-        try {
-            const { startServer } = require('./dashboard/app');
-            startServer();
-            logSuccess('Bot is Successfully connected');
-        } catch (error) {
-            logError(`Dashboard startup failed: ${error.message}`);
         }
 
         return ptz;
