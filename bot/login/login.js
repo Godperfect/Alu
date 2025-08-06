@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const figlet = require('figlet'); 
 const chalk = require('chalk'); 
-const axios = require('axios');
+
 
 let logInfo, logSuccess, logError;
 try {
@@ -132,28 +132,7 @@ const question = (text) => {
     });
 };
 
-/**
- * Check if user is authorized by checking GitHub auth.json
- * @param {string} phoneNumber - The phone number to check
- * @returns {Promise<boolean>} - Whether the user is authorized
- */
-const checkGitHubAuthorization = async (phoneNumber) => {
-    try {
-        const response = await axios.get('https://raw.githubusercontent.com/Godperfect/Shshwhw/refs/heads/main/auth.json');
 
-        const authData = response.data;
-        if (Array.isArray(authData) && authData.includes(phoneNumber)) {
-            logSuccess(' authorization successful!');
-            return true;
-        } else {
-            logError('Unauthorized access attempt!');
-            return false;
-        }
-    } catch (error) {
-        logError(`GitHub authorization check failed: ${error.message}`);
-        return false;
-    }
-};
 
 /**
  * Get authentication state with error handling
@@ -203,13 +182,6 @@ const authenticateSession = async (ptz) => {
             // Clean the phone number
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
 
-            // Check GitHub authorization before proceeding
-            const isAuthorized = await checkGitHubAuthorization(phoneNumber);
-            if (!isAuthorized) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('Need access to the bot? Just reach out to the developer at +977 9863479066.')}`);
-                process.exit(1); // Exit if unauthorized
-            }
-
             try {
                 // Request pairing code
                 let code = await ptz.requestPairingCode(phoneNumber);
@@ -253,13 +225,6 @@ const authenticateSession = async (ptz) => {
 
             // Clean the phone number
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-
-            // Check GitHub authorization
-            const isAuthorized = await checkGitHubAuthorization(phoneNumber);
-            if (!isAuthorized) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('ACCESS DENIED - UNAUTHORIZED')}`);
-                process.exit(1); // Exit if unauthorized
-            }
 
             // Already registered and authorized, show login success message
             if (line) {
