@@ -586,8 +586,6 @@ function initializeApp() {
 
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
-        console.log('Fetching users from database...');
-
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Request timeout')), 5000)
@@ -600,7 +598,6 @@ function initializeApp() {
             try {
                 users = await db.getAllUsers() || [];
                 userCount = await db.getUserCount() || 0;
-                console.log(`Retrieved ${users.length} users from database`);
             } catch (dbError) {
                 console.error('Database error in users fetch:', dbError);
                 users = [];
@@ -638,7 +635,6 @@ function initializeApp() {
                 active: activeUsers
             };
 
-            console.log(`Returning ${validUsers.length} valid users, ${activeUsers} active`);
             return result;
         })();
 
@@ -658,8 +654,6 @@ function initializeApp() {
 
   app.get("/api/groups", requireAuth, async (req, res) => {
     try {
-        console.log('Fetching groups from database...');
-
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Request timeout')), 5000)
@@ -672,7 +666,6 @@ function initializeApp() {
             try {
                 groups = await db.getAllGroups() || [];
                 groupCount = await db.getGroupCount() || 0;
-                console.log(`Retrieved ${groups.length} groups from database`);
             } catch (dbError) {
                 console.error('Database error in groups fetch:', dbError);
                 groups = [];
@@ -712,7 +705,6 @@ function initializeApp() {
                 active: activeGroups
             };
 
-            console.log(`Returning ${validGroups.length} valid groups, ${activeGroups} active`);
             return result;
         })();
 
@@ -746,7 +738,6 @@ function initializeApp() {
             loadAverage: os.loadavg() || [0, 0, 0]
         };
 
-        console.log('System info response:', systemInfo);
         res.json(systemInfo);
     } catch (error) {
         console.error('Error fetching system info:', error);
@@ -827,7 +818,6 @@ function initializeApp() {
         autoRestart: config.autoRestart?.enable || false
       };
 
-      console.log('Bot info response:', botInfo);
       res.json(botInfo);
     } catch (error) {
       console.error('Error fetching bot info:', error);

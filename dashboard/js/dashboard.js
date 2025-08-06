@@ -666,8 +666,6 @@ function apiRequest(endpoint, options = {}) {
 }
 
 function loadDashboardData() {
-    console.log('Loading dashboard data...');
-    
     // Create timeout wrapper for API requests with shorter timeout
     const apiRequestWithTimeout = (url, timeout = 5000) => {
         return Promise.race([
@@ -689,7 +687,6 @@ function loadDashboardData() {
         apiRequestWithTimeout('/api/bot/info').catch(() => ({ error: true, name: 'Luna Bot v1', commandsLoaded: 0 })),
         apiRequestWithTimeout('/api/analytics/overview').catch(() => ({ error: true, totalMessages: 0, commandsUsed: 0 }))
     ]).then(([users, groups, system, botInfo, analytics]) => {
-        console.log('API responses:', { users, groups, system, botInfo, analytics });
         
         // Update stats with safe fallbacks
         const setText = (id, value) => {
@@ -734,8 +731,6 @@ function loadDashboardData() {
         if (analytics && !analytics.error) {
             updateAnalyticsDisplay(analytics);
         }
-
-        console.log('Dashboard data loaded successfully');
     }).catch(error => {
         console.error('Error loading dashboard:', error);
         
@@ -924,12 +919,8 @@ function getRoleText(role) {
 }
 
 function loadUsers() {
-    console.log('Loading users...');
-    
     apiRequest('/api/users')
         .then(data => {
-            console.log('Users data received:', data);
-            
             const usersList = document.getElementById('usersList');
             if (!usersList) {
                 console.error('Users list element not found');
@@ -959,10 +950,8 @@ function loadUsers() {
                     `;
                     usersList.appendChild(userItem);
                 });
-                console.log(`Loaded ${data.users.length} users`);
             } else {
                 usersList.innerHTML = '<div class="text-center text-muted">No users found</div>';
-                console.log('No users data available');
             }
         })
         .catch(error => {
@@ -998,12 +987,8 @@ function loadUsers() {
 }
 
 function loadGroups() {
-    console.log('Loading groups...');
-    
     apiRequest('/api/groups')
         .then(data => {
-            console.log('Groups data received:', data);
-            
             const groupsList = document.getElementById('groupsList');
             if (!groupsList) {
                 console.error('Groups list element not found');
@@ -1033,10 +1018,8 @@ function loadGroups() {
                     `;
                     groupsList.appendChild(groupItem);
                 });
-                console.log(`Loaded ${data.groups.length} groups`);
             } else {
                 groupsList.innerHTML = '<div class="text-center text-muted">No groups found</div>';
-                console.log('No groups data available');
             }
         })
         .catch(error => {
@@ -1072,11 +1055,8 @@ function loadGroups() {
 }
 
 function loadSystemInfo() {
-    console.log('Loading system info...');
-    
     apiRequest('/api/system')
         .then(data => {
-            console.log('System info data received:', data);
             
             const setText = (id, value) => {
                 const element = document.getElementById(id);
