@@ -1,7 +1,7 @@
 {
   "whatsappAccount": {
     "phoneNumber": "9779863479066",
-    "sessionPath": "session",
+    "sessionPath": "./session",
     "qrTimeout": 60,
     "multiDevice": true,
     "authFilePath": "./session",

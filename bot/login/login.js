@@ -156,6 +156,32 @@ const getAuthState = async () => {
 };
 
 /**
+ * Check if session files exist
+ * @returns {boolean} True if session files exist
+ */
+const checkSessionExists = () => {
+    try {
+        const sessionPath = config.whatsappAccount?.authFilePath || './session';
+        const credsPath = path.join(sessionPath, 'creds.json');
+        
+        // Check if creds.json exists and is not empty
+        if (fs.existsSync(credsPath)) {
+            const stats = fs.statSync(credsPath);
+            if (stats.size > 0) {
+                logInfo('Session files found, using existing session');
+                return true;
+            }
+        }
+        
+        logInfo('No valid session files found');
+        return false;
+    } catch (error) {
+        logError(`Error checking session files: ${error.message}`);
+        return false;
+    }
+};
+
+/**
  * Authenticate session using phone number and pairing code
  * @param {object} ptz - WhatsApp socket connection
  * @returns {Promise<void>}
@@ -168,7 +194,10 @@ const authenticateSession = async (ptz) => {
         // Get line from getAuthState if available
         const line = ptz.line;
 
-        if (!ptz.authState?.creds?.registered) {
+        // Check if session exists first
+        const sessionExists = checkSessionExists();
+
+        if (!ptz.authState?.creds?.registered && !sessionExists) {
             // Get phone number from config or prompt user
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
@@ -246,5 +275,6 @@ module.exports = {
     authenticateSession,
     displayLunaBotTitle,
     getTimestamp,
-    getFormattedDate
+    getFormattedDate,
+    checkSessionExists
 };
