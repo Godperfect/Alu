@@ -31,6 +31,15 @@ class SQLiteDB {
         });
     }
 
+    async checkTablesExist() {
+        try {
+            const result = await this.get("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'");
+            return result !== undefined;
+        } catch (error) {
+            return false;
+        }
+    }
+
     async addColumnIfNotExists(tableName, columnName, columnDef) {
         try {
             const result = await this.get(`PRAGMA table_info(${tableName})`);
@@ -46,24 +55,32 @@ class SQLiteDB {
     }
 
     async initializeTables() {
-        // Drop existing tables to clean up any inconsistencies
-        const dropTables = [
-            'DROP TABLE IF EXISTS users',
-            'DROP TABLE IF EXISTS groups', 
-            'DROP TABLE IF EXISTS commandLogs',
-            'DROP TABLE IF EXISTS botSettings',
-            'DROP TABLE IF EXISTS cooldowns',
-            'DROP TABLE IF EXISTS messages',
-            'DROP TABLE IF EXISTS group_activities',
-            'DROP TABLE IF EXISTS user_stats'
-        ];
+        // Check if tables exist first
+        const tablesExist = await this.checkTablesExist();
+        
+        if (!tablesExist) {
+            // Drop existing tables to clean up any inconsistencies
+            const dropTables = [
+                'DROP TABLE IF EXISTS users',
+                'DROP TABLE IF EXISTS groups', 
+                'DROP TABLE IF EXISTS commandLogs',
+                'DROP TABLE IF EXISTS botSettings',
+                'DROP TABLE IF EXISTS cooldowns',
+                'DROP TABLE IF EXISTS messages',
+                'DROP TABLE IF EXISTS group_activities',
+                'DROP TABLE IF EXISTS user_stats'
+            ];
 
-        for (const dropTable of dropTables) {
-            try {
-                await this.run(dropTable);
-            } catch (error) {
-                // Ignore errors
+            for (const dropTable of dropTables) {
+                try {
+                    await this.run(dropTable);
+                } catch (error) {
+                    // Ignore errors
+                }
             }
+        } else {
+            logInfo('Tables already exist, skipping recreation');
+            return;
         }
 
         const tables = [
