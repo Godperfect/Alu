@@ -6,7 +6,7 @@ const os = require("os");
 const { logInfo, logWarn, logError } = require("../utils");
 const config = require("../config.json");
 const db = require("./connectDB");
-const OTPService = require('../libs/otpService');
+const OTPService = require("../bot/login/otpService");
 // Auth middleware
 const requireAuth = (req, res, next) => {
   try {
