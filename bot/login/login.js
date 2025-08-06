@@ -156,8 +156,8 @@ const getAuthState = async () => {
 };
 
 /**
- * Check if session files exist
- * @returns {boolean} True if session files exist
+ * Check if session files exist and are valid
+ * @returns {boolean} True if session files exist and are valid
  */
 const checkSessionExists = () => {
     try {
@@ -168,8 +168,17 @@ const checkSessionExists = () => {
         if (fs.existsSync(credsPath)) {
             const stats = fs.statSync(credsPath);
             if (stats.size > 0) {
-                logInfo('Session files found, using existing session');
-                return true;
+                // Also check if the creds file contains valid registration data
+                try {
+                    const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+                    if (credsData.registered === true && credsData.me && credsData.me.id) {
+                        logInfo('Valid session files found, using existing session');
+                        return true;
+                    }
+                } catch (parseError) {
+                    logError(`Error parsing session file: ${parseError.message}`);
+                    return false;
+                }
             }
         }
         
@@ -197,7 +206,8 @@ const authenticateSession = async (ptz) => {
         // Check if session exists first
         const sessionExists = checkSessionExists();
 
-        if (!ptz.authState?.creds?.registered && !sessionExists) {
+        // Only request pairing code if no valid session exists
+        if (!sessionExists) {
             // Get phone number from config or prompt user
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
@@ -243,19 +253,9 @@ const authenticateSession = async (ptz) => {
                 throw err;
             }
         } else {
-            // For already registered sessions, we still check auth
-            // Get phone number from config or prompt user
-            let phoneNumber = config.whatsappAccount.phoneNumber;
-
-            if (!phoneNumber) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Enter your phone number for verification:')}`);
-                phoneNumber = await question('> ');
-            }
-
-            // Clean the phone number
-            phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-
-            // Already registered and authorized, show login success message
+            // Session exists, just show login success message without requesting pairing code
+            logInfo('Using existing session, no pairing code needed');
+            
             if (line) {
                 console.log(chalk.yellow(line));
                 console.log(chalk.green('              LOGIN SUCCESSFUL'));

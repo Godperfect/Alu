@@ -152,7 +152,13 @@ async function startBotz() {
             }
         });
 
-        await authenticateSession(ptz);
+        // Only authenticate if no valid session exists
+        const { checkSessionExists } = require('./bot/login/login.js');
+        if (!checkSessionExists()) {
+            await authenticateSession(ptz);
+        } else {
+            logInfo('Using existing session, skipping authentication');
+        }
 
         store.bind(ptz.ev);
         eventHandler.initializeMessageListener(ptz, store);
