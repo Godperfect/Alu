@@ -24,8 +24,19 @@ function handleConnection(ptz, startBotz) {
                     startBotz();
                 },
                 [DisconnectReason.connectionReplaced]: () => {
-                    logInfo("Connection replaced, another new session opened, please close current session first");
-                    process.exit();
+                    logInfo("Connection replaced, automatically closing previous session and restarting...");
+                    // Clean up session files
+                    const fs = require('fs');
+                    const path = require('path');
+                    const sessionPath = path.join(__dirname, '../../session');
+                    if (fs.existsSync(sessionPath)) {
+                        fs.rmSync(sessionPath, { recursive: true, force: true });
+                        logInfo("Previous session files cleaned up");
+                    }
+                    // Restart the bot after cleanup
+                    setTimeout(() => {
+                        startBotz();
+                    }, 2000);
                 },
                 [DisconnectReason.restartRequired]: () => {
                     logInfo("Restart required, restarting...");
