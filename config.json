@@ -2,12 +2,13 @@
   "whatsappAccount": {
     "phoneNumber": "9779863479066",
     "sessionPath": "./session",
-    "qrTimeout": 60,
+    "qrTimeout": 120,
     "multiDevice": true,
     "authFilePath": "./session",
     "printQRInTerminal": false,
     "persistSession": true,
-    "preventAutoAuth": true
+    "preventAutoAuth": false,
+    "retainSession": true
   },
   "botSettings": {
     "botName": "Luna v1",
