@@ -284,19 +284,8 @@ module.exports = {
         // Load existing settings
         loadResendSettings();
 
-        // Register event handlers
-        if (!global.Luna.onEvent) {
-            global.Luna.onEvent = new Map();
-        }
-
-        // Register message handlers
-        global.Luna.onEvent.set('message.incoming', {
-            callback: (data) => handleIncomingMessage(sock, data.m, data.messageInfo)
-        });
-
-        global.Luna.onEvent.set('message.protocol', {
-            callback: (data) => handleProtocolMessage(sock, data.m)
-        });
+        // Store sock globally for access in handlers
+        global.resendSock = sock;
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_REGISTERED]')} Message resend handlers registered`);
         logSuccess('Message resend event handlers registered successfully');
@@ -305,8 +294,20 @@ module.exports = {
 
     onChat: async ({ sock, m, messageInfo, isGroup, messageText }) => {
         try {
-            // Handle resend on/off commands
-            if (!isGroup) return;
+            // First, check for protocol messages (deletions) - this is critical
+            if (m.message?.protocolMessage?.type === 0) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} Protocol message detected in onChat`);
+                await handleProtocolMessage(sock, m);
+                return;
+            }
+
+            // Handle normal messages - store them for potential resend
+            if (isGroup && m.message && !m.message.protocolMessage) {
+                await handleIncomingMessage(sock, m, messageInfo);
+            }
+
+            // Handle resend on/off commands only for normal text messages
+            if (!isGroup || !messageText) return;
 
             const groupId = m.key.remoteJid;
             const sender = m.key.participant || m.key.remoteJid;
@@ -347,14 +348,6 @@ module.exports = {
                     mentions: [sender]
                 });
                 return true;
-            }
-
-            // Store incoming messages
-            await handleIncomingMessage(sock, m, messageInfo);
-
-            // Check for protocol messages (deletions)
-            if (m.message?.protocolMessage) {
-                await handleProtocolMessage(sock, m);
             }
 
         } catch (error) {
