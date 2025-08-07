@@ -291,14 +291,12 @@ class EventHandler {
                     }
 
                     if (phoneNumber && phoneNumber.length >= 8) {
-                        console.log(`[INFO] Updating user activity for: ${phoneNumber}`);
                         // Update user activity
                         await db.updateUserActivity(phoneNumber, senderName);
                     }
 
                     // Update group activity if in group
                     if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
-                        console.log(`[INFO] Updating group activity for: ${groupMetadata.subject}`);
                         await db.updateGroupActivity(
                             mek.key.remoteJid,
                             groupMetadata.subject,

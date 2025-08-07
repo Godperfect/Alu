@@ -301,7 +301,7 @@ class MongoDB {
                 return false;
             }
 
-            console.log(`[MongoDB] Updating user activity for: ${phoneNumber}`);
+            
 
             const users = this.db.collection('users');
             await users.updateOne(

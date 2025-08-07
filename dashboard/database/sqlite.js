@@ -547,8 +547,6 @@ class SQLiteDB {
                 return false;
             }
 
-            console.log(`[SQLite] Updating user activity for: ${phoneNumber}`);
-
             // Use INSERT OR IGNORE and then UPDATE to increment message count
             await this.run(`
                 INSERT OR IGNORE INTO users (phoneNumber, name, messageCount, lastSeen)
@@ -564,7 +562,6 @@ class SQLiteDB {
                 WHERE phoneNumber = ?
             `, [userName, phoneNumber]);
 
-            console.log(`[SQLite] User activity updated successfully`);
             return true;
         } catch (error) {
             console.error('Error updating user activity:', error);
@@ -579,8 +576,6 @@ class SQLiteDB {
                 console.error(`Invalid group ID in updateGroupActivity: ${groupId}`);
                 return false;
             }
-
-            console.log(`[SQLite] Updating group activity for: ${groupId} - ${groupName}`);
 
             // Use INSERT OR IGNORE and then UPDATE to increment message count
             await this.run(`
