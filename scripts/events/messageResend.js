@@ -95,32 +95,44 @@ async function handleAdvancedProtocolMessage(sock, mek) {
         if (mek.message?.protocolMessage?.type === 0) {
             const deletedKey = mek.message.protocolMessage.key;
             const groupId = mek.key.remoteJid;
+            
+            // FIXED: The person who DELETED the message is in mek.key.participant (the one who sent the delete protocol)
             const deleterJid = mek.key.participant || mek.key.remoteJid;
+            
+            // The person who ORIGINALLY sent the message is in deletedKey.participant  
+            const originalSenderJid = deletedKey.participant || deletedKey.remoteJid;
 
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_DETECTED]')} Message deletion detected!`);
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Group: ${groupId}`);
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Deleted Message ID: ${deletedKey?.id}`);
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Deleter: ${deleterJid}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Message Deleter: ${deleterJid}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Original Sender: ${originalSenderJid}`);
 
             if (deletedKey && groupId.endsWith('@g.us') && isResendEnabled(groupId)) {
-                // The key that was deleted tells us who originally sent the message
-                const originalSenderJid = deletedKey.participant || deletedKey.remoteJid;
                 
-                // Make sure we have a proper JID
-                let properSenderJid = originalSenderJid;
+                // Make sure we have proper JIDs
+                let properDeleterJid = deleterJid;
+                if (!deleterJid.includes('@')) {
+                    properDeleterJid = deleterJid + '@s.whatsapp.net';
+                }
+                
+                let properOriginalSenderJid = originalSenderJid;
                 if (!originalSenderJid.includes('@')) {
-                    properSenderJid = originalSenderJid + '@s.whatsapp.net';
+                    properOriginalSenderJid = originalSenderJid + '@s.whatsapp.net';
                 }
 
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[SENDER_INFO]')} Original message sender: ${originalSenderJid}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[SENDER_INFO]')} Proper JID: ${properSenderJid}`);
-
-                // Extract sender information
-                const senderInfo = extractSenderInfo(originalSenderJid, groupId);
+                // Extract information for the person who DELETED the message
+                const deleterInfo = extractSenderInfo(deleterJid, groupId);
                 
-                // Try to get the actual contact name
-                const contactName = await getContactName(sock, properSenderJid);
-                const displayName = contactName !== senderInfo.senderNumber ? contactName : senderInfo.senderName;
+                // Extract information for the person who ORIGINALLY sent the message
+                const originalSenderInfo = extractSenderInfo(originalSenderJid, groupId);
+                
+                // Try to get the actual contact names
+                const deleterContactName = await getContactName(sock, properDeleterJid);
+                const originalSenderContactName = await getContactName(sock, properOriginalSenderJid);
+                
+                const deleterDisplayName = deleterContactName !== deleterInfo.senderNumber ? deleterContactName : deleterInfo.senderName;
+                const originalSenderDisplayName = originalSenderContactName !== originalSenderInfo.senderNumber ? originalSenderContactName : originalSenderInfo.senderName;
 
                 // Check if we have recent message data in buffer
                 const bufferKey = `${groupId}_${deletedKey.id}`;
@@ -142,28 +154,28 @@ async function handleAdvancedProtocolMessage(sock, mek) {
                 let recoveryText = '';
                 if (recoveryStatus === 'RECOVERED') {
                     recoveryText = `🔄 *MESSAGE DELETED & RECOVERED*\n\n` +
-                        `👤 *Original Sender:* ${displayName}\n` +
-                        `📱 *Phone:* ${senderInfo.senderNumber}\n` +
+                        `🗑️ *Deleted by:* @${deleterInfo.senderNumber}\n` +
+                        `👤 *Original sender:* @${originalSenderInfo.senderNumber}\n` +
                         `⏰ *Deleted at:* ${new Date().toLocaleString()}\n\n` +
                         `📝 *Original Message:*\n${messageContent}\n\n` +
                         `🛡️ _Message recovered by Anti-Delete System_`;
                 } else {
                     recoveryText = `🗑️ *MESSAGE DELETED*\n\n` +
-                        `👤 *By:* ${displayName}\n` +
-                        `📱 *Phone:* ${senderInfo.senderNumber}\n` +
+                        `🗑️ *Deleted by:* @${deleterInfo.senderNumber}\n` +
+                        `👤 *Original sender:* @${originalSenderInfo.senderNumber}\n` +
                         `📝 *Message:* ${messageContent}\n` +
                         `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
                         `🛡️ _Anti-delete is active - recent messages will be recovered if stored in memory_`;
                 }
 
-                // Send recovery message with proper mention
+                // Send recovery message with proper mentions for both users
                 await sock.sendMessage(groupId, {
                     text: recoveryText,
-                    mentions: [properSenderJid]
+                    mentions: [properDeleterJid, properOriginalSenderJid]
                 });
 
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RECOVERY_SENT]')} Recovery message sent for ${displayName} (${senderInfo.senderNumber})`);
-                logSuccess(`Deleted message ${recoveryStatus.toLowerCase()} for user ${displayName} (${senderInfo.senderNumber})`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RECOVERY_SENT]')} Recovery message sent - Deleter: ${deleterDisplayName} (${deleterInfo.senderNumber}), Original: ${originalSenderDisplayName} (${originalSenderInfo.senderNumber})`);
+                logSuccess(`Deleted message ${recoveryStatus.toLowerCase()} - Deleted by: ${deleterDisplayName}, Original sender: ${originalSenderDisplayName}`);
 
             } else {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_SKIPPED]')} Delete not processed: Group=${groupId.endsWith('@g.us')}, Enabled=${isResendEnabled(groupId)}`);
