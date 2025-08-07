@@ -42,15 +42,15 @@ module.exports = {
         name: 'resend',
         author: 'Luna',
         version: '1.0.0',
-        description: 'Control anti-delete message resend system',
+        description: 'Control real-time delete detection system (no storage)',
         category: 'admin',
         guide: {
             en: `Usage:
-• resend on - Enable anti-delete for this group
-• resend off - Disable anti-delete for this group
+• resend on - Enable real-time delete detection
+• resend off - Disable delete detection  
 • resend status - Check current status
-• resend list - List all groups with resend enabled
-• resend clear - Clear all resend settings`
+• resend list - List all groups with detection enabled
+• resend clear - Clear all detection settings`
         },
         role: 1 // Admin only
     },
@@ -95,7 +95,7 @@ module.exports = {
                     settings[groupId] = { enabled: true };
                     if (saveResendSettings(settings)) {
                         await sock.sendMessage(groupId, {
-                            text: `✅ *Anti-Delete System Enabled*\n\n🛡️ Deleted messages will now be automatically restored in this group.\n\n*Features:*\n• Text message restoration\n• Media file restoration\n• Deletion notifications\n• 24/7 monitoring\n\n_Use \`resend off\` to disable_`,
+                            text: `✅ *Real-time Delete Detection Enabled*\n\n🛡️ Delete events will be detected instantly in this group.\n\n*Features:*\n• Real-time delete detection\n• Instant notifications\n• No message storage\n• Zero storage usage\n• 24/7 monitoring\n\n_Use \`resend off\` to disable_`,
                             mentions: [sender]
                         }, { quoted: mek });
 
@@ -109,7 +109,7 @@ module.exports = {
                     settings[groupId] = { enabled: false };
                     if (saveResendSettings(settings)) {
                         await sock.sendMessage(groupId, {
-                            text: `❌ *Anti-Delete System Disabled*\n\n🔕 Deleted messages will no longer be restored in this group.\n\n_Use \`resend on\` to re-enable_`,
+                            text: `❌ *Real-time Delete Detection Disabled*\n\n🔕 Delete notifications are now disabled for this group.\n\n_Use \`resend on\` to re-enable_`,
                             mentions: [sender]
                         }, { quoted: mek });
 
@@ -127,7 +127,7 @@ module.exports = {
                     const defaultNote = !groupSetting ? ' (Default)' : '';
 
                     await sock.sendMessage(groupId, {
-                        text: `🔄 *Anti-Delete System Status*\n\n*Current Status:* ${status}${defaultNote}\n\n*Note:* Anti-delete is enabled by default for all groups\n\n*Commands:*\n• \`resend on\` - Enable anti-delete\n• \`resend off\` - Disable anti-delete\n• \`resend status\` - Check status`,
+                        text: `🔄 *Real-time Delete Detection Status*\n\n*Current Status:* ${status}${defaultNote}\n*System Type:* Real-time (No Storage)\n*Detection:* Instant\n*Storage Usage:* Zero\n\n*Note:* Delete detection is enabled by default for all groups\n\n*Commands:*\n• \`resend on\` - Enable detection\n• \`resend off\` - Disable detection\n• \`resend status\` - Check status`,
                         mentions: [sender]
                     }, { quoted: mek });
                     break;
