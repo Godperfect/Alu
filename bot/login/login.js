@@ -73,10 +73,18 @@ function getVersion() {
     }
 }
 
+// Track if title has been displayed to prevent duplicates
+let titleDisplayed = false;
+
 /**
  * Display the Luna Bot title and version info
  */
 const displayLunaBotTitle = () => {
+    // Only display once per session
+    if (titleDisplayed) {
+        return "─".repeat(42);
+    }
+    
     // Clear the console
     console.clear();
 
@@ -95,6 +103,7 @@ const displayLunaBotTitle = () => {
     const line = "─".repeat(42);
     console.log(chalk.yellow(line));
 
+    titleDisplayed = true;
     return line;
 };
 
@@ -164,6 +173,9 @@ const getAuthState = async () => {
     }
 };
 
+// Track if session check has been performed to prevent duplicates
+let sessionChecked = false;
+
 /**
  * Check if session files exist and are valid
  * @returns {boolean} True if session files exist and are valid
@@ -181,22 +193,34 @@ const checkSessionExists = () => {
                 try {
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
                     if (credsData.registered === true && credsData.me && credsData.me.id) {
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found........')}`);
+                        if (!sessionChecked) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found........')}`);
+                            sessionChecked = true;
+                        }
                         return true;
                     }
                 } catch (parseError) {
                     // Don't log parsing errors as unexpected errors, just indicate invalid session
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file corrupted, will recreate...')}`);
+                    if (!sessionChecked) {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file corrupted, will recreate...')}`);
+                        sessionChecked = true;
+                    }
                     return false;
                 }
             }
         }
         
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No valid session files found, creating new session...')}`);
+        if (!sessionChecked) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No valid session files found, creating new session...')}`);
+            sessionChecked = true;
+        }
         return false;
     } catch (error) {
         // Don't throw unexpected errors for normal session checking
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session check failed, will create new session...')}`);
+        if (!sessionChecked) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session check failed, will create new session...')}`);
+            sessionChecked = true;
+        }
         return false;
     }
 };
