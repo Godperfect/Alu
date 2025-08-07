@@ -9,7 +9,7 @@ const fs = require('fs');
 const chalk = require('chalk'); 
 const { logInfo, logError, logSuccess } = require('./utils');
 const config = require('./config.json');
-const { authenticateSession, getAuthState } = require('./bot/login/login.js');
+const { authenticateSession, getAuthState, getTimestamp, getFormattedDate } = require('./bot/login/login.js');
 const eventHandler = require('./bot/handler/eventHandler');
 const { handleConnection } = require('./bot/login/plug');
 const { initializeMediaHandlers } = require('./utils');
@@ -123,12 +123,12 @@ async function startBotz() {
                 console.log('─────────────────────────────────────────');
 
                 // Initialize database connection after successful WhatsApp connection
-                logInfo('Connecting to database: ' + (config.database.type || 'sqlite'));
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CONNECTING TO DATABASE:')} ${chalk.green(config.database.type?.toUpperCase() || 'SQLITE')}`);
                 const dbConnected = await db.connect();
 
                 if (dbConnected) {
                     const dbType = db.getStatus().primaryDB;
-                    logSuccess(`Successfully connected to: ${dbType}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('SUCCESSFULLY CONNECTED TO')} ${chalk.green(dbType.toUpperCase())}`);
                 } else {
                     logError('Can\'t connect to database sqlite or mongodb');
                     return;
@@ -138,7 +138,7 @@ async function startBotz() {
                 try {
                     const { startServer } = require('./dashboard/app');
                     startServer();
-                    logSuccess('Bot is Successfully connected');
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('DASHBOARD AVAILABLE AT')} ${chalk.cyan('http://0.0.0.0:3000')}`);
                 } catch (error) {
                     logError(`Dashboard startup failed: ${error.message}`);
                 }
