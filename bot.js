@@ -124,9 +124,13 @@ async function startBotz() {
             if (connection === 'close') {
                 clearTimeout(connectionTimeout);
                 global.botConnected = false;
-                const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+                const reason = (lastDisconnect?.error)?.output?.statusCode;
+                const shouldReconnect = reason !== DisconnectReason.loggedOut && reason !== DisconnectReason.connectionReplaced;
 
-                if (shouldReconnect) {
+                if (reason === DisconnectReason.connectionReplaced) {
+                    logInfo('Connection replaced detected, terminating process...');
+                    process.exit(0);
+                } else if (shouldReconnect) {
                     // Add delay before reconnecting to prevent rapid reconnection loops
                     logInfo('Connection lost, waiting 5 seconds before reconnecting...');
                     setTimeout(() => {

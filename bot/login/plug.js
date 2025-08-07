@@ -24,11 +24,9 @@ function handleConnection(ptz, startBotz) {
                     startBotz();
                 },
                 [DisconnectReason.connectionReplaced]: () => {
-                    logInfo("Connection replaced, reconnecting...");
-                    // Don't clear session files immediately, let the bot try to reconnect first
-                    setTimeout(() => {
-                        startBotz();
-                    }, 2000);
+                    logInfo("Connection replaced, terminating current instance...");
+                    // Kill the current process instead of reconnecting to prevent conflicts
+                    process.exit(0);
                 },
                 [DisconnectReason.restartRequired]: () => {
                     logInfo("Restart required, restarting...");

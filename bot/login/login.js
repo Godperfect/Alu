@@ -194,7 +194,8 @@ const checkSessionExists = () => {
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
                     
                     // Check if it has essential properties (basic validation)
-                    if (credsData && typeof credsData === 'object' && Object.keys(credsData).length > 0) {
+                    if (credsData && typeof credsData === 'object' && Object.keys(credsData).length > 0 && 
+                        (credsData.noiseKey || credsData.signedIdentityKey || credsData.signedPreKey)) {
                         if (!sessionChecked) {
                             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
                             sessionChecked = true;
