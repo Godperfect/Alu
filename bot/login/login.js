@@ -143,6 +143,15 @@ const getAuthState = async () => {
         // Display Luna Bot title
         const line = displayLunaBotTitle();
 
+        // Log phone number from config
+        const phoneNumber = config.whatsappAccount?.phoneNumber;
+        if (phoneNumber) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('LOGGING IN:')} ${chalk.green(phoneNumber)}`);
+        }
+
+        // Log session checking
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CHECKING SESSIONS................')}`);
+
         ensureAuthDirectory();
         
         // Use session path from config
@@ -172,7 +181,7 @@ const checkSessionExists = () => {
                 try {
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
                     if (credsData.registered === true && credsData.me && credsData.me.id) {
-                        logInfo('Valid session files found, using existing session');
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found........')}`);
                         return true;
                     }
                 } catch (parseError) {
@@ -253,8 +262,7 @@ const authenticateSession = async (ptz) => {
                 throw err;
             }
         } else {
-            // Session exists, just show login success message without requesting pairing code
-            logInfo('Using existing session, no pairing code needed');
+            
             
             if (line) {
                 console.log(chalk.yellow(line));

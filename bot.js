@@ -157,7 +157,7 @@ async function startBotz() {
         if (!checkSessionExists()) {
             await authenticateSession(ptz);
         } else {
-            logInfo('Using existing session, skipping authentication');
+            
         }
 
         store.bind(ptz.ev);
