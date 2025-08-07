@@ -483,40 +483,47 @@ const handlerAction = {
 
     handleGroupEvent: async function(sock, eventType, eventData) {
         try {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[GROUP_EVENT_HANDLER]')} Processing ${eventType} event for group ${eventData.groupName}`);
 
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[WARNING]')} Luna.onEvent was not initialized, creating new Map`);
             }
 
             const { groupId, participants, groupName } = eventData;
 
-
-            if (global.Luna.onEvent.has(`group.${eventType}`)) {
-                const handler = global.Luna.onEvent.get(`group.${eventType}`);
-
-                logInfo(lang.get('system.processingGroupEvent', eventType, groupName));
-
-                await handler.callback({
-                    sock,
-                    eventType,
-                    eventData
-                });
-            }
-
-            // Process registered event handlers first
-            if (global.Luna.onEvent.has(`group.${eventType}`)) {
-                const handler = global.Luna.onEvent.get(`group.${eventType}`);
-                logInfo(`Processing registered event handler for: group.${eventType}`);
+            // Process registered event handlers first with enhanced logging
+            const eventKey = `group.${eventType}`;
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CHECKING_HANDLER]')} Looking for handler: ${eventKey}`);
+            
+            if (global.Luna.onEvent.has(eventKey)) {
+                const handler = global.Luna.onEvent.get(eventKey);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HANDLER_FOUND]')} Found registered handler for: ${eventKey}`);
+                
+                logInfo(`Processing registered event handler for: ${eventKey}`);
                 
                 try {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[CALLING_HANDLER]')} Executing handler with data:`, {
+                        eventType,
+                        groupId,
+                        groupName,
+                        participants: participants?.length || 0
+                    });
+
                     await handler.callback({
                         sock,
                         eventType,
                         eventData
                     });
+
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HANDLER_SUCCESS]')} Event handler executed successfully for ${eventKey}`);
                 } catch (error) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[HANDLER_ERROR]')} Error in registered event handler: ${error.message}`);
                     logError(`Error in registered event handler: ${error.message}`);
                 }
+            } else {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[NO_HANDLER]')} No registered handler found for: ${eventKey}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[AVAILABLE_HANDLERS]')} Available handlers:`, Array.from(global.Luna.onEvent.keys()));
             }
 
             // Handle welcome message for joins
@@ -534,17 +541,17 @@ const handlerAction = {
                         mentions: participants
                     });
 
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[WELCOME_SENT]')} Welcome message sent to ${groupName}`);
                     logInfo(lang.get('system.sentWelcomeMessage', groupName));
                 } catch (err) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[WELCOME_ERROR]')} Failed to send welcome message: ${err.message}`);
                     logError(lang.get('error.sendWelcomeMessage', err.message));
                 }
             }
 
-
             if (eventType === 'leave' && config.leaveMessage?.enable) {
                 try {
                     let leaveMsg = config.leaveMessage.message || lang.get('group.leaveMessage');
-
 
                     leaveMsg = leaveMsg
                         .replace('{user}', `@${participants[0].split('@')[0]}`)
@@ -555,13 +562,16 @@ const handlerAction = {
                         mentions: participants
                     });
 
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[LEAVE_SENT]')} Leave message sent to ${groupName}`);
                     logInfo(lang.get('system.sentLeaveMessage', groupName));
                 } catch (err) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[LEAVE_ERROR]')} Failed to send leave message: ${err.message}`);
                     logError(lang.get('error.sendLeaveMessage', err.message));
                 }
             }
 
         } catch (err) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[GROUP_EVENT_ERROR]')} Error in handleGroupEvent: ${err.message}`);
             logError(lang.get('error.handleGroupEvent', err.message));
             console.error(err);
         }

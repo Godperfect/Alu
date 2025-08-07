@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { logInfo, logError, logSuccess } = require('../../utils');
+const { logInfo, logError, logSuccess, logWarning } = require('../../utils');
 const { config } = require('../../config/globals');
 const chalk = require('chalk');
 
@@ -31,73 +31,93 @@ const getFormattedDate = () => {
 
 class EventManager {
     constructor() {
+        this.events = new Map(); // Initialize events Map
         this.eventsFolder = path.resolve(__dirname, '../../scripts/events');
     }
 
     loadEvents() {
-        if (!fs.existsSync(this.eventsFolder)) {
-            logError(`Events folder not found: ${this.eventsFolder}`);
-            return;
-        }
+        const eventsPath = path.join(__dirname, '../../scripts/events');
 
-        const eventFiles = fs.readdirSync(this.eventsFolder).filter(file => file.endsWith('.js'));
-        let totalEvents = 0;
-        let failedEvents = 0;
+        try {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EVENT_MANAGER]')} Loading events from: ${eventsPath}`);
+            logInfo(`Loading events from: ${eventsPath}`);
 
-        if (eventFiles.length === 0) {
-            logInfo('No event files found');
-            return;
-        }
-
-        eventFiles.forEach(file => {
-            const eventPath = path.join(this.eventsFolder, file);
-
-            try {
-                let event;
-                try {
-                    event = require(eventPath);
-                } catch (err) {
-                    if (err.code === 'MODULE_NOT_FOUND') {
-                        const missingModule = err.message.match(/'(.+?)'/)?.[1];
-                        if (missingModule) {
-                            console.log(`[AUTO-INSTALL] Missing dependency "${missingModule}" in ${file}. Installing...`);
-                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
-                            event = require(eventPath);
-                        } else {
-                            throw err;
-                        }
-                    } else {
-                        throw err;
-                    }
-                }
-
-                if (event && event.config && event.config.name) {
-                    global.events.set(event.config.name, event);
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded event:')} ${chalk.yellow(event.config.name)}`);
-                    totalEvents++;
-                } else {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)}`);
-                    failedEvents++;
-                }
-
-                // Clear the require cache for hot reloading
-                delete require.cache[require.resolve(eventPath)];
-
-            } catch (err) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load event from')} ${chalk.yellow(file)}: ${chalk.red(err.message)}`);
-                failedEvents++;
+            if (!fs.existsSync(eventsPath)) {
+                logWarning(`Events directory does not exist: ${eventsPath}`);
+                return;
             }
-        });
 
-        if (failedEvents > 0) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load')} ${chalk.yellow(failedEvents)} ${chalk.red('events')}`);
+            const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+            if (eventFiles.length === 0) {
+                logWarning('No event files found in events directory');
+                return;
+            }
+
+            let loadedCount = 0;
+
+            for (const file of eventFiles) {
+                try {
+                    const eventPath = path.join(eventsPath, file);
+
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[LOADING_EVENT]')} Processing event file: ${file}`);
+
+                    // Clear require cache to allow reloading
+                    delete require.cache[require.resolve(eventPath)];
+
+                    const event = require(eventPath);
+
+                    if (event && event.config && event.config.name) {
+                        // Store the event
+                        this.events.set(event.config.name, event);
+
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENT_STORED]')} Event ${event.config.name} stored in manager`);
+
+                        // Wait for global.sock to be available
+                        const waitForSock = () => {
+                            if (global.sock) {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SOCK_AVAILABLE]')} Socket available for event: ${event.config.name}`);
+
+                                // Execute onStart if it exists
+                                if (typeof event.onStart === 'function') {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EXECUTING_ONSTART]')} Running onStart for: ${event.config.name}`);
+                                    event.onStart({ sock: global.sock });
+                                }
+
+                                // Execute onLoad if it exists
+                                if (typeof event.onLoad === 'function') {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EXECUTING_ONLOAD]')} Running onLoad for: ${event.config.name}`);
+                                    event.onLoad({ sock: global.sock });
+                                }
+                            } else {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[WAITING_SOCK]')} Waiting for socket to be available for: ${event.config.name}`);
+                                setTimeout(waitForSock, 100);
+                            }
+                        };
+
+                        waitForSock();
+
+                        logSuccess(`Loaded event: ${event.config.name}`);
+                        loadedCount++;
+                    } else {
+                        logWarning(`Invalid event file: ${file} - Missing config or name`);
+                    }
+                } catch (error) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[EVENT_LOAD_ERROR]')} Failed to load ${file}: ${error.message}`);
+                    logError(`Failed to load event ${file}: ${error.message}`);
+                }
+            }
+
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENTS_LOADED]')} Successfully loaded ${loadedCount} events`);
+            logSuccess(`Successfully loaded ${loadedCount} events`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[STATUS]')} Events are now active and listening 24/7`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[NOTIFICATIONS]')} Bot will now send real-time notifications to WhatsApp groups`);
+            console.log('─────────────────────────────────────────');
+
+        } catch (error) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[EVENT_MANAGER_ERROR]')} Error loading events: ${error.message}`);
+            logError(`Error loading events: ${error.message}`);
         }
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(totalEvents)} ${chalk.cyan('events')} ${failedEvents > 0 ? chalk.red(`(${failedEvents} failed)`) : ''}`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[STATUS]')} ${chalk.cyan('Events are now active and listening 24/7')}`);
-        console.log('─────────────────────────────────────────');
-        
-        // Start monitoring event health
-        this.monitorEventHealth();
     }
 
     handleEvents({ sock, m = null, sender }) {
@@ -111,13 +131,21 @@ class EventManager {
         let processedEvents = 0;
         let failedEvents = 0;
 
-        global.events.forEach((event, eventName) => {
+        this.events.forEach((event, eventName) => {
             try {
-                event.event({ sock, m, sender });
-                processedEvents++;
-                
-                if (config.logEvents?.verbose) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_EXEC]')} ${chalk.white(eventName)} ${chalk.green('✓')}`);
+                // Ensure the event function exists before calling
+                if (typeof event.event === 'function') {
+                    event.event({ sock, m, sender });
+                    processedEvents++;
+
+                    if (config.logEvents?.verbose) {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_EXEC]')} ${chalk.white(eventName)} ${chalk.green('✓')}`);
+                    }
+                } else {
+                    failedEvents++;
+                    if (config.logEvents?.logErrors) {
+                        logError(`Event '${eventName}' does not have an 'event' function.`);
+                    }
                 }
             } catch (error) {
                 failedEvents++;
@@ -135,7 +163,7 @@ class EventManager {
     // Add method to monitor event health
     monitorEventHealth() {
         setInterval(() => {
-            const activeEvents = global.events.size;
+            const activeEvents = this.events.size;
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_STATUS]')} ${chalk.cyan('Active Events:')} ${chalk.yellow(activeEvents)} ${chalk.gray('- Listening 24/7')}`);
         }, 600000); // Every 10 minutes
     }
