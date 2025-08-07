@@ -1,4 +1,5 @@
 const fs = require('fs');
+const chalk = require('chalk');
 const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate } = require('../../utils');
 const { config } = require('../../config/globals');
 const languageManager = require('../../language/language');
