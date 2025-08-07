@@ -156,6 +156,9 @@ async function startBotz() {
                 if (dbConnected) {
                     const dbType = db.getStatus().primaryDB;
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('SUCCESSFULLY CONNECTED TO')} ${chalk.green(dbType.toUpperCase())}`);
+                    
+                    // Make database globally available for events
+                    global.db = db;
                 } else {
                     logError('Can\'t connect to database sqlite or mongodb');
                     return;

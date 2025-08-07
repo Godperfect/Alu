@@ -1,7 +1,6 @@
-
 const fs = require('fs');
 const path = require('path');
-const { logInfo, logError, logSuccess, getTimestamp, getFormattedDate } = require('../../utils');
+const { logInfo, logError, logSuccess, getTimestamp, getFormattedDate, logWarning } = require('../../utils');
 const chalk = require('chalk');
 
 // Path to resend settings
@@ -43,15 +42,15 @@ module.exports = {
         name: 'resend',
         author: 'Luna',
         version: '1.0.0',
-        description: 'Control anti-delete message resend system',
+        description: 'Control real-time delete detection system (no storage)',
         category: 'admin',
         guide: {
             en: `Usage:
-• resend on - Enable anti-delete for this group
-• resend off - Disable anti-delete for this group
+• resend on - Enable real-time delete detection
+• resend off - Disable delete detection  
 • resend status - Check current status
-• resend list - List all groups with resend enabled
-• resend clear - Clear all resend settings`
+• resend list - List all groups with detection enabled
+• resend clear - Clear all detection settings`
         },
         role: 1 // Admin only
     },
@@ -77,7 +76,7 @@ module.exports = {
                            );
 
             if (!isAdmin) {
-                return await sock.sendMessage(mek.key.remoteJid, {
+                return await sock.sendMessage(groupId, {
                     text: `❌ *Access Denied*\n\nOnly group admins can manage anti-delete settings.`,
                     mentions: [sender]
                 }, { quoted: mek });
@@ -96,10 +95,10 @@ module.exports = {
                     settings[groupId] = { enabled: true };
                     if (saveResendSettings(settings)) {
                         await sock.sendMessage(groupId, {
-                            text: `✅ *Anti-Delete System Enabled*\n\n🛡️ Deleted messages will now be automatically restored in this group.\n\n*Features:*\n• Text message restoration\n• Media file restoration\n• Deletion notifications\n• 24/7 monitoring\n\n_Use \`resend off\` to disable_`,
+                            text: `✅ *Real-time Delete Detection Enabled*\n\n🛡️ Delete events will be detected instantly in this group.\n\n*Features:*\n• Real-time delete detection\n• Instant notifications\n• No message storage\n• Zero storage usage\n• 24/7 monitoring\n\n_Use \`resend off\` to disable_`,
                             mentions: [sender]
                         }, { quoted: mek });
-                        
+
                         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ENABLED]')} Anti-delete enabled for group ${messageInfo.chatName} by admin ${senderNumber}`);
                         logSuccess(`Anti-delete enabled for group ${messageInfo.chatName}`);
                     }
@@ -110,10 +109,10 @@ module.exports = {
                     settings[groupId] = { enabled: false };
                     if (saveResendSettings(settings)) {
                         await sock.sendMessage(groupId, {
-                            text: `❌ *Anti-Delete System Disabled*\n\n🔕 Deleted messages will no longer be restored in this group.\n\n_Use \`resend on\` to re-enable_`,
+                            text: `❌ *Real-time Delete Detection Disabled*\n\n🔕 Delete notifications are now disabled for this group.\n\n_Use \`resend on\` to re-enable_`,
                             mentions: [sender]
                         }, { quoted: mek });
-                        
+
                         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DISABLED]')} Anti-delete disabled for group ${messageInfo.chatName} by admin ${senderNumber}`);
                         logInfo(`Anti-delete disabled for group ${messageInfo.chatName}`);
                     }
@@ -121,11 +120,14 @@ module.exports = {
 
                 case 'status':
                 case 'check':
-                    const status = currentStatus ? '✅ Enabled' : '❌ Disabled';
-                    const statusIcon = currentStatus ? '🛡️' : '🔕';
-                    
+                    const currentSettings = loadResendSettings();
+                    const groupSetting = currentSettings[groupId];
+                    const isEnabled = groupSetting?.enabled !== false; // Default to true unless explicitly disabled
+                    const status = isEnabled ? '✅ Enabled' : '❌ Disabled';
+                    const defaultNote = !groupSetting ? ' (Default)' : '';
+
                     await sock.sendMessage(groupId, {
-                        text: `${statusIcon} *Anti-Delete System Status*\n\n*Group:* ${messageInfo.chatName}\n*Status:* ${status}\n\n*Available Commands:*\n• \`resend on\` - Enable anti-delete\n• \`resend off\` - Disable anti-delete\n• \`resend status\` - Check current status\n• \`resend list\` - List enabled groups\n• \`resend clear\` - Clear all settings`,
+                        text: `🔄 *Real-time Delete Detection Status*\n\n*Current Status:* ${status}${defaultNote}\n*System Type:* Real-time (No Storage)\n*Detection:* Instant\n*Storage Usage:* Zero\n\n*Note:* Delete detection is enabled by default for all groups\n\n*Commands:*\n• \`resend on\` - Enable detection\n• \`resend off\` - Disable detection\n• \`resend status\` - Check status`,
                         mentions: [sender]
                     }, { quoted: mek });
                     break;
@@ -161,7 +163,7 @@ module.exports = {
                             text: `🗑️ *All Anti-Delete Settings Cleared*\n\nAll groups have been reset to disabled state.\n\n_Use \`resend on\` to re-enable for specific groups_`,
                             mentions: [sender]
                         }, { quoted: mek });
-                        
+
                         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_CLEARED]')} All anti-delete settings cleared by admin ${senderNumber}`);
                         logWarning(`All anti-delete settings cleared by admin ${senderNumber}`);
                     }
@@ -169,7 +171,7 @@ module.exports = {
 
                 default:
                     const helpText = `🛡️ *Anti-Delete System Commands*\n\n*Usage:* \`resend <action>\`\n\n*Available Actions:*\n• \`on\` - Enable anti-delete\n• \`off\` - Disable anti-delete\n• \`status\` - Check current status\n• \`list\` - List enabled groups\n• \`clear\` - Clear all settings\n\n*Current Status:* ${currentStatus ? '✅ Enabled' : '❌ Disabled'}`;
-                    
+
                     await sock.sendMessage(groupId, {
                         text: helpText,
                         mentions: [sender]
@@ -180,7 +182,7 @@ module.exports = {
         } catch (error) {
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[RESEND_CMD_ERROR]')} Error in resend command: ${error.message}`);
             logError(`Error in resend command: ${error.message}`);
-            
+
             await sock.sendMessage(mek.key.remoteJid, {
                 text: `❌ *Command Error*\n\nFailed to execute resend command: ${error.message}`
             }, { quoted: mek });

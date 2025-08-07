@@ -2,11 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
 const chalk = require('chalk');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys'); // Import the function
 
-// Store original messages temporarily
-const messageStore = new Map();
-const resendSettings = new Map(); // Store per-group resend settings
+const resendSettings = new Map(); // Store per-group resend settings only
 
 // Load resend settings
 const resendSettingsPath = path.join(__dirname, '../../data/resendSettings.json');
@@ -33,14 +30,6 @@ function loadResendSettings() {
     return {};
 }
 
-// Add function to reload settings from file
-function reloadResendSettings() {
-    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_RELOAD]')} Reloading resend settings from file...`);
-    const settings = loadResendSettings();
-    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_LOADED]')} Loaded ${Object.keys(settings).length} group settings`);
-    return settings;
-}
-
 function saveResendSettings() {
     try {
         const settings = {};
@@ -61,9 +50,9 @@ function saveResendSettings() {
     }
 }
 
-// Check if resend is enabled for a group
+// Check if resend is enabled for a group (defaults to true)
 function isResendEnabled(groupId) {
-    return resendSettings.get(groupId)?.enabled || false;
+    return resendSettings.get(groupId)?.enabled !== false; // Default to true unless explicitly disabled
 }
 
 // Toggle resend setting for a group
@@ -73,187 +62,53 @@ function toggleResendSetting(groupId, enabled) {
     return enabled;
 }
 
-// Store message for potential resend
-function storeMessage(messageId, messageData) {
-    messageStore.set(messageId, {
-        ...messageData,
-        timestamp: Date.now()
-    });
-
-    // Clean old messages (older than 24 hours)
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-
-    for (const [id, data] of messageStore.entries()) {
-        if (now - data.timestamp > twentyFourHours) {
-            messageStore.delete(id);
-        }
-    }
-}
-
-// Handle message deletion
-async function handleMessageDeletion(sock, messageId, groupId) {
-    try {
-        if (!isResendEnabled(groupId)) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DISABLED]')} Resend is disabled for group ${groupId}`);
-            return;
-        }
-
-        const originalMessage = messageStore.get(messageId);
-        if (!originalMessage) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MESSAGE_NOT_FOUND]')} Original message not found for ID: ${messageId}`);
-            return;
-        }
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MESSAGE_DELETED]')} Detected deleted message from ${originalMessage.senderName} in ${originalMessage.groupName}`);
-
-        // Create resend notification
-        let resendText = `🗑️ *Message Deleted Alert*\n\n`;
-        resendText += `• *User:* @${originalMessage.senderNumber}\n`;
-        resendText += `• *Original Time:* ${new Date(originalMessage.timestamp).toLocaleTimeString()}\n`;
-        resendText += `• *Deleted At:* ${new Date().toLocaleTimeString()}\n\n`;
-
-        if (originalMessage.messageText) {
-            resendText += `*Original Message:*\n"${originalMessage.messageText}"\n\n`;
-        }
-
-        if (originalMessage.hasMedia) {
-            resendText += `*Media Type:* ${originalMessage.mediaType}\n`;
-            if (originalMessage.caption) {
-                resendText += `*Caption:* "${originalMessage.caption}"\n`;
-            }
-        }
-
-        resendText += `_🔄 This message was automatically restored because the user deleted it_`;
-
-        // Send the resend notification
-        await sock.sendMessage(groupId, {
-            text: resendText,
-            mentions: [originalMessage.sender]
-        });
-
-        // If there was media, try to resend it too
-        if (originalMessage.hasMedia && originalMessage.mediaBuffer) {
-            try {
-                const mediaMessage = {
-                    caption: `🗑️ *Deleted ${originalMessage.mediaType}* from @${originalMessage.senderNumber}\n_Restored by Anti-Delete System_`,
-                    mentions: [originalMessage.sender]
-                };
-
-                if (originalMessage.mediaType === 'image') {
-                    mediaMessage.image = originalMessage.mediaBuffer;
-                } else if (originalMessage.mediaType === 'video') {
-                    mediaMessage.video = originalMessage.mediaBuffer;
-                } else if (originalMessage.mediaType === 'audio') {
-                    mediaMessage.audio = originalMessage.mediaBuffer;
-                } else if (originalMessage.mediaType === 'document') {
-                    mediaMessage.document = originalMessage.mediaBuffer;
-                    mediaMessage.fileName = originalMessage.fileName || 'deleted_file';
-                }
-
-                await sock.sendMessage(groupId, mediaMessage);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MEDIA_RESENT]')} Deleted media restored for group ${originalMessage.groupName}`);
-            } catch (mediaError) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MEDIA_RESEND_FAILED]')} Failed to resend media: ${mediaError.message}`);
-            }
-        }
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RESENT]')} Deleted message notification sent to ${originalMessage.groupName}`);
-        logSuccess(`Deleted message restored in ${originalMessage.groupName}`);
-
-        // Remove from store after resending
-        messageStore.delete(messageId);
-
-    } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[RESEND_ERROR]')} Failed to handle message deletion: ${error.message}`);
-        logError(`Error handling message deletion: ${error.message}`);
-    }
-}
-
-// Handle incoming messages (store them)
-async function handleIncomingMessage(sock, mek, messageInfo) {
-    try {
-        const messageId = mek.key.id;
-        const groupId = mek.key.remoteJid;
-        const sender = mek.key.participant || mek.key.remoteJid;
-
-        // Only store messages from groups where resend is enabled
-        if (!groupId.endsWith('@g.us') || !isResendEnabled(groupId)) {
-            return;
-        }
-
-        const messageText = require('../../utils').getTextContent(mek.message);
-        const senderNumber = sender.split('@')[0];
-        const senderName = await require('../../utils').getSenderName(sock, sender);
-
-        // Check for media
-        let hasMedia = false;
-        let mediaType = null;
-        let mediaBuffer = null;
-        let caption = null;
-        let fileName = null;
-
-        const contentType = Object.keys(mek.message)[0];
-        if (['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage'].includes(contentType)) {
-            hasMedia = true;
-            mediaType = contentType.replace('Message', '');
-
-            try {
-                // Download media for potential resend
-                const quoted = mek.message[contentType];
-                if (quoted) {
-                    // Try to download media using baileys built-in method
-                    const stream = await downloadContentFromMessage(quoted, mediaType);
-                    const chunks = [];
-                    for await (const chunk of stream) {
-                        chunks.push(chunk);
-                    }
-                    mediaBuffer = Buffer.concat(chunks);
-                    caption = quoted.caption;
-                    fileName = quoted.fileName;
-                }
-            } catch (downloadError) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MEDIA_DOWNLOAD_FAILED]')} Could not download media: ${downloadError.message}`);
-            }
-        }
-
-        // Store message data
-        const messageData = {
-            messageId,
-            groupId,
-            groupName: messageInfo.chatName,
-            sender,
-            senderNumber,
-            senderName,
-            messageText,
-            hasMedia,
-            mediaType,
-            mediaBuffer,
-            caption,
-            fileName,
-            timestamp: Date.now()
-        };
-
-        storeMessage(messageId, messageData);
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Stored message ${messageId} from ${senderName} for potential resend`);
-
-    } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[STORE_ERROR]')} Failed to store message: ${error.message}`);
-    }
-}
-
-// Handle protocol messages (deletions)
+// Handle protocol messages (deletions) - Real-time detection and resend
 async function handleProtocolMessage(sock, mek) {
     try {
         // Check for delete protocol message
         if (mek.message?.protocolMessage?.type === 0) { // REVOKE type
-            const deletedMessageId = mek.message.protocolMessage.key?.id;
+            const deletedMessageKey = mek.message.protocolMessage.key;
             const groupId = mek.key.remoteJid;
 
-            if (deletedMessageId && groupId.endsWith('@g.us')) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_DETECTED]')} Delete protocol detected for message ${deletedMessageId} in group ${groupId}`);
-                await handleMessageDeletion(sock, deletedMessageId, groupId);
+            if (deletedMessageKey && groupId.endsWith('@g.us') && isResendEnabled(groupId)) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_DETECTED]')} Delete protocol detected for message ${deletedMessageKey.id} in group ${groupId}`);
+
+                // Get the original message that was deleted by using the key
+                try {
+                    const deletedSender = deletedMessageKey.participant || deletedMessageKey.remoteJid;
+                    const senderNumber = deletedSender.split('@')[0];
+
+                    // Get sender name
+                    let senderName = senderNumber;
+                    try {
+                        const contact = await sock.onWhatsApp(deletedSender);
+                        if (contact && contact[0] && contact[0].name) {
+                            senderName = contact[0].name;
+                        }
+                    } catch (nameError) {
+                        // Use number if name fetch fails
+                    }
+
+                    // Create anti-delete notification
+                    const deleteNotification = `🗑️ *Message Deleted Alert*\n\n` +
+                        `• *User:* @${senderNumber}\n` +
+                        `• *Time:* ${new Date().toLocaleTimeString()}\n` +
+                        `• *Action:* Message was deleted\n\n` +
+                        `⚠️ *Original message content was removed by sender*\n\n` +
+                        `_🔄 This notification was sent because anti-delete is enabled_`;
+
+                    // Send the delete notification immediately
+                    await sock.sendMessage(groupId, {
+                        text: deleteNotification,
+                        mentions: [deletedSender]
+                    });
+
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[DELETE_NOTIFIED]')} Delete notification sent for message from ${senderName}`);
+                    logSuccess(`Delete event detected and notification sent`);
+
+                } catch (error) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_HANDLE_ERROR]')} Error handling delete: ${error.message}`);
+                }
             }
         }
     } catch (error) {
@@ -265,45 +120,36 @@ module.exports = {
     config: {
         name: 'messageResend',
         author: 'Luna',
-        version: '1.0.0',
-        description: 'Automatically resends deleted messages with notification',
+        version: '2.0.0',
+        description: 'Real-time delete detection without message storage',
         category: 'events',
         guide: {
-            en: 'This event monitors deleted messages and resends them automatically'
+            en: 'This event monitors deleted messages and sends notifications without storing any messages'
         }
     },
 
     // Export functions for external use
-    reloadSettings: reloadResendSettings,
     isResendEnabled,
     toggleResendSetting,
 
     onStart: async ({ sock }) => {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_INIT]')} Initializing Message Resend event handlers...`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_INIT]')} Initializing Real-time Delete Detection...`);
 
         // Load existing settings
         loadResendSettings();
 
-        // Store sock globally for access in handlers
-        global.resendSock = sock;
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_REGISTERED]')} Message resend handlers registered`);
-        logSuccess('Message resend event handlers registered successfully');
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ACTIVE]')} Anti-delete system is now monitoring messages 24/7`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_REGISTERED]')} Real-time delete detection registered`);
+        logSuccess('Anti-delete system initialized without storage');
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ACTIVE]')} Real-time delete detection is now active 24/7 (NO STORAGE - DEFAULT: ENABLED)`);
     },
 
     onChat: async ({ sock, m, messageInfo, isGroup, messageText }) => {
         try {
-            // First, check for protocol messages (deletions) - this is critical
+            // Only handle protocol messages (deletions) - this is the core functionality
             if (m.message?.protocolMessage?.type === 0) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} Protocol message detected in onChat`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} Delete protocol detected in real-time`);
                 await handleProtocolMessage(sock, m);
                 return;
-            }
-
-            // Handle normal messages - store them for potential resend
-            if (isGroup && m.message && !m.message.protocolMessage) {
-                await handleIncomingMessage(sock, m, messageInfo);
             }
 
             // Handle resend on/off commands only for normal text messages
@@ -321,22 +167,22 @@ module.exports = {
                            );
 
             if (messageText.toLowerCase() === 'resend on' && isAdmin) {
-                const enabled = toggleResendSetting(groupId, true);
+                toggleResendSetting(groupId, true);
                 await sock.sendMessage(groupId, {
-                    text: `✅ *Anti-Delete System Enabled*\n\nDeleted messages will now be automatically restored in this group.`,
+                    text: `✅ *Real-time Delete Detection Enabled*\n\nDeleted messages will be detected and notifications sent instantly.\n\n*Features:*\n• Real-time delete detection\n• No message storage\n• Instant notifications\n• Zero storage usage`,
                     mentions: [sender]
                 });
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ENABLED]')} Anti-delete enabled for group ${messageInfo.chatName}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ENABLED]')} Real-time delete detection enabled for group ${messageInfo.chatName}`);
                 return true;
             }
 
             if (messageText.toLowerCase() === 'resend off' && isAdmin) {
-                const enabled = toggleResendSetting(groupId, false);
+                toggleResendSetting(groupId, false);
                 await sock.sendMessage(groupId, {
-                    text: `❌ *Anti-Delete System Disabled*\n\nDeleted messages will no longer be restored in this group.`,
+                    text: `❌ *Real-time Delete Detection Disabled*\n\nDelete notifications are now disabled for this group.`,
                     mentions: [sender]
                 });
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DISABLED]')} Anti-delete disabled for group ${messageInfo.chatName}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DISABLED]')} Real-time delete detection disabled for group ${messageInfo.chatName}`);
                 return true;
             }
 
@@ -344,14 +190,14 @@ module.exports = {
                 const isEnabled = isResendEnabled(groupId);
                 const status = isEnabled ? '✅ Enabled' : '❌ Disabled';
                 await sock.sendMessage(groupId, {
-                    text: `🔄 *Anti-Delete System Status*\n\n*Current Status:* ${status}\n\n*Commands:*\n• \`resend on\` - Enable anti-delete\n• \`resend off\` - Disable anti-delete\n• \`resend status\` - Check status`,
+                    text: `🔄 *Real-time Delete Detection Status*\n\n*Current Status:* ${status}\n\n*System Type:* Real-time (No Storage)\n*Detection:* Instant\n*Storage Usage:* Zero\n\n*Commands:*\n• \`resend on\` - Enable detection\n• \`resend off\` - Disable detection\n• \`resend status\` - Check status`,
                     mentions: [sender]
                 });
                 return true;
             }
 
         } catch (error) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[RESEND_CHAT_ERROR]')} Error in resend chat handler: ${error.message}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[RESEND_CHAT_ERROR]')} Error in delete detection handler: ${error.message}`);
         }
     }
 };
