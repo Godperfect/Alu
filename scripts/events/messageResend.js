@@ -1,8 +1,8 @@
-
 const fs = require('fs');
 const path = require('path');
 const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
 const chalk = require('chalk');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys'); // Import the function
 
 // Store original messages temporarily
 const messageStore = new Map();
@@ -16,12 +16,12 @@ function loadResendSettings() {
         if (fs.existsSync(resendSettingsPath)) {
             const data = fs.readFileSync(resendSettingsPath, 'utf8');
             const settings = JSON.parse(data);
-            
+
             // Load settings into memory
             Object.entries(settings).forEach(([groupId, setting]) => {
                 resendSettings.set(groupId, setting);
             });
-            
+
             return settings;
         }
     } catch (error) {
@@ -36,13 +36,13 @@ function saveResendSettings() {
         resendSettings.forEach((setting, groupId) => {
             settings[groupId] = setting;
         });
-        
+
         // Ensure data directory exists
         const dataDir = path.dirname(resendSettingsPath);
         if (!fs.existsSync(dataDir)) {
             fs.mkdirSync(dataDir, { recursive: true });
         }
-        
+
         fs.writeFileSync(resendSettingsPath, JSON.stringify(settings, null, 2));
         logSuccess('Resend settings saved successfully');
     } catch (error) {
@@ -68,11 +68,11 @@ function storeMessage(messageId, messageData) {
         ...messageData,
         timestamp: Date.now()
     });
-    
+
     // Clean old messages (older than 24 hours)
     const twentyFourHours = 24 * 60 * 60 * 1000;
     const now = Date.now();
-    
+
     for (const [id, data] of messageStore.entries()) {
         if (now - data.timestamp > twentyFourHours) {
             messageStore.delete(id);
@@ -101,18 +101,18 @@ async function handleMessageDeletion(sock, messageId, groupId) {
         resendText += `• *User:* @${originalMessage.senderNumber}\n`;
         resendText += `• *Original Time:* ${new Date(originalMessage.timestamp).toLocaleTimeString()}\n`;
         resendText += `• *Deleted At:* ${new Date().toLocaleTimeString()}\n\n`;
-        
+
         if (originalMessage.messageText) {
             resendText += `*Original Message:*\n"${originalMessage.messageText}"\n\n`;
         }
-        
+
         if (originalMessage.hasMedia) {
             resendText += `*Media Type:* ${originalMessage.mediaType}\n`;
             if (originalMessage.caption) {
                 resendText += `*Caption:* "${originalMessage.caption}"\n`;
             }
         }
-        
+
         resendText += `_🔄 This message was automatically restored because the user deleted it_`;
 
         // Send the resend notification
@@ -165,7 +165,7 @@ async function handleIncomingMessage(sock, mek, messageInfo) {
         const messageId = mek.key.id;
         const groupId = mek.key.remoteJid;
         const sender = mek.key.participant || mek.key.remoteJid;
-        
+
         // Only store messages from groups where resend is enabled
         if (!groupId.endsWith('@g.us') || !isResendEnabled(groupId)) {
             return;
@@ -174,7 +174,7 @@ async function handleIncomingMessage(sock, mek, messageInfo) {
         const messageText = require('../../utils').getTextContent(mek.message);
         const senderNumber = sender.split('@')[0];
         const senderName = await require('../../utils').getSenderName(sock, sender);
-        
+
         // Check for media
         let hasMedia = false;
         let mediaType = null;
@@ -186,12 +186,18 @@ async function handleIncomingMessage(sock, mek, messageInfo) {
         if (['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage'].includes(contentType)) {
             hasMedia = true;
             mediaType = contentType.replace('Message', '');
-            
+
             try {
                 // Download media for potential resend
                 const quoted = mek.message[contentType];
                 if (quoted) {
-                    mediaBuffer = await require('../../utils').downloadMedia(mek);
+                    // Try to download media using baileys built-in method
+                    const stream = await downloadContentFromMessage(quoted, mediaType);
+                    const chunks = [];
+                    for await (const chunk of stream) {
+                        chunks.push(chunk);
+                    }
+                    mediaBuffer = Buffer.concat(chunks);
                     caption = quoted.caption;
                     fileName = quoted.fileName;
                 }
@@ -218,7 +224,7 @@ async function handleIncomingMessage(sock, mek, messageInfo) {
         };
 
         storeMessage(messageId, messageData);
-        
+
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Stored message ${messageId} from ${senderName} for potential resend`);
 
     } catch (error) {
@@ -233,7 +239,7 @@ async function handleProtocolMessage(sock, mek) {
         if (mek.message?.protocolMessage?.type === 0) { // REVOKE type
             const deletedMessageId = mek.message.protocolMessage.key?.id;
             const groupId = mek.key.remoteJid;
-            
+
             if (deletedMessageId && groupId.endsWith('@g.us')) {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_DETECTED]')} Delete protocol detected for message ${deletedMessageId} in group ${groupId}`);
                 await handleMessageDeletion(sock, deletedMessageId, groupId);
@@ -258,22 +264,22 @@ module.exports = {
 
     onStart: async ({ sock }) => {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_INIT]')} Initializing Message Resend event handlers...`);
-        
+
         // Load existing settings
         loadResendSettings();
-        
+
         // Register event handlers
         if (!global.Luna.onEvent) {
             global.Luna.onEvent = new Map();
         }
 
         // Register message handlers
-        global.Luna.onEvent.set('message.incoming', { 
-            callback: (data) => handleIncomingMessage(sock, data.m, data.messageInfo) 
+        global.Luna.onEvent.set('message.incoming', {
+            callback: (data) => handleIncomingMessage(sock, data.m, data.messageInfo)
         });
-        
-        global.Luna.onEvent.set('message.protocol', { 
-            callback: (data) => handleProtocolMessage(sock, data.m) 
+
+        global.Luna.onEvent.set('message.protocol', {
+            callback: (data) => handleProtocolMessage(sock, data.m)
         });
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_REGISTERED]')} Message resend handlers registered`);
@@ -285,18 +291,18 @@ module.exports = {
         try {
             // Handle resend on/off commands
             if (!isGroup) return;
-            
+
             const groupId = m.key.remoteJid;
             const sender = m.key.participant || m.key.remoteJid;
             const senderNumber = sender.split('@')[0];
-            
+
             // Check if user is admin
-            const isAdmin = messageInfo.groupMetadata && 
+            const isAdmin = messageInfo.groupMetadata &&
                            messageInfo.groupMetadata.participants &&
-                           messageInfo.groupMetadata.participants.some(p => 
+                           messageInfo.groupMetadata.participants.some(p =>
                                p.id.includes(senderNumber) && (p.admin === 'admin' || p.admin === 'superadmin')
                            );
-            
+
             if (messageText.toLowerCase() === 'resend on' && isAdmin) {
                 const enabled = toggleResendSetting(groupId, true);
                 await sock.sendMessage(groupId, {
@@ -306,7 +312,7 @@ module.exports = {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ENABLED]')} Anti-delete enabled for group ${messageInfo.chatName}`);
                 return true;
             }
-            
+
             if (messageText.toLowerCase() === 'resend off' && isAdmin) {
                 const enabled = toggleResendSetting(groupId, false);
                 await sock.sendMessage(groupId, {
@@ -316,7 +322,7 @@ module.exports = {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DISABLED]')} Anti-delete disabled for group ${messageInfo.chatName}`);
                 return true;
             }
-            
+
             if (messageText.toLowerCase() === 'resend status' && isAdmin) {
                 const isEnabled = isResendEnabled(groupId);
                 const status = isEnabled ? '✅ Enabled' : '❌ Disabled';
@@ -329,7 +335,7 @@ module.exports = {
 
             // Store incoming messages
             await handleIncomingMessage(sock, m, messageInfo);
-            
+
             // Check for protocol messages (deletions)
             if (m.message?.protocolMessage) {
                 await handleProtocolMessage(sock, m);
