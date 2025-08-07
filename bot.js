@@ -109,10 +109,20 @@ async function startBotz() {
             }
         });
 
+        // Add connection timeout
+        const connectionTimeout = setTimeout(() => {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('Connection timeout after 60 seconds, restarting...')}`);
+            ptz.end();
+            setTimeout(() => {
+                startBotz();
+            }, 3000);
+        }, 60000);
+
         ptz.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
             if (connection === 'close') {
+                clearTimeout(connectionTimeout);
                 global.botConnected = false;
                 const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
 
@@ -128,6 +138,7 @@ async function startBotz() {
             } else if (connection === 'connecting') {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Connecting to WhatsApp...')}`);
             } else if (connection === 'open') {
+                clearTimeout(connectionTimeout);
                 global.botConnected = true;
                 global.sock = ptz; // Make sock available globally for events
                 console.log('─────────────────────────────────────────');

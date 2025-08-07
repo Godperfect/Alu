@@ -188,59 +188,65 @@ const checkSessionExists = () => {
         // Check if creds.json exists and is not empty
         if (fs.existsSync(credsPath)) {
             const stats = fs.statSync(credsPath);
-            if (stats.size > 10) { // Ensure file has meaningful content
+            if (stats.size > 50) { // Increase minimum file size for valid session
                 try {
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
                     
-                    // More comprehensive validation for session data
-                    const hasValidKeys = credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey;
-                    const hasRegistration = credsData.registered !== false; // Allow undefined or true
-                    const hasBasicStructure = credsData.myAppStateKeyId || credsData.advSecretKey;
-                    const hasAccountInfo = credsData.me || credsData.platform;
+                    // Stricter validation for session data
+                    const hasValidKeys = credsData.noiseKey && credsData.signedIdentityKey && credsData.identityKey;
+                    const hasRegistration = credsData.registered === true;
+                    const hasBasicStructure = credsData.myAppStateKeyId && credsData.advSecretKey;
+                    const hasAccountInfo = credsData.me && credsData.me.id;
                     
-                    if ((hasValidKeys || hasBasicStructure || hasAccountInfo) && hasRegistration) {
+                    // Require all essential components for valid session
+                    if (hasValidKeys && hasRegistration && hasBasicStructure) {
                         if (!sessionChecked) {
                             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
                             sessionChecked = true;
                         }
                         return true;
+                    } else {
+                        // Session is incomplete
+                        if (!sessionChecked) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Incomplete session detected, clearing for fresh login...')}`);
+                            sessionChecked = true;
+                        }
+                        // Clear incomplete session
+                        if (fs.existsSync(sessionPath)) {
+                            fs.rmSync(sessionPath, { recursive: true, force: true });
+                            fs.mkdirSync(sessionPath, { recursive: true });
+                        }
+                        return false;
                     }
                 } catch (parseError) {
-                    // Session file is corrupted, but don't delete it yet
+                    // Session file is corrupted
                     if (!sessionChecked) {
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file corrupted but will attempt to use...')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Corrupted session file detected, clearing for fresh login...')}`);
                         sessionChecked = true;
                     }
-                    // Return true to attempt using the file anyway
-                    return true;
-                }
-            }
-        }
-        
-        // Also check for other session files
-        const sessionFiles = ['creds.json', 'app-state-sync-key-*.json', 'app-state-sync-version-*.json'];
-        const hasAnySessionFiles = sessionFiles.some(pattern => {
-            if (pattern.includes('*')) {
-                try {
-                    const files = fs.readdirSync(sessionPath);
-                    return files.some(file => file.match(pattern.replace('*', '.*')));
-                } catch {
+                    // Clear corrupted session
+                    if (fs.existsSync(sessionPath)) {
+                        fs.rmSync(sessionPath, { recursive: true, force: true });
+                        fs.mkdirSync(sessionPath, { recursive: true });
+                    }
                     return false;
                 }
+            } else {
+                // File too small to be valid
+                if (!sessionChecked) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file too small, clearing for fresh login...')}`);
+                    sessionChecked = true;
+                }
+                if (fs.existsSync(sessionPath)) {
+                    fs.rmSync(sessionPath, { recursive: true, force: true });
+                    fs.mkdirSync(sessionPath, { recursive: true });
+                }
+                return false;
             }
-            return fs.existsSync(path.join(sessionPath, pattern));
-        });
-        
-        if (hasAnySessionFiles) {
-            if (!sessionChecked) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Session files detected, attempting to restore...')}`);
-                sessionChecked = true;
-            }
-            return true;
         }
         
         if (!sessionChecked) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No valid session files found, will create new session...')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No session files found, will create new session...')}`);
             sessionChecked = true;
         }
         return false;

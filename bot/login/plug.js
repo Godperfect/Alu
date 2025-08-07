@@ -24,26 +24,20 @@ function handleConnection(ptz, startBotz) {
                     startBotz();
                 },
                 [DisconnectReason.connectionReplaced]: () => {
-                    logInfo("Connection replaced, handling session cleanup...");
-                    const config = require('../../config.json');
-                    
-                    if (!config.whatsappAccount?.preserveSessionOnReplace) {
-                        // Clean up session files only if config allows
-                        const fs = require('fs');
-                        const path = require('path');
-                        const sessionPath = path.join(__dirname, '../../session');
-                        if (fs.existsSync(sessionPath)) {
-                            fs.rmSync(sessionPath, { recursive: true, force: true });
-                            logInfo("Session files cleaned up due to configuration");
-                        }
-                    } else {
-                        logInfo("Preserving session files per configuration");
+                    logInfo("Connection replaced, clearing session for fresh login...");
+                    // Always clean up session files on connection replaced
+                    const fs = require('fs');
+                    const path = require('path');
+                    const sessionPath = path.join(__dirname, '../../session');
+                    if (fs.existsSync(sessionPath)) {
+                        fs.rmSync(sessionPath, { recursive: true, force: true });
+                        logInfo("Session files cleared - fresh login required");
                     }
                     
-                    // Restart the bot after handling session
+                    // Restart the bot after clearing session
                     setTimeout(() => {
                         startBotz();
-                    }, 2000);
+                    }, 3000);
                 },
                 [DisconnectReason.restartRequired]: () => {
                     logInfo("Restart required, restarting...");
