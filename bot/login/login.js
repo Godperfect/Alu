@@ -196,8 +196,9 @@ const checkSessionExists = () => {
                     const hasValidKeys = credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey;
                     const hasRegistration = credsData.registered !== false; // Allow undefined or true
                     const hasBasicStructure = credsData.myAppStateKeyId || credsData.advSecretKey;
+                    const hasAccountInfo = credsData.me || credsData.platform;
                     
-                    if (hasValidKeys || hasBasicStructure) {
+                    if ((hasValidKeys || hasBasicStructure || hasAccountInfo) && hasRegistration) {
                         if (!sessionChecked) {
                             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
                             sessionChecked = true;

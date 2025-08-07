@@ -24,16 +24,23 @@ function handleConnection(ptz, startBotz) {
                     startBotz();
                 },
                 [DisconnectReason.connectionReplaced]: () => {
-                    logInfo("Connection replaced, automatically closing previous session and restarting...");
-                    // Clean up session files
-                    const fs = require('fs');
-                    const path = require('path');
-                    const sessionPath = path.join(__dirname, '../../session');
-                    if (fs.existsSync(sessionPath)) {
-                        fs.rmSync(sessionPath, { recursive: true, force: true });
-                        logInfo("Previous session files cleaned up");
+                    logInfo("Connection replaced, handling session cleanup...");
+                    const config = require('../../config.json');
+                    
+                    if (!config.whatsappAccount?.preserveSessionOnReplace) {
+                        // Clean up session files only if config allows
+                        const fs = require('fs');
+                        const path = require('path');
+                        const sessionPath = path.join(__dirname, '../../session');
+                        if (fs.existsSync(sessionPath)) {
+                            fs.rmSync(sessionPath, { recursive: true, force: true });
+                            logInfo("Session files cleaned up due to configuration");
+                        }
+                    } else {
+                        logInfo("Preserving session files per configuration");
                     }
-                    // Restart the bot after cleanup
+                    
+                    // Restart the bot after handling session
                     setTimeout(() => {
                         startBotz();
                     }, 2000);
