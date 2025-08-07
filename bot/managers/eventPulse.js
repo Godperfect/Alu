@@ -3,6 +3,31 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { logInfo, logError, logSuccess } = require('../../utils');
 const { config } = require('../../config/globals');
+const chalk = require('chalk');
+
+/**
+ * Get formatted timestamp
+ * @returns {string} Formatted timestamp in [HH:mm:ss] format
+ */
+const getTimestamp = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+};
+
+/**
+ * Get formatted date
+ * @returns {string} Formatted date in [YYYY-MM-DD] format
+ */
+const getFormattedDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return chalk.gray(`[${year}-${month}-${day}]`);
+};
 
 class EventManager {
     constructor() {
@@ -48,10 +73,10 @@ class EventManager {
 
                 if (event && event.config && event.config.name) {
                     global.events.set(event.config.name, event);
-                    logSuccess(`Loaded event: ${event.config.name}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded event:')} ${chalk.yellow(event.config.name)}`);
                     totalEvents++;
                 } else {
-                    logError(`Invalid event structure in file: ${file}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)}`);
                     failedEvents++;
                 }
 
@@ -59,15 +84,15 @@ class EventManager {
                 delete require.cache[require.resolve(eventPath)];
 
             } catch (err) {
-                logError(`Failed to load event from ${file}: ${err.message}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load event from')} ${chalk.yellow(file)}: ${chalk.red(err.message)}`);
                 failedEvents++;
             }
         });
 
         if (failedEvents > 0) {
-            logError(`Failed to load ${failedEvents} events`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load')} ${chalk.yellow(failedEvents)} ${chalk.red('events')}`);
         }
-        logSuccess(`Successfully loaded ${totalEvents} events ${failedEvents > 0 ? `(${failedEvents} failed)` : ''}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(totalEvents)} ${chalk.cyan('events')} ${failedEvents > 0 ? chalk.red(`(${failedEvents} failed)`) : ''}`);
         console.log('─────────────────────────────────────────');
     }
 
