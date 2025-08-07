@@ -1042,17 +1042,32 @@ function formatUptime(uptime) {
   return `${seconds}s`;
 }
 
+function killPortProcess(port) {
+  try {
+    const { execSync } = require('child_process');
+    // Kill any process using the port
+    execSync(`pkill -f "node.*${port}" || true`, { stdio: 'ignore' });
+    execSync(`fuser -k ${port}/tcp || true`, { stdio: 'ignore' });
+  } catch (error) {
+    // Ignore errors if no process is found
+  }
+}
+
 function startServer() {
   if (server) return;
   const PORT = process.env.PORT || config.dashboard?.port || 3000;
   const HOST = process.env.HOST || '0.0.0.0';
+  
+  // Kill any existing process on the port
+  killPortProcess(PORT);
+  
   const appInstance = initializeApp();
   server = appInstance.listen(PORT, HOST, () => {
     // Dashboard availability message is already logged in bot.js
   });
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {
-      logError(`❌ Port ${PORT} is already in use.`);
+      logError(`❌ Port ${PORT} is already in use after cleanup attempt.`);
       process.exit(1);
     }
     logError("❌ Server error:", error);
