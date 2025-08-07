@@ -1,5 +1,23 @@
 {
   "120363387008285977@g.us": {
-    "enabled": true
+    "enabled": true,
+    "joins": [],
+    "leaves": [],
+    "promotes": [
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754569286615,
+        "action": "promote",
+        "groupName": "Elites Support Guild"
+      }
+    ],
+    "demotes": [
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754569295669,
+        "action": "demote",
+        "groupName": "Elites Support Guild"
+      }
+    ]
   }
 }

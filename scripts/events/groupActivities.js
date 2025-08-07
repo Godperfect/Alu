@@ -10,7 +10,17 @@ function loadGroupActivities() {
     try {
         if (fs.existsSync(groupActivitiesPath)) {
             const data = fs.readFileSync(groupActivitiesPath, 'utf8');
-            return JSON.parse(data);
+            const parsedData = JSON.parse(data);
+            
+            // Ensure all groups have proper structure
+            Object.keys(parsedData).forEach(groupId => {
+                if (!parsedData[groupId].joins) parsedData[groupId].joins = [];
+                if (!parsedData[groupId].leaves) parsedData[groupId].leaves = [];
+                if (!parsedData[groupId].promotes) parsedData[groupId].promotes = [];
+                if (!parsedData[groupId].demotes) parsedData[groupId].demotes = [];
+            });
+            
+            return parsedData;
         }
     } catch (error) {
         logError(`Failed to load group activities: ${error.message}`);
@@ -39,6 +49,20 @@ async function handleGroupJoin(sock, eventData) {
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
             activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
+        }
+
+        // Ensure all arrays exist
+        if (!activities[groupId].joins) {
+            activities[groupId].joins = [];
+        }
+        if (!activities[groupId].leaves) {
+            activities[groupId].leaves = [];
+        }
+        if (!activities[groupId].promotes) {
+            activities[groupId].promotes = [];
+        }
+        if (!activities[groupId].demotes) {
+            activities[groupId].demotes = [];
         }
 
         // Add join activity
@@ -92,6 +116,20 @@ async function handleGroupLeave(sock, eventData) {
             activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
         }
 
+        // Ensure all arrays exist
+        if (!activities[groupId].leaves) {
+            activities[groupId].leaves = [];
+        }
+        if (!activities[groupId].joins) {
+            activities[groupId].joins = [];
+        }
+        if (!activities[groupId].promotes) {
+            activities[groupId].promotes = [];
+        }
+        if (!activities[groupId].demotes) {
+            activities[groupId].demotes = [];
+        }
+
         // Add leave activity
         const leaveActivity = {
             userId: userName,
@@ -141,6 +179,20 @@ async function handleGroupPromote(sock, eventData) {
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
             activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
+        }
+
+        // Ensure all arrays exist
+        if (!activities[groupId].promotes) {
+            activities[groupId].promotes = [];
+        }
+        if (!activities[groupId].joins) {
+            activities[groupId].joins = [];
+        }
+        if (!activities[groupId].leaves) {
+            activities[groupId].leaves = [];
+        }
+        if (!activities[groupId].demotes) {
+            activities[groupId].demotes = [];
         }
 
         // Add promote activity
@@ -193,6 +245,20 @@ async function handleGroupDemote(sock, eventData) {
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
             activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
+        }
+
+        // Ensure all arrays exist
+        if (!activities[groupId].demotes) {
+            activities[groupId].demotes = [];
+        }
+        if (!activities[groupId].joins) {
+            activities[groupId].joins = [];
+        }
+        if (!activities[groupId].leaves) {
+            activities[groupId].leaves = [];
+        }
+        if (!activities[groupId].promotes) {
+            activities[groupId].promotes = [];
         }
 
         // Add demote activity
