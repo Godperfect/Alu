@@ -37,7 +37,42 @@ class EventHandler {
                 }
 
                 let mek = chatUpdate.messages[0];
-                if (!mek.message) {
+
+                if (!mek || !mek.key || !mek.key.remoteJid) {
+                    return;
+                }
+
+                // PRIORITY: Handle protocol messages (deletions) FIRST
+                if (mek.message?.protocolMessage?.type === 0) {
+                    console.log(`[DELETE_DETECTED] Protocol message detected - processing deletion`);
+
+                    // Get the messageResend event handler
+                    try {
+                        const messageResendEvent = require('../../scripts/events/messageResend');
+                        if (messageResendEvent && typeof messageResendEvent.onChat === 'function') {
+                            await messageResendEvent.onChat({
+                                sock: sock,
+                                m: mek,
+                                messageInfo: {
+                                    chatName: 'Unknown',
+                                    groupMetadata: null
+                                },
+                                isGroup: mek.key.remoteJid.endsWith('@g.us'),
+                                messageText: ''
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error handling protocol message:', error.message);
+                    }
+
+                    return; // Don't process as regular message
+                }
+
+                // Skip ephemeral messages and system notifications
+                if (mek.message?.ephemeralMessage ||
+                    mek.message?.viewOnceMessage ||
+                    mek.message?.viewOnceMessageV2 ||
+                    mek.key.id.startsWith('3EB0')) {
                     return;
                 }
 
@@ -489,26 +524,20 @@ class EventHandler {
                 const command = isCmd ? body.slice(global.prefix.length).trim().split(' ').shift().toLowerCase() : '';
                 const args = body.trim().split(/ +/).slice(1);
 
-                if (isCmd) {
-                    await handlerAction.handleCommand({
-                        sock,
-                        mek,
-                        args,
-                        command,
-                        sender,
-                        botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net',
-                        messageInfo,
-                        isGroup
-                    });
-                } else {
-                    await handlerAction.handleChat({
-                        sock,
-                        mek,
-                        sender,
-                        messageText: body,
-                        messageInfo,
-                        isGroup
-                    });
+                // Handle non-command messages (onChat events)
+                try {
+                    await handlerAction.handleChat({ sock, mek, sender, messageText: body, messageInfo, isGroup });
+                } catch (chatErr) {
+                    logError(lang.get('eventHandler.error.handleChat', chatErr.message));
+                }
+
+                // Then check if it's a command and process it (only for non-protocol messages)
+                if (!mek.message?.protocolMessage) {
+                    try {
+                        await handlerAction.handleCommand({ sock, mek, args, command, sender, botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', messageInfo, isGroup });
+                    } catch (cmdErr) {
+                        logError(lang.get('eventHandler.error.handleCommand', cmdErr.message));
+                    }
                 }
             }
 

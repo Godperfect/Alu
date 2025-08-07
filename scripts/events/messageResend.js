@@ -107,8 +107,8 @@ async function handleProtocolMessage(sock, mek) {
     try {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[PROTOCOL_CHECK]')} Checking protocol message:`, mek.message?.protocolMessage?.type);
         
-        // Check for delete protocol message
-        if (mek.message?.protocolMessage?.type === 0) { // REVOKE type
+        // Check for delete protocol message (REVOKE type = 0)
+        if (mek.message?.protocolMessage?.type === 0) {
             const deletedMessageKey = mek.message.protocolMessage.key;
             const groupId = mek.key.remoteJid;
 
@@ -200,10 +200,13 @@ module.exports = {
         try {
             // PRIORITY 1: Handle protocol messages (deletions)
             if (m.message?.protocolMessage) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} Protocol message detected in onChat`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} ⚠️  DELETION DETECTED!`);
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[PROTOCOL_TYPE]')} Type: ${m.message.protocolMessage.type}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_ID]')} ${m.key.remoteJid}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[DELETED_MSG_ID]')} ${m.message.protocolMessage.key?.id}`);
+                
                 await handleProtocolMessage(sock, m);
-                return;
+                return true; // Stop processing other onChat handlers
             }
 
             // PRIORITY 2: Store regular messages in memory for potential recovery
