@@ -110,18 +110,23 @@ async function startBotz() {
         });
 
         ptz.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
+            const { connection, lastDisconnect, qr } = update;
 
             if (connection === 'close') {
                 global.botConnected = false;
                 const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
 
                 if (shouldReconnect) {
-                    logInfo('Reconnecting...');
-                    startBotz();
+                    // Add delay before reconnecting to prevent rapid reconnection loops
+                    logInfo('Connection lost, waiting 5 seconds before reconnecting...');
+                    setTimeout(() => {
+                        startBotz();
+                    }, 5000);
                 } else {
                     logError('Connection closed permanently');
                 }
+            } else if (connection === 'connecting') {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Connecting to WhatsApp...')}`);
             } else if (connection === 'open') {
                 global.botConnected = true;
                 global.sock = ptz; // Make sock available globally for events
@@ -159,10 +164,13 @@ async function startBotz() {
 
         // Only authenticate if no valid session exists
         const { checkSessionExists } = require('./bot/login/login.js');
-        if (!checkSessionExists()) {
+        const sessionExists = checkSessionExists();
+        
+        if (!sessionExists) {
             await authenticateSession(ptz);
         } else {
-            
+            // Session exists, skip authentication
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Using existing session, skipping authentication...')}`);
         }
 
         store.bind(ptz.ev);
