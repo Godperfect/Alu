@@ -167,6 +167,16 @@ class EventManager {
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_STATUS]')} ${chalk.cyan('Active Events:')} ${chalk.yellow(activeEvents)} ${chalk.gray('- Listening 24/7')}`);
         }, 600000); // Every 10 minutes
     }
+
+    // Get event by name
+    getEvent(eventName) {
+        return this.events.get(eventName);
+    }
+
+    // Get total number of loaded events
+    getEventCount() {
+        return this.events.size;
+    }
 }
 
 module.exports = EventManager;

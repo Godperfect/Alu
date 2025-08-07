@@ -65,13 +65,19 @@ function toggleResendSetting(groupId, enabled) {
 // Handle protocol messages (deletions) - Real-time detection and resend
 async function handleProtocolMessage(sock, mek) {
     try {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[PROTOCOL_CHECK]')} Checking protocol message:`, mek.message?.protocolMessage?.type);
+        
         // Check for delete protocol message
         if (mek.message?.protocolMessage?.type === 0) { // REVOKE type
             const deletedMessageKey = mek.message.protocolMessage.key;
             const groupId = mek.key.remoteJid;
 
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_DETECTED]')} Delete protocol detected!`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Group: ${groupId}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Message ID: ${deletedMessageKey?.id}`);
+
             if (deletedMessageKey && groupId.endsWith('@g.us') && isResendEnabled(groupId)) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_DETECTED]')} Delete protocol detected for message ${deletedMessageKey.id} in group ${groupId}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[DELETE_PROCESSING]')} Processing delete for enabled group`);
 
                 // Get the original message that was deleted by using the key
                 try {
@@ -90,12 +96,13 @@ async function handleProtocolMessage(sock, mek) {
                     }
 
                     // Create anti-delete notification
-                    const deleteNotification = `🗑️ *Message Deleted Alert*\n\n` +
-                        `• *User:* @${senderNumber}\n` +
-                        `• *Time:* ${new Date().toLocaleTimeString()}\n` +
-                        `• *Action:* Message was deleted\n\n` +
-                        `⚠️ *Original message content was removed by sender*\n\n` +
-                        `_🔄 This notification was sent because anti-delete is enabled_`;
+                    const deleteNotification = `🗑️ *ANTI-DELETE ALERT*\n\n` +
+                        `👤 *User:* @${senderNumber}\n` +
+                        `⏰ *Time:* ${new Date().toLocaleString()}\n` +
+                        `🔄 *Action:* Message was deleted\n` +
+                        `📱 *Message ID:* ${deletedMessageKey.id}\n\n` +
+                        `⚠️ *Note:* The original message content was removed by the sender\n\n` +
+                        `🛡️ _This notification was sent because anti-delete is enabled in this group_`;
 
                     // Send the delete notification immediately
                     await sock.sendMessage(groupId, {
@@ -103,12 +110,14 @@ async function handleProtocolMessage(sock, mek) {
                         mentions: [deletedSender]
                     });
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[DELETE_NOTIFIED]')} Delete notification sent for message from ${senderName}`);
-                    logSuccess(`Delete event detected and notification sent`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[DELETE_NOTIFIED]')} ✅ Delete notification sent successfully!`);
+                    logSuccess(`Delete event detected and notification sent for ${senderName}`);
 
                 } catch (error) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_HANDLE_ERROR]')} Error handling delete: ${error.message}`);
                 }
+            } else {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_SKIPPED]')} Delete not processed: Group=${groupId.endsWith('@g.us')}, Enabled=${isResendEnabled(groupId)}`);
             }
         }
     } catch (error) {
@@ -145,9 +154,10 @@ module.exports = {
 
     onChat: async ({ sock, m, messageInfo, isGroup, messageText }) => {
         try {
-            // Only handle protocol messages (deletions) - this is the core functionality
-            if (m.message?.protocolMessage?.type === 0) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} Delete protocol detected in real-time`);
+            // PRIORITY: Handle protocol messages (deletions) - this is the core functionality
+            if (m.message?.protocolMessage) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[DELETE_PROTOCOL_DETECTED]')} Protocol message detected in onChat`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[PROTOCOL_TYPE]')} Type: ${m.message.protocolMessage.type}`);
                 await handleProtocolMessage(sock, m);
                 return;
             }
