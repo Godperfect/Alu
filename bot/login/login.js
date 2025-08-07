@@ -185,49 +185,13 @@ const checkSessionExists = () => {
         const sessionPath = config.whatsappAccount?.authFilePath || './session';
         const credsPath = path.join(sessionPath, 'creds.json');
         
-        // Check if creds.json exists and is not empty
+        // Simply check if creds.json exists
         if (fs.existsSync(credsPath)) {
-            const stats = fs.statSync(credsPath);
-            if (stats.size > 20) { // Minimal file size check like before
-                try {
-                    const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-                    
-                    // Less strict validation like previous versions
-                    const hasValidKeys = credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey;
-                    const hasRegistration = credsData.registered !== false; // Allow undefined or true
-                    const hasBasicStructure = credsData.myAppStateKeyId || credsData.advSecretKey;
-                    
-                    // Accept session if it has any valid components
-                    if (hasValidKeys || hasBasicStructure) {
-                        if (!sessionChecked) {
-                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
-                            sessionChecked = true;
-                        }
-                        return true;
-                    } else {
-                        // Session exists but might be incomplete, let Baileys handle it
-                        if (!sessionChecked) {
-                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session found, attempting to use existing credentials...')}`);
-                            sessionChecked = true;
-                        }
-                        return true; // Let Baileys try to use it
-                    }
-                } catch (parseError) {
-                    // Session file might be corrupted, but let Baileys try
-                    if (!sessionChecked) {
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file found, attempting to parse...')}`);
-                        sessionChecked = true;
-                    }
-                    return true; // Let Baileys handle the parsing
-                }
-            } else {
-                // File might be small but could still be valid
-                if (!sessionChecked) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Small session file found, attempting to use...')}`);
-                    sessionChecked = true;
-                }
-                return true; // Let Baileys decide if it's valid
+            if (!sessionChecked) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Session found, using existing credentials...')}`);
+                sessionChecked = true;
             }
+            return true;
         }
         
         if (!sessionChecked) {
