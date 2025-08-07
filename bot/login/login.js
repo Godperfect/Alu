@@ -185,15 +185,35 @@ const checkSessionExists = () => {
         const sessionPath = config.whatsappAccount?.authFilePath || './session';
         const credsPath = path.join(sessionPath, 'creds.json');
         
-        // Check if creds.json exists and is not empty
+        // Check if creds.json exists and is valid
         if (fs.existsSync(credsPath)) {
             const stats = fs.statSync(credsPath);
             if (stats.size > 0) {
-                if (!sessionChecked) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Session found, using existing credentials...')}`);
-                    sessionChecked = true;
+                try {
+                    // Try to parse the JSON to verify it's valid
+                    const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+                    
+                    // Check if it has essential properties (basic validation)
+                    if (credsData && typeof credsData === 'object' && Object.keys(credsData).length > 0) {
+                        if (!sessionChecked) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
+                            sessionChecked = true;
+                        }
+                        return true;
+                    } else {
+                        if (!sessionChecked) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Invalid session data found, proceeding with new login...')}`);
+                            sessionChecked = true;
+                        }
+                        return false;
+                    }
+                } catch (parseError) {
+                    if (!sessionChecked) {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Corrupted session file found, proceeding with new login...')}`);
+                        sessionChecked = true;
+                    }
+                    return false;
                 }
-                return true;
             } else {
                 if (!sessionChecked) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Empty session file found, proceeding with new login...')}`);
@@ -204,7 +224,7 @@ const checkSessionExists = () => {
         }
         
         if (!sessionChecked) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No session files found, will create new session...')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No session files found, proceeding with new login...')}`);
             sessionChecked = true;
         }
         return false;
