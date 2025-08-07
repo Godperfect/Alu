@@ -188,38 +188,64 @@ const checkSessionExists = () => {
         // Check if creds.json exists and is not empty
         if (fs.existsSync(credsPath)) {
             const stats = fs.statSync(credsPath);
-            if (stats.size > 0) {
-                // Less strict validation - just check if basic structure exists
+            if (stats.size > 10) { // Ensure file has meaningful content
                 try {
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-                    // Check for any valid session data (not just registered flag)
-                    if (credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey) {
+                    
+                    // More comprehensive validation for session data
+                    const hasValidKeys = credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey;
+                    const hasRegistration = credsData.registered !== false; // Allow undefined or true
+                    const hasBasicStructure = credsData.myAppStateKeyId || credsData.advSecretKey;
+                    
+                    if (hasValidKeys || hasBasicStructure) {
                         if (!sessionChecked) {
-                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found........')}`);
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
                             sessionChecked = true;
                         }
                         return true;
                     }
                 } catch (parseError) {
-                    // Don't log parsing errors as unexpected errors, just indicate invalid session
+                    // Session file is corrupted, but don't delete it yet
                     if (!sessionChecked) {
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file corrupted, will recreate...')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file corrupted but will attempt to use...')}`);
                         sessionChecked = true;
                     }
-                    return false;
+                    // Return true to attempt using the file anyway
+                    return true;
                 }
             }
         }
         
+        // Also check for other session files
+        const sessionFiles = ['creds.json', 'app-state-sync-key-*.json', 'app-state-sync-version-*.json'];
+        const hasAnySessionFiles = sessionFiles.some(pattern => {
+            if (pattern.includes('*')) {
+                try {
+                    const files = fs.readdirSync(sessionPath);
+                    return files.some(file => file.match(pattern.replace('*', '.*')));
+                } catch {
+                    return false;
+                }
+            }
+            return fs.existsSync(path.join(sessionPath, pattern));
+        });
+        
+        if (hasAnySessionFiles) {
+            if (!sessionChecked) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Session files detected, attempting to restore...')}`);
+                sessionChecked = true;
+            }
+            return true;
+        }
+        
         if (!sessionChecked) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No valid session files found, creating new session...')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No valid session files found, will create new session...')}`);
             sessionChecked = true;
         }
         return false;
     } catch (error) {
-        // Don't throw unexpected errors for normal session checking
         if (!sessionChecked) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session check failed, will create new session...')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session check failed, will try to create new session...')}`);
             sessionChecked = true;
         }
         return false;
