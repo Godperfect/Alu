@@ -17,6 +17,9 @@ function loadResendSettings() {
             const data = fs.readFileSync(resendSettingsPath, 'utf8');
             const settings = JSON.parse(data);
 
+            // Clear existing settings and reload
+            resendSettings.clear();
+
             // Load settings into memory
             Object.entries(settings).forEach(([groupId, setting]) => {
                 resendSettings.set(groupId, setting);
@@ -28,6 +31,14 @@ function loadResendSettings() {
         logError(`Failed to load resend settings: ${error.message}`);
     }
     return {};
+}
+
+// Add function to reload settings from file
+function reloadResendSettings() {
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_RELOAD]')} Reloading resend settings from file...`);
+    const settings = loadResendSettings();
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_LOADED]')} Loaded ${Object.keys(settings).length} group settings`);
+    return settings;
 }
 
 function saveResendSettings() {
@@ -261,6 +272,11 @@ module.exports = {
             en: 'This event monitors deleted messages and resends them automatically'
         }
     },
+
+    // Export functions for external use
+    reloadSettings: reloadResendSettings,
+    isResendEnabled,
+    toggleResendSetting,
 
     onStart: async ({ sock }) => {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_INIT]')} Initializing Message Resend event handlers...`);
