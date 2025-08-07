@@ -93,26 +93,51 @@ class EventManager {
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load')} ${chalk.yellow(failedEvents)} ${chalk.red('events')}`);
         }
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(totalEvents)} ${chalk.cyan('events')} ${failedEvents > 0 ? chalk.red(`(${failedEvents} failed)`) : ''}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[STATUS]')} ${chalk.cyan('Events are now active and listening 24/7')}`);
         console.log('─────────────────────────────────────────');
+        
+        // Start monitoring event health
+        this.monitorEventHealth();
     }
 
     handleEvents({ sock, m = null, sender }) {
-        if (!config.logEvents.enable) return;
+        if (!config.logEvents?.enable) return;
 
         if (!m) {
             logError("handleEvents called but 'm' is undefined or null!");
             return;
         }
 
-        global.events.forEach(event => {
+        let processedEvents = 0;
+        let failedEvents = 0;
+
+        global.events.forEach((event, eventName) => {
             try {
                 event.event({ sock, m, sender });
+                processedEvents++;
+                
+                if (config.logEvents?.verbose) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_EXEC]')} ${chalk.white(eventName)} ${chalk.green('✓')}`);
+                }
             } catch (error) {
-                if (config.logEvents.logErrors) {
-                    logError(`Error in event ${event.name}: ${error.message}`);
+                failedEvents++;
+                if (config.logEvents?.logErrors) {
+                    logError(`Event execution failed [${eventName}]: ${error.message}`);
                 }
             }
         });
+
+        if (config.logEvents?.verbose && processedEvents > 0) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EVENT_SUMMARY]')} Processed: ${chalk.green(processedEvents)} | Failed: ${chalk.red(failedEvents)}`);
+        }
+    }
+
+    // Add method to monitor event health
+    monitorEventHealth() {
+        setInterval(() => {
+            const activeEvents = global.events.size;
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_STATUS]')} ${chalk.cyan('Active Events:')} ${chalk.yellow(activeEvents)} ${chalk.gray('- Listening 24/7')}`);
+        }, 600000); // Every 10 minutes
     }
 }
 

@@ -5,29 +5,95 @@ const config = require('./config.json');
 const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 const { proto: baileysProto, getContentType, jidDecode } = require("@whiskeysockets/baileys");
 
-// Logger functions
+// Enhanced Logger functions with timestamps and better formatting
+const getTimestamp = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+};
+
+const getFormattedDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return chalk.gray(`[${year}-${month}-${day}]`);
+};
+
 const logInfo = (message) => {
-    console.log(chalk.blue('[INFO]'), message);
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[INFO]')} ${message}`);
 };
 
 const logSuccess = (message) => {
-    console.log(chalk.green('[SUCCESS]'), message);
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${message}`);
 };
 
 const logError = (message) => {
-    console.log(chalk.red('[ERROR]'), message);
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${message}`);
 };
 
-const logMessage = (message) => {
-    console.log(chalk.cyan('[MESSAGE]'), message);
+const logWarning = (message) => {
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[WARNING]')} ${message}`);
 };
 
-const logCommand = (command, user) => {
-    console.log(chalk.yellow('[COMMAND]'), `${command} - ${user}`);
+const logMessage = (details) => {
+    const { messageType, chatName, senderName, messageText, hasAttachment, attachmentType, isForwarded, isReply, isReaction, reaction, fromMe } = details;
+    
+    // Format message type with colors
+    const typeColor = messageType === 'private' ? chalk.cyan : messageType === 'group' ? chalk.green : chalk.magenta;
+    const typeDisplay = typeColor(`[${messageType.toUpperCase()}]`);
+    
+    // Format sender info
+    const senderDisplay = fromMe ? chalk.yellow('BOT') : chalk.white(senderName || 'Unknown');
+    
+    // Format chat info
+    const chatDisplay = messageType === 'private' ? chalk.cyan(chatName) : chalk.green(chatName);
+    
+    // Format message content
+    let messageDisplay = messageText ? chalk.white(`"${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`): '';
+    
+    // Add attachment info
+    if (hasAttachment) {
+        messageDisplay += ` ${chalk.magenta(`[${attachmentType.toUpperCase()}]`)}`;
+    }
+    
+    // Add special indicators
+    const indicators = [];
+    if (isForwarded) indicators.push(chalk.blue('[FORWARDED]'));
+    if (isReply) indicators.push(chalk.yellow('[REPLY]'));
+    if (isReaction) indicators.push(chalk.red(`[REACTION: ${reaction}]`));
+    
+    const indicatorDisplay = indicators.length > 0 ? ` ${indicators.join(' ')}` : '';
+    
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE]')} ${typeDisplay} ${senderDisplay} ${chalk.gray('→')} ${chatDisplay}${indicatorDisplay}`);
+    if (messageDisplay) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.gray('[CONTENT]')} ${messageDisplay}`);
+    }
+};
+
+const logCommand = (command, user, chatType = 'private') => {
+    const typeColor = chatType === 'private' ? chalk.cyan : chalk.green;
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[COMMAND]')} ${chalk.white(command)} ${chalk.gray('by')} ${chalk.white(user)} ${chalk.gray('in')} ${typeColor(chatType)}`);
+};
+
+const logEvent = (eventType, details) => {
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[EVENT]')} ${chalk.white(eventType)} ${chalk.gray('-')} ${details}`);
+};
+
+const logConnection = (status, details = '') => {
+    const statusColor = status === 'connected' ? chalk.green : status === 'connecting' ? chalk.yellow : chalk.red;
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CONNECTION]')} ${statusColor(status.toUpperCase())} ${details}`);
+};
+
+const logDatabase = (operation, status, details = '') => {
+    const statusColor = status === 'success' ? chalk.green : chalk.red;
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[DATABASE]')} ${chalk.white(operation)} ${statusColor(status.toUpperCase())} ${details}`);
 };
 
 const logMessageDetails = (details) => {
-    console.log(chalk.magenta('[MESSAGE_DETAILS]'), details);
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[MESSAGE_DETAILS]')}`, details);
 };
 
 // Media handler functions
@@ -258,9 +324,15 @@ module.exports = {
     logInfo,
     logSuccess,
     logError,
+    logWarning,
     logMessage,
     logCommand,
+    logEvent,
+    logConnection,
+    logDatabase,
     logMessageDetails,
+    getTimestamp,
+    getFormattedDate,
     
     // Media handler functions
     initializeMediaHandlers,
