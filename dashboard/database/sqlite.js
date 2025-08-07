@@ -79,7 +79,6 @@ class SQLiteDB {
                 }
             }
         } else {
-            logInfo('Tables already exist, skipping recreation');
             return;
         }
 
