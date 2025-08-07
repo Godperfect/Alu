@@ -11,6 +11,13 @@
         "groupName": "Elites Support Guild"
       }
     ],
-    "demotes": []
+    "demotes": [
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754570184060,
+        "action": "demote",
+        "groupName": "Elites Support Guild"
+      }
+    ]
   }
 }
