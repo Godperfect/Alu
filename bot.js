@@ -194,6 +194,18 @@ async function startBotz() {
         }
 
         store.bind(ptz.ev);
+        
+        // Add debug logging for all messages
+        ptz.ev.on('messages.upsert', (chatUpdate) => {
+            if (chatUpdate?.messages?.[0]?.message?.protocolMessage) {
+                console.log(`[DEBUG] PROTOCOL MESSAGE DETECTED:`, {
+                    type: chatUpdate.messages[0].message.protocolMessage.type,
+                    key: chatUpdate.messages[0].message.protocolMessage.key,
+                    from: chatUpdate.messages[0].key.remoteJid
+                });
+            }
+        });
+        
         eventHandler.initializeMessageListener(ptz, store);
 
         handleConnection(ptz, startBotz);
