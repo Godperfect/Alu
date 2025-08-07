@@ -24,20 +24,11 @@ function handleConnection(ptz, startBotz) {
                     startBotz();
                 },
                 [DisconnectReason.connectionReplaced]: () => {
-                    logInfo("Connection replaced, clearing session for fresh login...");
-                    // Always clean up session files on connection replaced
-                    const fs = require('fs');
-                    const path = require('path');
-                    const sessionPath = path.join(__dirname, '../../session');
-                    if (fs.existsSync(sessionPath)) {
-                        fs.rmSync(sessionPath, { recursive: true, force: true });
-                        logInfo("Session files cleared - fresh login required");
-                    }
-                    
-                    // Restart the bot after clearing session
+                    logInfo("Connection replaced, reconnecting...");
+                    // Don't clear session files immediately, let the bot try to reconnect first
                     setTimeout(() => {
                         startBotz();
-                    }, 3000);
+                    }, 2000);
                 },
                 [DisconnectReason.restartRequired]: () => {
                     logInfo("Restart required, restarting...");
