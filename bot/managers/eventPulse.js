@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { logSuccess, logError, logInfo } = require('../../utils');
+const { execSync } = require('child_process');
+const { logInfo, logError, logSuccess } = require('../../utils');
 const { config } = require('../../config/globals');
 
 class EventManager {
@@ -27,7 +28,23 @@ class EventManager {
             const eventPath = path.join(this.eventsFolder, file);
 
             try {
-                const event = require(eventPath);
+                let event;
+                try {
+                    event = require(eventPath);
+                } catch (err) {
+                    if (err.code === 'MODULE_NOT_FOUND') {
+                        const missingModule = err.message.match(/'(.+?)'/)?.[1];
+                        if (missingModule) {
+                            console.log(`[AUTO-INSTALL] Missing dependency "${missingModule}" in ${file}. Installing...`);
+                            execSync(`npm install ${missingModule}`, { stdio: 'inherit' });
+                            event = require(eventPath);
+                        } else {
+                            throw err;
+                        }
+                    } else {
+                        throw err;
+                    }
+                }
 
                 if (event && event.config && event.config.name) {
                     global.events.set(event.config.name, event);
