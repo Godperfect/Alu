@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { logInfo, logError, logSuccess, logWarning, hasPermission, getPermissionLevel } = require('../../utils');
+const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate } = require('../../utils');
 const { config } = require('../../config/globals');
 const languageManager = require('../../language/language');
 const dataHandler = require('./handlerCheckdata');
@@ -28,15 +28,15 @@ const handlerAction = {
                     text: lang.get('handler.noCommandProvided', global.prefix) 
                 }, { quoted: mek });
             }
-            
+
             // First try to get command directly, then check aliases
             let cmd = global.commands.get(command);
-            
+
             if (!cmd && global.aliases && global.aliases.has(command)) {
                 const actualCommandName = global.aliases.get(command);
                 cmd = global.commands.get(actualCommandName);
             }
-            
+
             // Fallback: search through command aliases (for backwards compatibility)
             if (!cmd) {
                 cmd = [...global.commands.values()].find(cmd => 
@@ -74,7 +74,7 @@ const handlerAction = {
                             // Other formats
                             userNumber = sender.replace(/[^0-9]/g, '');
                         }
-                        
+
                         // For channels, if we can't extract a valid number, check other sources
                         if (isChannel && (!userNumber || userNumber.length < 8)) {
                             // Try to get from push name or context
@@ -82,14 +82,14 @@ const handlerAction = {
                             if (altSender) {
                                 userNumber = altSender.replace(/[^0-9]/g, '');
                             }
-                            
+
                             // For channels, we might use a generic identifier
                             if (!userNumber || userNumber.length < 8) {
                                 userNumber = 'channel_user_' + Math.random().toString(36).substr(2, 9);
                                 logWarning(`Channel message from unidentified user in ${messageInfo.chatName}, using temp ID: ${userNumber}`);
                             }
                         }
-                        
+
                         // Validate phone number format (more lenient for channels)
                         if (!userNumber || (userNumber.length < 8 && !userNumber.startsWith('channel_user_'))) {
                             if (isChannel || isCommunity) {
@@ -209,12 +209,12 @@ const handlerAction = {
                     } else {
                         userNumber = sender.replace(/[^0-9]/g, '');
                     }
-                    
+
                     // Clean any remaining non-numeric characters
                     userNumber = userNumber.replace(/[^0-9]/g, '');
                 }
             }
-            
+
             const threadID = mek.key.remoteJid;
 
 
@@ -495,13 +495,13 @@ const handlerAction = {
             // Process registered event handlers first with enhanced logging
             const eventKey = `group.${eventType}`;
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CHECKING_HANDLER]')} Looking for handler: ${eventKey}`);
-            
+
             if (global.Luna.onEvent.has(eventKey)) {
                 const handler = global.Luna.onEvent.get(eventKey);
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HANDLER_FOUND]')} Found registered handler for: ${eventKey}`);
-                
+
                 logInfo(`Processing registered event handler for: ${eventKey}`);
-                
+
                 try {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[CALLING_HANDLER]')} Executing handler with data:`, {
                         eventType,
