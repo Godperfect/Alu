@@ -290,8 +290,12 @@ module.exports = {
             const sender = m.key.participant || m.key.remoteJid;
             const senderNumber = sender.split('@')[0];
             
-            // Check if user is admin (you can modify this check as needed)
-            const isAdmin = require('../../utils').isGroupAdmin(senderNumber, messageInfo.groupMetadata);
+            // Check if user is admin
+            const isAdmin = messageInfo.groupMetadata && 
+                           messageInfo.groupMetadata.participants &&
+                           messageInfo.groupMetadata.participants.some(p => 
+                               p.id.includes(senderNumber) && (p.admin === 'admin' || p.admin === 'superadmin')
+                           );
             
             if (messageText.toLowerCase() === 'resend on' && isAdmin) {
                 const enabled = toggleResendSetting(groupId, true);
