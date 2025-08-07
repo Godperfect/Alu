@@ -1,4 +1,3 @@
-
 const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
 const chalk = require('chalk');
 
@@ -24,7 +23,7 @@ function storeMessage(messageKey, messageContent, messageInfo) {
     try {
         const messageId = messageKey.id;
         const groupId = messageKey.remoteJid;
-        
+
         // Create message data
         const messageData = {
             key: messageKey,
@@ -68,9 +67,9 @@ function formatMessageContent(originalMessage) {
     const content = originalMessage.content;
     const sender = originalMessage.sender;
     const senderNumber = sender.split('@')[0];
-    
+
     let messageText = '';
-    
+
     // Handle different message types
     if (content.conversation) {
         messageText = content.conversation;
@@ -106,7 +105,7 @@ function formatMessageContent(originalMessage) {
 async function handleProtocolMessage(sock, mek) {
     try {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[PROTOCOL_CHECK]')} Checking protocol message:`, mek.message?.protocolMessage?.type);
-        
+
         // Check for delete protocol message (REVOKE type = 0)
         if (mek.message?.protocolMessage?.type === 0) {
             const deletedMessageKey = mek.message.protocolMessage.key;
@@ -121,13 +120,13 @@ async function handleProtocolMessage(sock, mek) {
 
                 // Try to get the original message from memory
                 const originalMessage = getStoredMessage(deletedMessageKey);
-                
+
                 if (originalMessage) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_FOUND]')} Original message found in memory, resending...`);
-                    
+
                     // Format and resend the original message
                     const resendContent = formatMessageContent(originalMessage);
-                    
+
                     await sock.sendMessage(groupId, {
                         text: resendContent.text,
                         mentions: resendContent.mentions
@@ -135,28 +134,40 @@ async function handleProtocolMessage(sock, mek) {
 
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RESENT]')} ✅ Deleted message successfully resent!`);
                     logSuccess(`Deleted message resent for user ${originalMessage.sender.split('@')[0]}`);
-                    
+
                     // Remove from memory after resending
                     const storeKey = `${deletedMessageKey.remoteJid}_${deletedMessageKey.id}`;
                     messageStore.delete(storeKey);
-                    
+
                 } else {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MESSAGE_NOT_FOUND]')} Original message not found in memory`);
-                    
                     // Send notification that message was deleted but not recoverable
                     const deletedSender = deletedMessageKey.participant || deletedMessageKey.remoteJid;
-                    const senderNumber = deletedSender.split('@')[0];
-                    
+
+                    // Ensure proper JID format for mentioning
+                    let properSenderJid = deletedSender;
+                    if (deletedSender && !deletedSender.includes('@')) {
+                        properSenderJid = deletedSender + '@s.whatsapp.net';
+                    } else if (deletedSender && !deletedSender.endsWith('@s.whatsapp.net') && !deletedSender.endsWith('@c.us')) {
+                        // Handle cases where JID might be incomplete
+                        const phoneNumber = deletedSender.split('@')[0];
+                        properSenderJid = phoneNumber + '@s.whatsapp.net';
+                    }
+
+                    const senderNumber = properSenderJid.split('@')[0];
+
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Original sender: ${deletedSender}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Proper JID: ${properSenderJid}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Sender number: ${senderNumber}`);
+
                     const deleteNotification = `🗑️ *MESSAGE DELETED*\n\n` +
-                        `👤 *User:* @${senderNumber}\n` +
-                        `⏰ *Time:* ${new Date().toLocaleString()}\n` +
-                        `📱 *Message ID:* ${deletedMessageKey.id}\n\n` +
-                        `⚠️ *Note:* Message was deleted but not recoverable (not in recent memory)\n\n` +
+                        `👤 *By:* @${senderNumber}\n` +
+                        `📝 *Message:* [Content not recoverable]\n` +
+                        `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
                         `🛡️ _Anti-delete is active - recent messages will be recovered_`;
 
                     await sock.sendMessage(groupId, {
                         text: deleteNotification,
-                        mentions: [deletedSender]
+                        mentions: [properSenderJid]
                     });
 
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_NOTIFIED]')} Delete notification sent (message not recoverable)`);
@@ -191,7 +202,7 @@ module.exports = {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[RESEND_INIT]')} Initializing Real-time Message Recovery System...`);
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MEMORY_STORE]')} In-memory message storage initialized`);
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MEMORY_LIMIT]')} Max messages: ${MAX_MESSAGES}, TTL: ${MESSAGE_TTL/1000/60/60}h`);
-        
+
         logSuccess('Anti-delete system with message recovery initialized');
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ACTIVE]')} Real-time message recovery is now active 24/7`);
     },
@@ -204,7 +215,7 @@ module.exports = {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[PROTOCOL_TYPE]')} Type: ${m.message.protocolMessage.type}`);
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_ID]')} ${m.key.remoteJid}`);
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[DELETED_MSG_ID]')} ${m.message.protocolMessage.key?.id}`);
-                
+
                 await handleProtocolMessage(sock, m);
                 return true; // Stop processing other onChat handlers
             }
@@ -213,7 +224,7 @@ module.exports = {
             if (isGroup && m.message && isResendEnabled(m.key.remoteJid)) {
                 // Store the message in memory (excluding protocol messages)
                 storeMessage(m.key, m.message, messageInfo);
-                
+
                 // Optional: Log message storage (disable in production for performance)
                 // console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Message stored: ${m.key.id}`);
             }
@@ -256,7 +267,7 @@ module.exports = {
                 const isEnabled = isResendEnabled(groupId);
                 const status = isEnabled ? '✅ Enabled' : '❌ Disabled';
                 const memoryStats = `📊 *Memory Stats:* ${messageStore.size}/${MAX_MESSAGES} messages stored`;
-                
+
                 await sock.sendMessage(groupId, {
                     text: `🔄 *Message Recovery System Status*\n\n*Current Status:* ${status}\n*System Type:* In-Memory Recovery\n*Detection:* Real-time\n${memoryStats}\n*Retention:* ${MESSAGE_TTL/1000/60/60} hours\n\n*Commands:*\n• \`resend on\` - Enable recovery\n• \`resend off\` - Disable recovery\n• \`resend status\` - Check status`,
                     mentions: [sender]
