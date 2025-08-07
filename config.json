@@ -5,7 +5,9 @@
     "qrTimeout": 60,
     "multiDevice": true,
     "authFilePath": "./session",
-    "printQRInTerminal": false
+    "printQRInTerminal": false,
+    "persistSession": true,
+    "preventAutoAuth": true
   },
   "botSettings": {
     "botName": "Luna v1",
@@ -32,7 +34,7 @@
   },
   "database": {
     "type": "sqlite",
-    
+
     "uriMongodb": "mongodb://localhost:27017/lunabot"
   },
   "adminOnly": {

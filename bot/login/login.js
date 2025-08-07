@@ -189,10 +189,11 @@ const checkSessionExists = () => {
         if (fs.existsSync(credsPath)) {
             const stats = fs.statSync(credsPath);
             if (stats.size > 0) {
-                // Also check if the creds file contains valid registration data
+                // Less strict validation - just check if basic structure exists
                 try {
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-                    if (credsData.registered === true && credsData.me && credsData.me.id) {
+                    // Check for any valid session data (not just registered flag)
+                    if (credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey) {
                         if (!sessionChecked) {
                             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found........')}`);
                             sessionChecked = true;
@@ -225,6 +226,9 @@ const checkSessionExists = () => {
     }
 };
 
+// Track if authentication is in progress
+let authInProgress = false;
+
 /**
  * Authenticate session using phone number and pairing code
  * @param {object} ptz - WhatsApp socket connection
@@ -232,6 +236,14 @@ const checkSessionExists = () => {
  */
 const authenticateSession = async (ptz) => {
     try {
+        // Prevent multiple authentication attempts
+        if (authInProgress) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Authentication already in progress, skipping...')}`);
+            return;
+        }
+
+        authInProgress = true;
+
         // Wait for connection to be ready
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -241,8 +253,8 @@ const authenticateSession = async (ptz) => {
         // Check if session exists first
         const sessionExists = checkSessionExists();
 
-        // Only request pairing code if no valid session exists
-        if (!sessionExists) {
+        // Only request pairing code if no valid session exists and auto auth is not prevented
+        if (!sessionExists && !config.whatsappAccount?.preventAutoAuth) {
             // Get phone number from config or prompt user
             let phoneNumber = config.whatsappAccount.phoneNumber;
 
@@ -301,6 +313,9 @@ const authenticateSession = async (ptz) => {
     } catch (err) {
         logError(`Authentication error: ${err.message}`);
         throw err;
+    } finally {
+        // Reset authentication progress flag
+        authInProgress = false;
     }
 };
 
