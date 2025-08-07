@@ -23,19 +23,48 @@ function storeMessage(messageKey, messageContent, messageInfo) {
     try {
         const messageId = messageKey.id;
         const groupId = messageKey.remoteJid;
+        const sender = messageKey.participant || messageKey.remoteJid;
 
-        // Create message data
+        // Extract actual text content from message
+        let actualText = '';
+        if (messageContent.conversation) {
+            actualText = messageContent.conversation;
+        } else if (messageContent.extendedTextMessage?.text) {
+            actualText = messageContent.extendedTextMessage.text;
+        } else if (messageContent.imageMessage?.caption) {
+            actualText = `[Image]: ${messageContent.imageMessage.caption}`;
+        } else if (messageContent.videoMessage?.caption) {
+            actualText = `[Video]: ${messageContent.videoMessage.caption}`;
+        } else if (messageContent.documentMessage?.caption) {
+            actualText = `[Document]: ${messageContent.documentMessage.caption}`;
+        } else if (messageContent.imageMessage) {
+            actualText = '[Image without caption]';
+        } else if (messageContent.videoMessage) {
+            actualText = '[Video without caption]';
+        } else if (messageContent.audioMessage) {
+            actualText = '[Audio message]';
+        } else if (messageContent.stickerMessage) {
+            actualText = '[Sticker]';
+        } else {
+            actualText = '[Unsupported message type]';
+        }
+
+        // Create message data with extracted content
         const messageData = {
             key: messageKey,
             content: messageContent,
             info: messageInfo,
+            actualText: actualText,
             timestamp: Date.now(),
-            sender: messageKey.participant || messageKey.remoteJid
+            sender: sender,
+            senderName: messageInfo?.senderName || 'Unknown User'
         };
 
         // Store with composite key
         const storeKey = `${groupId}_${messageId}`;
         messageStore.set(storeKey, messageData);
+
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_STORED]')} ID: ${messageId}, Sender: ${sender}, Content: "${actualText.substring(0, 50)}..."`);
 
         // Clean old messages to prevent memory overflow
         if (messageStore.size > MAX_MESSAGES) {
@@ -210,15 +239,21 @@ async function handleProtocolMessage(sock, mek) {
                 // Try to get the original message from memory
                 const originalMessage = getStoredMessage(deletedMessageKey);
 
-                if (originalMessage) {
+                if (originalMessage && originalMessage.actualText) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_FOUND]')} Original message found in memory, resending...`);
 
-                    // Get the actual sender who deleted the message (from the original message)
+                    // Get the actual sender who sent the message (not who deleted it)
                     const actualSender = originalMessage.sender;
-                    const actualSenderName = await getSenderName(sock, actualSender);
-                    const messageText = getTextContent(originalMessage.content) || '[No text content]';
+                    const actualSenderName = originalMessage.senderName || await getSenderName(sock, actualSender) || actualSender.split('@')[0];
+                    const messageText = originalMessage.actualText || '[No text content]';
                     
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[RECOVERY_INFO]')} Sender: ${actualSender}, Name: ${actualSenderName}, Content: ${messageText.substring(0, 30)}...`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[RECOVERY_INFO]')} Sender: ${actualSender}, Name: ${actualSenderName}, Content: ${messageText.substring(0, 50)}...`);
+
+                    // Create proper JID for mentioning
+                    let mentionJid = actualSender;
+                    if (!actualSender.includes('@')) {
+                        mentionJid = actualSender + '@s.whatsapp.net';
+                    }
 
                     const recoveredMessageText = `🔄 *MESSAGE DELETED & RECOVERED*\n\n` +
                         `👤 *Deleted by:* @${actualSenderName}\n` +
@@ -229,11 +264,11 @@ async function handleProtocolMessage(sock, mek) {
 
                     await sock.sendMessage(groupId, {
                         text: recoveredMessageText,
-                        mentions: [actualSender]
+                        mentions: [mentionJid]
                     });
 
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RESENT]')} ✅ Deleted message successfully resent!`);
-                    logSuccess(`Deleted message resent for user ${actualSender.split('@')[0]}`);
+                    logSuccess(`Deleted message resent for user ${actualSenderName} (${actualSender.split('@')[0]})`);
 
                     // Remove from memory after resending
                     const storeKey = `${deletedMessageKey.remoteJid}_${deletedMessageKey.id}`;
@@ -408,19 +443,24 @@ module.exports = {
 
             // PRIORITY 2: Store regular messages in memory for potential recovery
             if (isGroup && m.message && isResendEnabled(m.key.remoteJid)) {
+                // Get sender info for proper storage
+                const sender = m.key.participant || m.key.remoteJid;
+                const senderName = messageInfo?.senderName || 
+                                   messageInfo?.groupMetadata?.participants?.find(p => p.id === sender)?.notify ||
+                                   sender.split('@')[0];
+
                 // Enhance message info with actual text content for better recovery
                 const enhancedMessageInfo = {
                     ...messageInfo,
                     messageText: messageText || '[No text content]',
                     contentType: Object.keys(m.message)[0],
-                    sender: m.key.participant || m.key.remoteJid,
+                    sender: sender,
+                    senderName: senderName,
                     timestamp: Date.now()
                 };
 
                 // Store the message in memory (excluding protocol messages)
                 storeMessage(m.key, m.message, enhancedMessageInfo);
-
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Message stored: ${m.key.id} - Content: ${messageText?.substring(0, 30) || 'No text'}...`);
             }
 
             // PRIORITY 3: Handle resend commands (ONLY with prefix)
