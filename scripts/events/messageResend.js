@@ -63,40 +63,102 @@ function getStoredMessage(messageKey) {
 }
 
 // Format message content for resending
-function formatMessageContent(originalMessage) {
+async function formatMessageContent(originalMessage, sock) {
     const content = originalMessage.content;
     const sender = originalMessage.sender;
-    const senderNumber = sender.split('@')[0];
+    
+    // Get sender info (name and number)
+    let senderName = 'Unknown User';
+    let senderNumber = '';
+    let displayInfo = '';
+
+    try {
+        // Extract phone number from different JID formats
+        if (sender.includes('@lid')) {
+            // LinkedIn ID format
+            senderNumber = sender.replace(/[^0-9]/g, '');
+            displayInfo = senderNumber;
+        } else if (sender.includes('@s.whatsapp.net')) {
+            // Standard WhatsApp format
+            senderNumber = sender.split('@')[0];
+            displayInfo = senderNumber;
+        } else {
+            // Other formats
+            senderNumber = sender.replace(/[^0-9]/g, '');
+            displayInfo = senderNumber || sender;
+        }
+
+        // Try to get contact name
+        try {
+            const contact = await sock.contactsStore?.contacts[sender];
+            if (contact?.name) {
+                senderName = contact.name;
+            } else if (contact?.notify) {
+                senderName = contact.notify;
+            } else if (senderNumber) {
+                senderName = senderNumber;
+            }
+        } catch (contactError) {
+            senderName = displayInfo || 'Unknown User';
+        }
+    } catch (error) {
+        console.log(`Error processing sender info: ${error.message}`);
+        senderName = 'Unknown User';
+        displayInfo = sender;
+    }
 
     let messageText = '';
+    let messageType = '';
 
-    // Handle different message types
+    // Handle different message types with better text extraction
     if (content.conversation) {
         messageText = content.conversation;
+        messageType = 'Text';
     } else if (content.extendedTextMessage?.text) {
         messageText = content.extendedTextMessage.text;
+        messageType = 'Text';
     } else if (content.imageMessage?.caption) {
-        messageText = `[Image with caption: ${content.imageMessage.caption}]`;
+        messageText = content.imageMessage.caption;
+        messageType = 'Image with caption';
     } else if (content.videoMessage?.caption) {
-        messageText = `[Video with caption: ${content.videoMessage.caption}]`;
+        messageText = content.videoMessage.caption;
+        messageType = 'Video with caption';
     } else if (content.documentMessage?.caption) {
-        messageText = `[Document with caption: ${content.documentMessage.caption}]`;
+        messageText = content.documentMessage.caption;
+        messageType = 'Document with caption';
     } else if (content.imageMessage) {
-        messageText = '[Image]';
+        messageText = '[Image without caption]';
+        messageType = 'Image';
     } else if (content.videoMessage) {
-        messageText = '[Video]';
+        messageText = '[Video without caption]';
+        messageType = 'Video';
     } else if (content.audioMessage) {
-        messageText = '[Audio]';
+        messageText = '[Audio message]';
+        messageType = 'Audio';
     } else if (content.documentMessage) {
-        messageText = '[Document]';
+        messageText = `[Document: ${content.documentMessage.fileName || 'Unknown'}]`;
+        messageType = 'Document';
     } else if (content.stickerMessage) {
         messageText = '[Sticker]';
+        messageType = 'Sticker';
+    } else if (content.locationMessage) {
+        messageText = `[Location: ${content.locationMessage.name || 'Shared location'}]`;
+        messageType = 'Location';
+    } else if (content.contactMessage) {
+        messageText = `[Contact: ${content.contactMessage.displayName || 'Shared contact'}]`;
+        messageType = 'Contact';
     } else {
         messageText = '[Unsupported message type]';
+        messageType = 'Unknown';
+    }
+
+    // Truncate very long messages
+    if (messageText.length > 500) {
+        messageText = messageText.substring(0, 497) + '...';
     }
 
     return {
-        text: `🔄 *DELETED MESSAGE RECOVERED*\n\n👤 *Original Sender:* @${senderNumber}\n⏰ *Deleted at:* ${new Date().toLocaleString()}\n\n📝 *Original Message:*\n${messageText}\n\n🛡️ _This message was deleted but recovered by Anti-Delete_`,
+        text: `🔄 *DELETED MESSAGE RECOVERED*\n\n👤 *Original Sender:* ${senderName} (${displayInfo})\n📱 *Message Type:* ${messageType}\n⏰ *Deleted at:* ${new Date().toLocaleString()}\n\n📝 *Original Content:*\n${messageText}\n\n🛡️ _This message was deleted but recovered by Anti-Delete System_`,
         mentions: [sender]
     };
 }
@@ -125,7 +187,7 @@ async function handleProtocolMessage(sock, mek) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_FOUND]')} Original message found in memory, resending...`);
 
                     // Format and resend the original message
-                    const resendContent = formatMessageContent(originalMessage);
+                    const resendContent = await formatMessageContent(originalMessage, sock);
 
                     await sock.sendMessage(groupId, {
                         text: resendContent.text,
@@ -142,28 +204,69 @@ async function handleProtocolMessage(sock, mek) {
                 } else {
                     // Send notification that message was deleted but not recoverable
                     const deletedSender = deletedMessageKey.participant || deletedMessageKey.remoteJid;
-
-                    // Ensure proper JID format for mentioning
+                    
+                    // Get sender name and proper JID
+                    let senderName = 'Unknown User';
                     let properSenderJid = deletedSender;
-                    if (deletedSender && !deletedSender.includes('@')) {
-                        properSenderJid = deletedSender + '@s.whatsapp.net';
-                    } else if (deletedSender && !deletedSender.endsWith('@s.whatsapp.net') && !deletedSender.endsWith('@c.us')) {
-                        // Handle cases where JID might be incomplete
-                        const phoneNumber = deletedSender.split('@')[0];
-                        properSenderJid = phoneNumber + '@s.whatsapp.net';
-                    }
+                    let displayName = '';
 
-                    const senderNumber = properSenderJid.split('@')[0];
+                    try {
+                        // Handle different sender formats
+                        if (deletedSender) {
+                            if (deletedSender.includes('@lid')) {
+                                // LinkedIn ID format - extract numbers and convert
+                                const phoneNumber = deletedSender.replace(/[^0-9]/g, '');
+                                if (phoneNumber.length >= 8) {
+                                    properSenderJid = phoneNumber + '@s.whatsapp.net';
+                                    displayName = phoneNumber;
+                                    senderName = phoneNumber; // Use phone number as fallback
+                                }
+                            } else if (deletedSender.includes('@s.whatsapp.net')) {
+                                // Standard WhatsApp format
+                                const phoneNumber = deletedSender.split('@')[0];
+                                properSenderJid = deletedSender;
+                                displayName = phoneNumber;
+                                senderName = phoneNumber;
+                            } else {
+                                // Other formats - try to extract phone number
+                                const phoneNumber = deletedSender.replace(/[^0-9]/g, '');
+                                if (phoneNumber.length >= 8) {
+                                    properSenderJid = phoneNumber + '@s.whatsapp.net';
+                                    displayName = phoneNumber;
+                                    senderName = phoneNumber;
+                                } else {
+                                    // Use raw sender if no phone number found
+                                    displayName = deletedSender;
+                                    senderName = deletedSender;
+                                }
+                            }
+
+                            // Try to get actual contact name from WhatsApp
+                            try {
+                                const contact = await sock.contactsStore?.contacts[properSenderJid];
+                                if (contact?.name) {
+                                    senderName = contact.name;
+                                } else if (contact?.notify) {
+                                    senderName = contact.notify;
+                                }
+                            } catch (contactError) {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[CONTACT_LOOKUP_FAILED]')} Could not get contact info for ${properSenderJid}`);
+                            }
+                        }
+                    } catch (processingError) {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[SENDER_PROCESSING_ERROR]')} Error processing sender info: ${processingError.message}`);
+                    }
 
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Original sender: ${deletedSender}`);
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Proper JID: ${properSenderJid}`);
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Sender number: ${senderNumber}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Display name: ${displayName}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Sender name: ${senderName}`);
 
                     const deleteNotification = `🗑️ *MESSAGE DELETED*\n\n` +
-                        `👤 *By:* @${senderNumber}\n` +
-                        `📝 *Message:* [Content not recoverable]\n` +
+                        `👤 *By:* ${senderName} (${displayName})\n` +
+                        `📝 *Message:* [Content not recoverable - message was deleted too quickly]\n` +
                         `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
-                        `🛡️ _Anti-delete is active - recent messages will be recovered_`;
+                        `🛡️ _Anti-delete is active - recent messages will be recovered if stored in memory_`;
 
                     await sock.sendMessage(groupId, {
                         text: deleteNotification,
