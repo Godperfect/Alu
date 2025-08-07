@@ -185,53 +185,47 @@ const checkSessionExists = () => {
         const sessionPath = config.whatsappAccount?.authFilePath || './session';
         const credsPath = path.join(sessionPath, 'creds.json');
         
-        // Check if creds.json exists and is not empty
+        // Check if creds.json exists and is valid
         if (fs.existsSync(credsPath)) {
             const stats = fs.statSync(credsPath);
-            if (stats.size > 20) { // Minimal file size check like before
+            if (stats.size > 0) {
                 try {
+                    // Try to parse the JSON to verify it's valid
                     const credsData = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
                     
-                    // Less strict validation like previous versions
-                    const hasValidKeys = credsData.noiseKey || credsData.signedIdentityKey || credsData.identityKey;
-                    const hasRegistration = credsData.registered !== false; // Allow undefined or true
-                    const hasBasicStructure = credsData.myAppStateKeyId || credsData.advSecretKey;
-                    
-                    // Accept session if it has any valid components
-                    if (hasValidKeys || hasBasicStructure) {
+                    // Check if it has essential properties (basic validation)
+                    if (credsData && typeof credsData === 'object' && Object.keys(credsData).length > 0 && 
+                        (credsData.noiseKey || credsData.signedIdentityKey || credsData.signedPreKey)) {
                         if (!sessionChecked) {
                             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
                             sessionChecked = true;
                         }
                         return true;
                     } else {
-                        // Session exists but might be incomplete, let Baileys handle it
                         if (!sessionChecked) {
-                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session found, attempting to use existing credentials...')}`);
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Invalid session data found, proceeding with new login...')}`);
                             sessionChecked = true;
                         }
-                        return true; // Let Baileys try to use it
+                        return false;
                     }
                 } catch (parseError) {
-                    // Session file might be corrupted, but let Baileys try
                     if (!sessionChecked) {
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file found, attempting to parse...')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Corrupted session file found, proceeding with new login...')}`);
                         sessionChecked = true;
                     }
-                    return true; // Let Baileys handle the parsing
+                    return false;
                 }
             } else {
-                // File might be small but could still be valid
                 if (!sessionChecked) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Small session file found, attempting to use...')}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Empty session file found, proceeding with new login...')}`);
                     sessionChecked = true;
                 }
-                return true; // Let Baileys decide if it's valid
+                return false;
             }
         }
         
         if (!sessionChecked) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No session files found, will create new session...')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No session files found, proceeding with new login...')}`);
             sessionChecked = true;
         }
         return false;
