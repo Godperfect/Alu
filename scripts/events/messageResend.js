@@ -213,23 +213,34 @@ async function handleProtocolMessage(sock, mek) {
                 if (originalMessage) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_FOUND]')} Original message found in memory, resending...`);
 
-                    // Format and resend the original message
-                    const resendContent = await formatMessageContent(originalMessage, sock);
+                    // Get the actual sender who deleted the message (from the original message)
+                    const actualSender = originalMessage.sender;
+                    const actualSenderName = await getSenderName(sock, actualSender);
+                    const messageText = getTextContent(originalMessage.content) || '[No text content]';
+                    
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[RECOVERY_INFO]')} Sender: ${actualSender}, Name: ${actualSenderName}, Content: ${messageText.substring(0, 30)}...`);
+
+                    const recoveredMessageText = `🔄 *MESSAGE DELETED & RECOVERED*\n\n` +
+                        `👤 *Deleted by:* @${actualSenderName}\n` +
+                        `📱 *Phone:* ${actualSender.split('@')[0]}\n` +
+                        `⏰ *Deleted at:* ${new Date().toLocaleString()}\n\n` +
+                        `📝 *Original Message:*\n${messageText}\n\n` +
+                        `🛡️ _Message recovered by Anti-Delete System_`;
 
                     await sock.sendMessage(groupId, {
-                        text: resendContent.text,
-                        mentions: resendContent.mentions
+                        text: recoveredMessageText,
+                        mentions: [actualSender]
                     });
 
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RESENT]')} ✅ Deleted message successfully resent!`);
-                    logSuccess(`Deleted message resent for user ${originalMessage.sender.split('@')[0]}`);
+                    logSuccess(`Deleted message resent for user ${actualSender.split('@')[0]}`);
 
                     // Remove from memory after resending
                     const storeKey = `${deletedMessageKey.remoteJid}_${deletedMessageKey.id}`;
                     messageStore.delete(storeKey);
 
                 } else {
-                    // Send notification that message was deleted but not recoverable
+                    // Send notification that message was deleted but not recoverable  
                     const deletedSender = deletedMessageKey.participant || deletedMessageKey.remoteJid;
 
                     // Get sender name and proper JID
@@ -238,52 +249,45 @@ async function handleProtocolMessage(sock, mek) {
                     let displayName = '';
 
                     try {
-                        // Handle different sender formats
-                        if (deletedSender) {
-                            if (deletedSender.includes('@lid')) {
-                                // LinkedIn ID format - this is actually the group JID format
-                                const groupNumber = deletedSender.replace(/[^0-9]/g, '');
-                                displayName = groupNumber;
-                                properSenderJid = deletedSender; // Keep original format for group context
-                                senderName = groupNumber;
-                            } else if (deletedSender.includes('@s.whatsapp.net')) {
+                        // Handle different sender formats - focus on participant who actually sent the message
+                        if (deletedSender && deletedSender !== groupId) {
+                            // This is a participant who sent/deleted the message
+                            if (deletedSender.includes('@s.whatsapp.net')) {
                                 // Standard WhatsApp user format
                                 const phoneNumber = deletedSender.split('@')[0];
                                 properSenderJid = deletedSender;
                                 displayName = phoneNumber;
-                                senderName = phoneNumber;
-                            } else {
-                                // Other formats - try to extract phone number
+                                senderName = await getSenderName(sock, deletedSender) || phoneNumber;
+                            } else if (deletedSender.includes('@lid')) {
+                                // Extract phone number from lid format
                                 const phoneNumber = deletedSender.replace(/[^0-9]/g, '');
                                 if (phoneNumber.length >= 8) {
                                     properSenderJid = phoneNumber + '@s.whatsapp.net';
                                     displayName = phoneNumber;
-                                    senderName = phoneNumber;
+                                    senderName = await getSenderName(sock, properSenderJid) || phoneNumber;
                                 } else {
-                                    // Use raw sender if no phone number found
+                                    properSenderJid = deletedSender;
                                     displayName = deletedSender;
                                     senderName = deletedSender;
-                                    properSenderJid = deletedSender;
                                 }
-                            }
-
-                            // For LID format (group context), we need to find who actually sent the message
-                            // Check if this is the group itself or a participant
-                            if (deletedSender === groupId) {
-                                // This means the group itself sent the message (could be bot or group action)
-                                senderName = 'Group Admin/Bot';
-                                displayName = 'Group Message';
                             } else {
-                                // Try to get actual contact name from WhatsApp for individual users
-                                try {
-                                    const actualSenderName = await getContactName(sock, properSenderJid);
-                                    if (actualSenderName && actualSenderName !== displayName) {
-                                        senderName = actualSenderName;
-                                    }
-                                } catch (contactError) {
-                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[CONTACT_LOOKUP_FAILED]')} Could not get contact info for ${properSenderJid}`);
+                                // Other formats
+                                const phoneNumber = deletedSender.replace(/[^0-9]/g, '');
+                                if (phoneNumber.length >= 8) {
+                                    properSenderJid = phoneNumber + '@s.whatsapp.net';
+                                    displayName = phoneNumber;
+                                    senderName = await getSenderName(sock, properSenderJid) || phoneNumber;
+                                } else {
+                                    properSenderJid = deletedSender;
+                                    displayName = deletedSender;
+                                    senderName = deletedSender;
                                 }
                             }
+                        } else {
+                            // Group message or unknown sender
+                            senderName = 'Unknown User';
+                            displayName = 'Unknown';
+                            properSenderJid = groupId;
                         }
                     } catch (processingError) {
                         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[SENDER_PROCESSING_ERROR]')} Error processing sender info: ${processingError.message}`);
@@ -419,8 +423,11 @@ module.exports = {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Message stored: ${m.key.id} - Content: ${messageText?.substring(0, 30) || 'No text'}...`);
             }
 
-            // PRIORITY 3: Handle resend commands
-            if (!isGroup || !messageText) return;
+            // PRIORITY 3: Handle resend commands (ONLY with prefix)
+            if (!isGroup || !messageText || !messageText.startsWith(global.prefix)) return;
+
+            const body = messageText.slice(global.prefix.length).trim().toLowerCase();
+            if (!body.startsWith('resend')) return; // Only process resend commands
 
             const groupId = m.key.remoteJid;
             const sender = m.key.participant || m.key.remoteJid;
@@ -433,7 +440,7 @@ module.exports = {
                                p.id.includes(senderNumber) && (p.admin === 'admin' || p.admin === 'superadmin')
                            );
 
-            if (messageText.toLowerCase() === 'resend on' && isAdmin) {
+            if (body === 'resend on' && isAdmin) {
                 toggleResendSetting(groupId, true);
                 await sock.sendMessage(groupId, {
                     text: `✅ *Message Recovery System Enabled*\n\n🛡️ Recent messages will be automatically resent if deleted.\n\n*Features:*\n• Real-time delete detection\n• Automatic message recovery\n• In-memory storage (no files)\n• ${MAX_MESSAGES} message buffer\n• ${MESSAGE_TTL/1000/60/60}h message retention`,
@@ -443,7 +450,7 @@ module.exports = {
                 return true;
             }
 
-            if (messageText.toLowerCase() === 'resend off' && isAdmin) {
+            if (body === 'resend off' && isAdmin) {
                 toggleResendSetting(groupId, false);
                 await sock.sendMessage(groupId, {
                     text: `❌ *Message Recovery System Disabled*\n\nDeleted messages will no longer be recovered in this group.`,
@@ -453,13 +460,13 @@ module.exports = {
                 return true;
             }
 
-            if (messageText.toLowerCase() === 'resend status' && isAdmin) {
+            if (body === 'resend status' && isAdmin) {
                 const isEnabled = isResendEnabled(groupId);
                 const status = isEnabled ? '✅ Enabled' : '❌ Disabled';
                 const memoryStats = `📊 *Memory Stats:* ${messageStore.size}/${MAX_MESSAGES} messages stored`;
 
                 await sock.sendMessage(groupId, {
-                    text: `🔄 *Message Recovery System Status*\n\n*Current Status:* ${status}\n*System Type:* In-Memory Recovery\n*Detection:* Real-time\n${memoryStats}\n*Retention:* ${MESSAGE_TTL/1000/60/60} hours\n\n*Commands:*\n• \`resend on\` - Enable recovery\n• \`resend off\` - Disable recovery\n• \`resend status\` - Check status`,
+                    text: `🔄 *Message Recovery System Status*\n\n*Current Status:* ${status}\n*System Type:* In-Memory Recovery\n*Detection:* Real-time\n${memoryStats}\n*Retention:* ${MESSAGE_TTL/1000/60/60} hours\n\n*Commands:*\n• \`${global.prefix}resend on\` - Enable recovery\n• \`${global.prefix}resend off\` - Disable recovery\n• \`${global.prefix}resend status\` - Check status`,
                     mentions: [sender]
                 });
                 return true;
