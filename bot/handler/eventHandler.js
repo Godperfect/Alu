@@ -63,7 +63,7 @@ class EventHandler {
         sock.ev.on('group-participants.update', async (update) => {
             try {
                 logEvent('GROUP_UPDATE', `Action: ${update.action} | Group: ${update.id} | Participants: ${update.participants?.length || 0}`);
-                
+
                 // Log group activity
                 const dataHandler = require('./handlerCheckdata');
                 await dataHandler.logGroupActivity(
@@ -154,9 +154,9 @@ class EventHandler {
                 // Handle different message types
                 if (mek.key.remoteJid.endsWith('@newsletter')) {
                     // Channel message - sender info might be in different places
-                    sender = mek.key.participant || 
+                    sender = mek.key.participant ||
                              mek.message?.contextInfo?.participant ||
-                             mek.pushName || 
+                             mek.pushName ||
                              'channel_user';
                 } else if (mek.key.remoteJid.endsWith('@g.us')) {
                     // Group message - use participant (this is the correct approach for groups)
@@ -182,7 +182,7 @@ class EventHandler {
                         // Other formats - try to extract numbers
                         senderNumber = sender.replace(/[^0-9]/g, '');
                     }
-                    
+
                     // Ensure sender has proper format for WhatsApp
                     if (sender && !sender.includes('@') && senderNumber.length > 0) {
                         sender = senderNumber + '@s.whatsapp.net';
@@ -360,10 +360,10 @@ class EventHandler {
                             groupMetadata.participants ? groupMetadata.participants.length : 0
                         );
                     }
-                    
+
                     // Log channel activity
                     if (isChannel) {
-                        console.log(`[INFO] Channel message processed in: ${messageInfo.chatName}`);
+                        console.log(`[INFO] Channel message processed in: ${chatName}`);
                     }
                 }
             } catch (dbError) {
@@ -402,6 +402,67 @@ class EventHandler {
                 timestamp,
                 groupMetadata
             };
+
+            // Handle different message types
+            if (messageType === 'notify') {
+                // Handle group notifications (joins, leaves, etc.)
+                const notificationType = mek.messageStubType;
+
+                if (notificationType) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_NOTIFICATION]')} Type: ${notificationType} in ${chatName}`);
+
+                    // Handle group member changes
+                    if ([27, 28, 29, 30, 31, 32].includes(notificationType)) {
+                        await handleGroupNotification(sock, mek, messageInfo, notificationType);
+                    }
+                }
+            }
+
+            // Also check for group events in message stub parameters
+            if (mek.messageStubType && mek.messageStubParameters) {
+                const stubType = mek.messageStubType;
+                const participants = mek.messageStubParameters;
+                const groupId = mek.key.remoteJid;
+
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[STUB_EVENT]')} Processing stub type ${stubType} with participants:`, participants);
+
+                let eventType = null;
+                switch (stubType) {
+                    case 27: // User added
+                    case 31: // User joined via invite link
+                        eventType = 'join';
+                        break;
+                    case 28: // User removed
+                    case 32: // User left
+                        eventType = 'leave';
+                        break;
+                    case 29: // User promoted to admin
+                        eventType = 'promote';
+                        break;
+                    case 30: // User demoted from admin
+                        eventType = 'demote';
+                        break;
+                }
+
+                if (eventType && participants && participants.length > 0) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[TRIGGERING_EVENT]')} Triggering ${eventType} event for group ${chatName}`);
+
+                    const eventData = {
+                        groupId,
+                        groupName: chatName || 'Unknown Group',
+                        participants,
+                        eventType
+                    };
+
+                    // Trigger the group event handler
+                    try {
+                        const handlerAction = require('./handlerAction');
+                        await handlerAction.handleGroupEvent(sock, eventType, eventData);
+                    } catch (error) {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[EVENT_TRIGGER_ERROR]')} Failed to trigger event: ${error.message}`);
+                    }
+                }
+            }
 
 
             if (isReaction && reaction) {
@@ -605,10 +666,59 @@ class EventHandler {
     }
 }
 
+async function handleGroupNotification(sock, mek, messageInfo, notificationType) {
+    try {
+        const groupId = mek.key.remoteJid;
+        const participants = mek.messageStubParameters || [];
+
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_EVENT]')} Processing notification type ${notificationType} in ${messageInfo.chatName}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[PARTICIPANTS]')} Participants:`, participants);
+
+        let eventType = null;
+        switch (notificationType) {
+            case 27: // User added to group
+            case 31: // User joined via invite link
+                eventType = 'join';
+                break;
+            case 28: // User removed from group
+            case 32: // User left group
+                eventType = 'leave';
+                break;
+            case 29: // User promoted to admin
+                eventType = 'promote';
+                break;
+            case 30: // User demoted from admin
+                eventType = 'demote';
+                break;
+        }
+
+        if (eventType && participants.length > 0) {
+            const eventData = {
+                groupId,
+                groupName: messageInfo.chatName || 'Unknown Group',
+                participants,
+                eventType
+            };
+
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[CALLING_GROUP_HANDLER]')} Calling group event handler for ${eventType}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_DATA]')} Event data:`, eventData);
+
+            // Call the group event handler
+            const handlerAction = require('./handlerAction');
+            await handlerAction.handleGroupEvent(sock, eventType, eventData);
+        } else {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[NO_EVENT]')} No event type determined or no participants for notification ${notificationType}`);
+        }
+    } catch (error) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[GROUP_NOTIFICATION_ERROR]')} Error: ${error.message}`);
+        logError(`Error handling group notification: ${error.message}`);
+    }
+}
+
 // Helper function to extract phone number from sender JID
 function extractPhoneNumber(senderJid, fallbackNumber = null) {
     if (!senderJid) return fallbackNumber;
-    
+
     // Handle standard WhatsApp format
     if (senderJid.endsWith('@s.whatsapp.net') || senderJid.endsWith('@c.us')) {
         const phoneNumber = senderJid.split('@')[0];
@@ -616,7 +726,7 @@ function extractPhoneNumber(senderJid, fallbackNumber = null) {
             return phoneNumber;
         }
     }
-    
+
     // Handle LinkedIn ID format (@lid)
     if (senderJid.includes('@lid')) {
         const phoneNumber = senderJid.replace(/[^0-9]/g, '');
@@ -624,7 +734,7 @@ function extractPhoneNumber(senderJid, fallbackNumber = null) {
             return phoneNumber;
         }
     }
-    
+
     // Handle other formats - extract numbers only
     if (typeof senderJid === 'string') {
         const phoneNumber = senderJid.replace(/[^0-9]/g, '');
@@ -632,12 +742,12 @@ function extractPhoneNumber(senderJid, fallbackNumber = null) {
             return phoneNumber;
         }
     }
-    
+
     // Use fallback if available
     if (fallbackNumber && /^\d{8,15}$/.test(fallbackNumber)) {
         return fallbackNumber;
     }
-    
+
     return null;
 }
 

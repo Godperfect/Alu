@@ -14,6 +14,10 @@ const getTimestamp = () => {
     return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
 };
 
+/**
+ * Get formatted date
+ * @returns {string} Formatted date in [YYYY-MM-DD] format
+ */
 const getFormattedDate = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -40,33 +44,33 @@ const logWarning = (message) => {
 
 const logMessage = (details) => {
     const { messageType, chatName, senderName, messageText, hasAttachment, attachmentType, isForwarded, isReply, isReaction, reaction, fromMe } = details;
-    
+
     // Format message type with colors
     const typeColor = messageType === 'private' ? chalk.cyan : messageType === 'group' ? chalk.green : chalk.magenta;
     const typeDisplay = typeColor(`[${messageType.toUpperCase()}]`);
-    
+
     // Format sender info
     const senderDisplay = fromMe ? chalk.yellow('BOT') : chalk.white(senderName || 'Unknown');
-    
+
     // Format chat info
     const chatDisplay = messageType === 'private' ? chalk.cyan(chatName) : chalk.green(chatName);
-    
+
     // Format message content
     let messageDisplay = messageText ? chalk.white(`"${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`): '';
-    
+
     // Add attachment info
     if (hasAttachment) {
         messageDisplay += ` ${chalk.magenta(`[${attachmentType.toUpperCase()}]`)}`;
     }
-    
+
     // Add special indicators
     const indicators = [];
     if (isForwarded) indicators.push(chalk.blue('[FORWARDED]'));
     if (isReply) indicators.push(chalk.yellow('[REPLY]'));
     if (isReaction) indicators.push(chalk.red(`[REACTION: ${reaction}]`));
-    
+
     const indicatorDisplay = indicators.length > 0 ? ` ${indicators.join(' ')}` : '';
-    
+
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE]')} ${typeDisplay} ${senderDisplay} ${chalk.gray('→')} ${chatDisplay}${indicatorDisplay}`);
     if (messageDisplay) {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.gray('[CONTENT]')} ${messageDisplay}`);
@@ -182,25 +186,25 @@ const getSenderName = (m) => {
 
 const getMessageType = (message) => {
     if (!message) return 'unknown';
-    
+
     const messageTypes = Object.keys(message);
     if (messageTypes.length === 0) return 'unknown';
-    
+
     return messageTypes[0];
 };
 
 const hasMedia = (message) => {
     if (!message) return false;
-    
+
     const mediaTypes = ['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'];
     return mediaTypes.some(type => message[type]);
 };
 
 const getMediaInfo = (message) => {
     if (!message) return null;
-    
+
     const mediaTypes = ['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'];
-    
+
     for (const type of mediaTypes) {
         if (message[type]) {
             return {
@@ -212,7 +216,7 @@ const getMediaInfo = (message) => {
             };
         }
     }
-    
+
     return null;
 };
 
@@ -227,7 +231,7 @@ const smsg = (sock, m, store) => {
         m.chat = m.key.remoteJid;
         m.fromMe = m.key.fromMe;
         m.isGroup = m.chat.endsWith('@g.us');
-        
+
         const senderJid = m.fromMe ? sock.user.id : (m.participant || m.key.participant || m.chat || '');
         m.sender = jidDecode(senderJid)?.user || senderJid;
 
@@ -333,25 +337,25 @@ module.exports = {
     logMessageDetails,
     getTimestamp,
     getFormattedDate,
-    
+
     // Media handler functions
     initializeMediaHandlers,
     downloadMedia,
-    
+
     // Message editor functions
     editMessage,
     editMessageFallback,
-    
+
     // Message parser functions
     getTextContent,
     getSenderName,
     getMessageType,
     hasMedia,
     getMediaInfo,
-    
+
     // Message serializer functions
     smsg,
-    
+
     // Permission functions
     isBotAdmin,
     isGroupAdmin,
