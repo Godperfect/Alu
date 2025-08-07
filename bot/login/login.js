@@ -185,13 +185,22 @@ const checkSessionExists = () => {
         const sessionPath = config.whatsappAccount?.authFilePath || './session';
         const credsPath = path.join(sessionPath, 'creds.json');
         
-        // Simply check if creds.json exists
+        // Check if creds.json exists and is not empty
         if (fs.existsSync(credsPath)) {
-            if (!sessionChecked) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Session found, using existing credentials...')}`);
-                sessionChecked = true;
+            const stats = fs.statSync(credsPath);
+            if (stats.size > 0) {
+                if (!sessionChecked) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Session found, using existing credentials...')}`);
+                    sessionChecked = true;
+                }
+                return true;
+            } else {
+                if (!sessionChecked) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Empty session file found, proceeding with new login...')}`);
+                    sessionChecked = true;
+                }
+                return false;
             }
-            return true;
         }
         
         if (!sessionChecked) {
