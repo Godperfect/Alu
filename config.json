@@ -8,7 +8,8 @@
     "printQRInTerminal": false,
     "persistSession": true,
     "preventAutoAuth": false,
-    "retainSession": true
+    "retainSession": true,
+    "preserveSessionOnReplace": true
   },
   "botSettings": {
     "botName": "Luna v1",
