@@ -138,34 +138,55 @@ async function handleAdvancedProtocolMessage(sock, mek) {
                 const bufferKey = `${groupId}_${deletedKey.id}`;
                 const bufferedMessage = messageBuffer.get(bufferKey);
 
-                let messageContent = '[Content not recoverable - message was deleted too quickly]';
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFER_CHECK]')} Looking for message with key: ${bufferKey}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFER_STATUS]')} Current buffer size: ${messageBuffer.size}`);
+
+                let messageContent = '[Content not recoverable - message was deleted too quickly or not buffered]';
                 let recoveryStatus = 'NOT_RECOVERABLE';
 
                 if (bufferedMessage) {
-                    messageContent = bufferedMessage.text || '[No text content]';
+                    messageContent = bufferedMessage.text || '[No text content available]';
                     recoveryStatus = 'RECOVERED';
                     messageBuffer.delete(bufferKey); // Clean up
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RECOVERED]')} Message content recovered from buffer!`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RECOVERED]')} Successfully recovered: "${messageContent.substring(0, 100)}..."`);
                 } else {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MESSAGE_NOT_FOUND]')} Message not in buffer, content not recoverable`);
+                    // Try alternative buffer keys (sometimes message IDs can vary)
+                    let found = false;
+                    for (const [key, msg] of messageBuffer.entries()) {
+                        if (key.includes(groupId)) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[BUFFER_ALT_CHECK]')} Found alternative message: ${key}`);
+                            // Check if this message is recent (within last 2 minutes)
+                            if (Date.now() - msg.timestamp < 120000) {
+                                messageContent = msg.text;
+                                recoveryStatus = 'RECOVERED_ALT';
+                                messageBuffer.delete(key);
+                                found = true;
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[ALT_RECOVERY]')} Using recent message: "${messageContent.substring(0, 100)}..."`);
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MESSAGE_NOT_FOUND]')} Message not in buffer, content not recoverable`);
+                    }
                 }
 
                 // Create recovery message with proper user identification
                 let recoveryText = '';
-                if (recoveryStatus === 'RECOVERED') {
+                if (recoveryStatus === 'RECOVERED' || recoveryStatus === 'RECOVERED_ALT') {
                     recoveryText = `🔄 *MESSAGE DELETED & RECOVERED*\n\n` +
                         `🗑️ *Deleted by:* @${deleterInfo.senderNumber}\n` +
                         `👤 *Original sender:* @${originalSenderInfo.senderNumber}\n` +
                         `⏰ *Deleted at:* ${new Date().toLocaleString()}\n\n` +
-                        `📝 *Original Message:*\n${messageContent}\n\n` +
-                        `🛡️ _Message recovered by Anti-Delete System_`;
+                        `💬 *Original Message:*\n${messageContent}\n\n` +
+                        `🛡️ _Message successfully recovered by Anti-Delete System_`;
                 } else {
                     recoveryText = `🗑️ *MESSAGE DELETED*\n\n` +
                         `🗑️ *Deleted by:* @${deleterInfo.senderNumber}\n` +
                         `👤 *Original sender:* @${originalSenderInfo.senderNumber}\n` +
-                        `📝 *Message:* ${messageContent}\n` +
+                        `📝 *Status:* ${messageContent}\n` +
                         `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
-                        `🛡️ _Anti-delete is active - recent messages will be recovered if stored in memory_`;
+                        `⚠️ _Message was deleted too quickly to recover the full content_`;
                 }
 
                 // Send recovery message with proper mentions for both users
@@ -187,7 +208,7 @@ async function handleAdvancedProtocolMessage(sock, mek) {
     }
 }
 
-// Brief message buffering for immediate recovery (30 seconds only)
+// Brief message buffering for immediate recovery (60 seconds for better recovery)
 function bufferMessage(messageKey, messageContent) {
     try {
         const bufferKey = `${messageKey.remoteJid}_${messageKey.id}`;
@@ -226,19 +247,23 @@ function bufferMessage(messageKey, messageContent) {
             messageText = '[Unsupported message type]';
         }
 
-        // Store in buffer for 30 seconds with sender info
+        // Store in buffer for 60 seconds with sender info
         messageBuffer.set(bufferKey, {
             text: messageText,
             timestamp: Date.now(),
-            sender: messageKey.participant || messageKey.remoteJid
+            sender: messageKey.participant || messageKey.remoteJid,
+            messageId: messageKey.id,
+            groupId: messageKey.remoteJid
         });
 
-        // Auto-cleanup after 30 seconds
+        // Auto-cleanup after 60 seconds
         setTimeout(() => {
             messageBuffer.delete(bufferKey);
-        }, 30000);
+        }, 60000);
 
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFERED]')} Message buffered: "${messageText.substring(0, 50)}..."`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFERED]')} Message buffered with key: ${bufferKey}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFERED_CONTENT]')} Content: "${messageText.substring(0, 80)}..."`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFER_SIZE]')} Total buffered messages: ${messageBuffer.size}`);
     } catch (error) {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[BUFFER_ERROR]')} Error buffering message: ${error.message}`);
     }
@@ -263,7 +288,7 @@ module.exports = {
     onStart: async ({ sock }) => {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[ADVANCED_RESEND_INIT]')} Initializing Advanced Message Recovery System...`);
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[NO_STORAGE]')} No persistent storage - using real-time protocol detection`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[BUFFER_MODE]')} 30-second message buffer for immediate recovery`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[BUFFER_MODE]')} 60-second message buffer for immediate recovery`);
 
         logSuccess('Advanced anti-delete system initialized');
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ACTIVE]')} Advanced message recovery is now active 24/7`);
