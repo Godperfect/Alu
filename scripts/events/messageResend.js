@@ -70,7 +70,7 @@ async function getContactName(sock, jid) {
         if (contact && contact[0]?.notify) {
             return contact[0].notify;
         }
-        
+
         // Try from contacts store
         const contactInfo = await sock.contactsStore?.contacts[jid];
         if (contactInfo?.name) {
@@ -78,7 +78,7 @@ async function getContactName(sock, jid) {
         } else if (contactInfo?.notify) {
             return contactInfo.notify;
         }
-        
+
         // Fallback to phone number
         const phoneNumber = jid.split('@')[0];
         return phoneNumber;
@@ -93,7 +93,7 @@ async function getContactName(sock, jid) {
 async function formatMessageContent(originalMessage, sock) {
     const content = originalMessage.content;
     const sender = originalMessage.sender;
-    
+
     // Get sender info (name and number)
     let senderName = 'Unknown User';
     let senderNumber = '';
@@ -231,7 +231,7 @@ async function handleProtocolMessage(sock, mek) {
                 } else {
                     // Send notification that message was deleted but not recoverable
                     const deletedSender = deletedMessageKey.participant || deletedMessageKey.remoteJid;
-                    
+
                     // Get sender name and proper JID
                     let senderName = 'Unknown User';
                     let properSenderJid = deletedSender;
@@ -318,6 +318,52 @@ async function handleProtocolMessage(sock, mek) {
     }
 }
 
+// Helper to get text content from various message types
+function getTextContent(message) {
+    if (message.conversation) {
+        return message.conversation;
+    } else if (message.extendedTextMessage?.text) {
+        return message.extendedTextMessage.text;
+    } else if (message.imageMessage?.caption) {
+        return message.imageMessage.caption;
+    } else if (message.videoMessage?.caption) {
+        return message.videoMessage.caption;
+    } else if (message.documentMessage?.caption) {
+        return message.documentMessage.caption;
+    }
+    return ''; // Return empty string if no text content found
+}
+
+// Helper to get sender name, prioritizing specific JIDs and falling back to pushName or number
+async function getSenderName(sock, jid) {
+    try {
+        const contact = await sock.onWhatsApp(jid);
+        if (contact && contact[0]?.notify) {
+            return contact[0].notify;
+        }
+
+        const contactInfo = await sock.contactsStore?.contacts[jid];
+        if (contactInfo?.name) {
+            return contactInfo.name;
+        } else if (contactInfo?.notify) {
+            return contactInfo.notify;
+        }
+
+        // Fallback for non-contact JIDs or if other methods fail
+        if (jid.includes('@s.whatsapp.net')) {
+            return jid.split('@')[0]; // Return phone number
+        } else if (jid.includes('@lid')) {
+            return jid.split('@')[0]; // Return group ID part
+        }
+
+        return 'Unknown'; // Default fallback
+    } catch (error) {
+        console.log(`[GET_SENDER_NAME_ERROR] ${error.message}`);
+        return 'Unknown';
+    }
+}
+
+
 module.exports = {
     config: {
         name: 'messageResend',
@@ -366,7 +412,7 @@ module.exports = {
                     sender: m.key.participant || m.key.remoteJid,
                     timestamp: Date.now()
                 };
-                
+
                 // Store the message in memory (excluding protocol messages)
                 storeMessage(m.key, m.message, enhancedMessageInfo);
 
