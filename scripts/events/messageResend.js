@@ -62,6 +62,33 @@ function getStoredMessage(messageKey) {
     return messageStore.get(storeKey);
 }
 
+// Extract proper contact name from WhatsApp
+async function getContactName(sock, jid) {
+    try {
+        // Try to get contact info from WhatsApp
+        const contact = await sock.onWhatsApp(jid);
+        if (contact && contact[0]?.notify) {
+            return contact[0].notify;
+        }
+        
+        // Try from contacts store
+        const contactInfo = await sock.contactsStore?.contacts[jid];
+        if (contactInfo?.name) {
+            return contactInfo.name;
+        } else if (contactInfo?.notify) {
+            return contactInfo.notify;
+        }
+        
+        // Fallback to phone number
+        const phoneNumber = jid.split('@')[0];
+        return phoneNumber;
+    } catch (error) {
+        // Return phone number as fallback
+        const phoneNumber = jid.split('@')[0];
+        return phoneNumber;
+    }
+}
+
 // Format message content for resending
 async function formatMessageContent(originalMessage, sock) {
     const content = originalMessage.content;
@@ -214,15 +241,13 @@ async function handleProtocolMessage(sock, mek) {
                         // Handle different sender formats
                         if (deletedSender) {
                             if (deletedSender.includes('@lid')) {
-                                // LinkedIn ID format - extract numbers and convert
-                                const phoneNumber = deletedSender.replace(/[^0-9]/g, '');
-                                if (phoneNumber.length >= 8) {
-                                    properSenderJid = phoneNumber + '@s.whatsapp.net';
-                                    displayName = phoneNumber;
-                                    senderName = phoneNumber; // Use phone number as fallback
-                                }
+                                // LinkedIn ID format - this is actually the group JID format
+                                const groupNumber = deletedSender.replace(/[^0-9]/g, '');
+                                displayName = groupNumber;
+                                properSenderJid = deletedSender; // Keep original format for group context
+                                senderName = groupNumber;
                             } else if (deletedSender.includes('@s.whatsapp.net')) {
-                                // Standard WhatsApp format
+                                // Standard WhatsApp user format
                                 const phoneNumber = deletedSender.split('@')[0];
                                 properSenderJid = deletedSender;
                                 displayName = phoneNumber;
@@ -238,19 +263,26 @@ async function handleProtocolMessage(sock, mek) {
                                     // Use raw sender if no phone number found
                                     displayName = deletedSender;
                                     senderName = deletedSender;
+                                    properSenderJid = deletedSender;
                                 }
                             }
 
-                            // Try to get actual contact name from WhatsApp
-                            try {
-                                const contact = await sock.contactsStore?.contacts[properSenderJid];
-                                if (contact?.name) {
-                                    senderName = contact.name;
-                                } else if (contact?.notify) {
-                                    senderName = contact.notify;
+                            // For LID format (group context), we need to find who actually sent the message
+                            // Check if this is the group itself or a participant
+                            if (deletedSender === groupId) {
+                                // This means the group itself sent the message (could be bot or group action)
+                                senderName = 'Group Admin/Bot';
+                                displayName = 'Group Message';
+                            } else {
+                                // Try to get actual contact name from WhatsApp for individual users
+                                try {
+                                    const actualSenderName = await getContactName(sock, properSenderJid);
+                                    if (actualSenderName && actualSenderName !== displayName) {
+                                        senderName = actualSenderName;
+                                    }
+                                } catch (contactError) {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[CONTACT_LOOKUP_FAILED]')} Could not get contact info for ${properSenderJid}`);
                                 }
-                            } catch (contactError) {
-                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[CONTACT_LOOKUP_FAILED]')} Could not get contact info for ${properSenderJid}`);
                             }
                         }
                     } catch (processingError) {
@@ -263,7 +295,8 @@ async function handleProtocolMessage(sock, mek) {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[USER_TAG_DEBUG]')} Sender name: ${senderName}`);
 
                     const deleteNotification = `🗑️ *MESSAGE DELETED*\n\n` +
-                        `👤 *By:* ${senderName} (${displayName})\n` +
+                        `👤 *By:* @${senderName}\n` +
+                        `📱 *ID:* ${displayName}\n` +
                         `📝 *Message:* [Content not recoverable - message was deleted too quickly]\n` +
                         `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
                         `🛡️ _Anti-delete is active - recent messages will be recovered if stored in memory_`;
@@ -325,11 +358,19 @@ module.exports = {
 
             // PRIORITY 2: Store regular messages in memory for potential recovery
             if (isGroup && m.message && isResendEnabled(m.key.remoteJid)) {
+                // Enhance message info with actual text content for better recovery
+                const enhancedMessageInfo = {
+                    ...messageInfo,
+                    messageText: messageText || '[No text content]',
+                    contentType: Object.keys(m.message)[0],
+                    sender: m.key.participant || m.key.remoteJid,
+                    timestamp: Date.now()
+                };
+                
                 // Store the message in memory (excluding protocol messages)
-                storeMessage(m.key, m.message, messageInfo);
+                storeMessage(m.key, m.message, enhancedMessageInfo);
 
-                // Optional: Log message storage (disable in production for performance)
-                // console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Message stored: ${m.key.id}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Message stored: ${m.key.id} - Content: ${messageText?.substring(0, 30) || 'No text'}...`);
             }
 
             // PRIORITY 3: Handle resend commands
