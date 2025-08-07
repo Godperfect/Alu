@@ -1047,9 +1047,9 @@ function startServer() {
   const PORT = process.env.PORT || config.dashboard?.port || 3000;
   const HOST = process.env.HOST || '0.0.0.0';
   const appInstance = initializeApp();
-  server = appInstance.listen(PORT, HOST, () =>
-    logInfo(`📊 Dashboard available at http://${HOST}:${PORT}`)
-  );
+  server = appInstance.listen(PORT, HOST, () => {
+    // Dashboard availability message is already logged in bot.js
+  });
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {
       logError(`❌ Port ${PORT} is already in use.`);
