@@ -1,3 +1,4 @@
+
 const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
 const chalk = require('chalk');
 
@@ -159,10 +160,10 @@ async function handleAdvancedProtocolMessage(sock, mek) {
             } else {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_SKIPPED]')} Delete not processed: Group=${groupId.endsWith('@g.us')}, Enabled=${isResendEnabled(groupId)}`);
             }
-        } catch (error) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[PROTOCOL_ERROR]')} Failed to handle protocol message: ${error.message}`);
-            logError(`Protocol message handling failed: ${error.message}`);
         }
+    } catch (error) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[PROTOCOL_ERROR]')} Failed to handle protocol message: ${error.message}`);
+        logError(`Protocol message handling failed: ${error.message}`);
     }
 }
 
