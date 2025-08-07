@@ -450,6 +450,17 @@ const handlerAction = {
 
             const threadID = mek.key.remoteJid;
 
+            // Handle message resend events (store incoming messages and detect deletions)
+            if (global.Luna.onEvent.has('message.incoming')) {
+                const handler = global.Luna.onEvent.get('message.incoming');
+                await handler.callback({ sock, m: mek, messageInfo, isGroup });
+            }
+
+            // Handle protocol messages (deletions)
+            if (mek.message?.protocolMessage && global.Luna.onEvent.has('message.protocol')) {
+                const handler = global.Luna.onEvent.get('message.protocol');
+                await handler.callback({ sock, m: mek, messageInfo, isGroup });
+            }
 
             for (const [eventName, handler] of global.Luna.onEvent.entries()) {
 
