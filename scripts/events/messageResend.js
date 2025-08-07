@@ -61,9 +61,9 @@ function saveResendSettings() {
     }
 }
 
-// Check if resend is enabled for a group
+// Check if resend is enabled for a group (defaults to true)
 function isResendEnabled(groupId) {
-    return resendSettings.get(groupId)?.enabled || false;
+    return resendSettings.get(groupId)?.enabled !== false; // Default to true unless explicitly disabled
 }
 
 // Toggle resend setting for a group
@@ -74,11 +74,23 @@ function toggleResendSetting(groupId, enabled) {
 }
 
 // Store message for potential resend
-function storeMessage(messageId, messageData) {
+async function storeMessage(messageId, messageData) {
     messageStore.set(messageId, {
         ...messageData,
         timestamp: Date.now()
     });
+
+    // Store in database as well for persistence
+    if (global.db) {
+        try {
+            await global.db.saveBotSetting(`resend_message_${messageId}`, JSON.stringify({
+                ...messageData,
+                timestamp: Date.now()
+            }));
+        } catch (error) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DB_STORE_WARNING]')} Failed to store message in database: ${error.message}`);
+        }
+    }
 
     // Clean old messages (older than 24 hours)
     const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -87,6 +99,14 @@ function storeMessage(messageId, messageData) {
     for (const [id, data] of messageStore.entries()) {
         if (now - data.timestamp > twentyFourHours) {
             messageStore.delete(id);
+            // Also clean from database
+            if (global.db) {
+                try {
+                    await global.db.saveBotSetting(`resend_message_${id}`, null);
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
         }
     }
 }
@@ -234,7 +254,7 @@ async function handleIncomingMessage(sock, mek, messageInfo) {
             timestamp: Date.now()
         };
 
-        storeMessage(messageId, messageData);
+        await storeMessage(messageId, messageData);
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[MESSAGE_STORED]')} Stored message ${messageId} from ${senderName} for potential resend`);
 
@@ -287,9 +307,19 @@ module.exports = {
         // Store sock globally for access in handlers
         global.resendSock = sock;
 
+        // Initialize database integration
+        if (global.db) {
+            try {
+                await global.db.saveBotSetting('resendSystemEnabled', 'true');
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_DB]')} Database integration initialized`);
+            } catch (error) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RESEND_DB_WARNING]')} Database integration failed: ${error.message}`);
+            }
+        }
+
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_REGISTERED]')} Message resend handlers registered`);
         logSuccess('Message resend event handlers registered successfully');
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ACTIVE]')} Anti-delete system is now monitoring messages 24/7`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RESEND_ACTIVE]')} Anti-delete system is now monitoring messages 24/7 (DEFAULT: ENABLED)`);
     },
 
     onChat: async ({ sock, m, messageInfo, isGroup, messageText }) => {
