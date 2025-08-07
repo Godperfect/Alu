@@ -25,6 +25,31 @@ function safeRequire(moduleName) {
 // External utilities (assumed to be local files, not external modules)
 const { logSuccess, logCommand, logError } = require('../../utils');
 const { config } = require('../../config/globals');
+const chalk = require('chalk');
+
+/**
+ * Get formatted timestamp
+ * @returns {string} Formatted timestamp in [HH:mm:ss] format
+ */
+const getTimestamp = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+};
+
+/**
+ * Get formatted date
+ * @returns {string} Formatted date in [YYYY-MM-DD] format
+ */
+const getFormattedDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return chalk.gray(`[${year}-${month}-${day}]`);
+};
 
 class CommandManager {
     constructor() {
@@ -87,7 +112,7 @@ class CommandManager {
                         });
                     }
 
-                    logSuccess(`Loaded command: ${cmd.name}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded command:')} ${chalk.yellow(cmd.name)}`);
                     totalCommands++;
                 } else if (command && command.name) {
                     // Original Luna style command structure
@@ -99,10 +124,10 @@ class CommandManager {
                         });
                     }
 
-                    logSuccess(`Loaded command: ${command.name}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded command:')} ${chalk.yellow(command.name)}`);
                     totalCommands++;
                 } else {
-                    logError(`Invalid command structure in file: ${file}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid command structure in file:')} ${chalk.yellow(file)}`);
                     failedCommands++;
                 }
 
@@ -110,15 +135,15 @@ class CommandManager {
                 delete require.cache[require.resolve(commandPath)];
 
             } catch (err) {
-                logError(`Failed to load command from ${file}: ${err.message}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load command from')} ${chalk.yellow(file)}: ${chalk.red(err.message)}`);
                 failedCommands++;
             }
         });
 
         if (failedCommands > 0) {
-            logError(`Failed to load ${failedCommands} commands`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load')} ${chalk.yellow(failedCommands)} ${chalk.red('commands')}`);
         }
-        logSuccess(`Successfully loaded ${totalCommands} commands ${failedCommands > 0 ? `(${failedCommands} failed)` : ''}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(totalCommands)} ${chalk.cyan('commands')} ${failedCommands > 0 ? chalk.red(`(${failedCommands} failed)`) : ''}`);
         console.log('─────────────────────────────────────────');
     }
 
