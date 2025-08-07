@@ -262,8 +262,7 @@ const authenticateSession = async (ptz) => {
                 throw err;
             }
         } else {
-            // Session exists, just show login success message without requesting pairing code
-            logInfo('Using existing session, no pairing code needed');
+            
             
             if (line) {
                 console.log(chalk.yellow(line));
