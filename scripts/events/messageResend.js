@@ -103,22 +103,30 @@ async function handleAdvancedProtocolMessage(sock, mek) {
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_INFO]')} Deleter: ${deleterJid}`);
 
             if (deletedKey && groupId.endsWith('@g.us') && isResendEnabled(groupId)) {
-                // Extract information about who actually sent the message (not who deleted it)
-                const actualSenderJid = deletedKey.participant || deletedKey.remoteJid;
-                const actualSender = extractSenderInfo(actualSenderJid, groupId);
+                // The key that was deleted tells us who originally sent the message
+                const originalSenderJid = deletedKey.participant || deletedKey.remoteJid;
+                
+                // Make sure we have a proper JID
+                let properSenderJid = originalSenderJid;
+                if (!originalSenderJid.includes('@')) {
+                    properSenderJid = originalSenderJid + '@s.whatsapp.net';
+                }
 
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[SENDER_INFO]')} Original sender: ${actualSenderJid}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[SENDER_INFO]')} Extracted: ${actualSender.senderName} (${actualSender.senderNumber})`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[SENDER_INFO]')} Original message sender: ${originalSenderJid}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[SENDER_INFO]')} Proper JID: ${properSenderJid}`);
 
+                // Extract sender information
+                const senderInfo = extractSenderInfo(originalSenderJid, groupId);
+                
                 // Try to get the actual contact name
-                const contactName = await getContactName(sock, actualSender.properJid);
-                const displayName = contactName !== actualSender.senderNumber ? contactName : actualSender.senderName;
+                const contactName = await getContactName(sock, properSenderJid);
+                const displayName = contactName !== senderInfo.senderNumber ? contactName : senderInfo.senderName;
 
                 // Check if we have recent message data in buffer
                 const bufferKey = `${groupId}_${deletedKey.id}`;
                 const bufferedMessage = messageBuffer.get(bufferKey);
 
-                let messageContent = '[Content not recoverable - message deleted too quickly]';
+                let messageContent = '[Content not recoverable - message was deleted too quickly]';
                 let recoveryStatus = 'NOT_RECOVERABLE';
 
                 if (bufferedMessage) {
@@ -127,35 +135,35 @@ async function handleAdvancedProtocolMessage(sock, mek) {
                     messageBuffer.delete(bufferKey); // Clean up
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_RECOVERED]')} Message content recovered from buffer!`);
                 } else {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MESSAGE_NOT_FOUND]')} Message not in buffer, using fallback notification`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[MESSAGE_NOT_FOUND]')} Message not in buffer, content not recoverable`);
                 }
 
-                // Create recovery message
+                // Create recovery message with proper user identification
                 let recoveryText = '';
                 if (recoveryStatus === 'RECOVERED') {
                     recoveryText = `🔄 *MESSAGE DELETED & RECOVERED*\n\n` +
-                        `👤 *Original Sender:* @${displayName}\n` +
-                        `📱 *Phone:* ${actualSender.senderNumber}\n` +
+                        `👤 *Original Sender:* ${displayName}\n` +
+                        `📱 *Phone:* ${senderInfo.senderNumber}\n` +
                         `⏰ *Deleted at:* ${new Date().toLocaleString()}\n\n` +
                         `📝 *Original Message:*\n${messageContent}\n\n` +
                         `🛡️ _Message recovered by Anti-Delete System_`;
                 } else {
                     recoveryText = `🗑️ *MESSAGE DELETED*\n\n` +
-                        `👤 *By:* @${displayName}\n` +
-                        `📱 *Phone:* ${actualSender.senderNumber}\n` +
+                        `👤 *By:* ${displayName}\n` +
+                        `📱 *Phone:* ${senderInfo.senderNumber}\n` +
                         `📝 *Message:* ${messageContent}\n` +
                         `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
-                        `🛡️ _Anti-delete is active - some messages may be recoverable_`;
+                        `🛡️ _Anti-delete is active - recent messages will be recovered if stored in memory_`;
                 }
 
                 // Send recovery message with proper mention
                 await sock.sendMessage(groupId, {
                     text: recoveryText,
-                    mentions: [actualSender.properJid]
+                    mentions: [properSenderJid]
                 });
 
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RECOVERY_SENT]')} Recovery message sent for ${displayName}`);
-                logSuccess(`Deleted message ${recoveryStatus.toLowerCase()} for user ${displayName} (${actualSender.senderNumber})`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[RECOVERY_SENT]')} Recovery message sent for ${displayName} (${senderInfo.senderNumber})`);
+                logSuccess(`Deleted message ${recoveryStatus.toLowerCase()} for user ${displayName} (${senderInfo.senderNumber})`);
 
             } else {
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[DELETE_SKIPPED]')} Delete not processed: Group=${groupId.endsWith('@g.us')}, Enabled=${isResendEnabled(groupId)}`);
@@ -172,34 +180,45 @@ function bufferMessage(messageKey, messageContent) {
     try {
         const bufferKey = `${messageKey.remoteJid}_${messageKey.id}`;
 
-        // Extract text content
+        // Extract text content with better handling
         let messageText = '';
+        
         if (messageContent.conversation) {
             messageText = messageContent.conversation;
         } else if (messageContent.extendedTextMessage?.text) {
             messageText = messageContent.extendedTextMessage.text;
         } else if (messageContent.imageMessage?.caption) {
-            messageText = `[Image]: ${messageContent.imageMessage.caption}`;
+            messageText = `📷 Image: ${messageContent.imageMessage.caption}`;
         } else if (messageContent.videoMessage?.caption) {
-            messageText = `[Video]: ${messageContent.videoMessage.caption}`;
+            messageText = `🎥 Video: ${messageContent.videoMessage.caption}`;
+        } else if (messageContent.documentMessage?.caption) {
+            messageText = `📄 Document: ${messageContent.documentMessage.caption}`;
         } else if (messageContent.imageMessage) {
-            messageText = '[Image]';
+            messageText = '📷 [Image without caption]';
         } else if (messageContent.videoMessage) {
-            messageText = '[Video]';
+            messageText = '🎥 [Video without caption]';
         } else if (messageContent.audioMessage) {
-            messageText = '[Audio]';
+            const duration = messageContent.audioMessage.seconds ? ` (${messageContent.audioMessage.seconds}s)` : '';
+            messageText = `🔊 [Audio message${duration}]`;
         } else if (messageContent.stickerMessage) {
-            messageText = '[Sticker]';
+            messageText = '😊 [Sticker]';
         } else if (messageContent.documentMessage) {
-            messageText = `[Document: ${messageContent.documentMessage.fileName || 'file'}]`;
+            const fileName = messageContent.documentMessage.fileName || 'unknown file';
+            messageText = `📄 [Document: ${fileName}]`;
+        } else if (messageContent.contactMessage) {
+            const contactName = messageContent.contactMessage.displayName || 'Unknown';
+            messageText = `👤 [Contact: ${contactName}]`;
+        } else if (messageContent.locationMessage) {
+            messageText = '📍 [Location shared]';
         } else {
-            messageText = '[Media/Unsupported content]';
+            messageText = '[Unsupported message type]';
         }
 
-        // Store in buffer for 30 seconds
+        // Store in buffer for 30 seconds with sender info
         messageBuffer.set(bufferKey, {
             text: messageText,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            sender: messageKey.participant || messageKey.remoteJid
         });
 
         // Auto-cleanup after 30 seconds
@@ -207,7 +226,7 @@ function bufferMessage(messageKey, messageContent) {
             messageBuffer.delete(bufferKey);
         }, 30000);
 
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFERED]')} Message buffered: "${messageText.substring(0, 30)}..."`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[BUFFERED]')} Message buffered: "${messageText.substring(0, 50)}..."`);
     } catch (error) {
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[BUFFER_ERROR]')} Error buffering message: ${error.message}`);
     }
