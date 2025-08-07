@@ -185,16 +185,18 @@ const checkSessionExists = () => {
                         return true;
                     }
                 } catch (parseError) {
-                    logError(`Error parsing session file: ${parseError.message}`);
+                    // Don't log parsing errors as unexpected errors, just indicate invalid session
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session file corrupted, will recreate...')}`);
                     return false;
                 }
             }
         }
         
-        logInfo('No valid session files found');
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('No valid session files found, creating new session...')}`);
         return false;
     } catch (error) {
-        logError(`Error checking session files: ${error.message}`);
+        // Don't throw unexpected errors for normal session checking
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Session check failed, will create new session...')}`);
         return false;
     }
 };

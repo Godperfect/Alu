@@ -75,6 +75,11 @@ async function startBotz() {
         languageManager.initialize(config);
 
         process.on('unhandledRejection', (reason, promise) => {
+            // Handle unhandled rejections silently for session-related errors
+            if (reason && reason.message && reason.message.includes('ENOENT') && reason.message.includes('session')) {
+                // Session file missing is normal, don't log as unexpected error
+                return;
+            }
             logError(languageManager.get('error.unexpected', reason));
         });
 
