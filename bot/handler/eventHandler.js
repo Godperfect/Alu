@@ -1,6 +1,7 @@
 const fs = require('fs');
-const { logError, logInfo, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo } = require('../../utils');
+const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate } = require('../../utils');
 const { config } = require('../../config/globals');
+const chalk = require('chalk');
 
 const handlerAction = require('./handlerAction');
 const lang = require('../../language/language');
@@ -24,28 +25,45 @@ class EventHandler {
     }
 
     initializeMessageListener(sock, store) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SYSTEM]')} ${chalk.cyan('Event Handler initialized - Bot is now actively listening for messages 24/7')}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SYSTEM]')} ${chalk.yellow('Ready to process:')} ${chalk.white('Messages, Commands, Reactions, Group Events, Calls')}`);
+        console.log('─────────────────────────────────────────');
 
+        // Enhanced message listener with better error handling
         sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
-                if (!chatUpdate || !chatUpdate.messages || chatUpdate.messages.length === 0) return;
+                if (!chatUpdate || !chatUpdate.messages || chatUpdate.messages.length === 0) {
+                    return;
+                }
 
                 let mek = chatUpdate.messages[0];
-                if (!mek.message) return;
+                if (!mek.message) {
+                    return;
+                }
 
                 // Log message to database
-                const dataHandler = require('./handlerCheckdata');
-                await dataHandler.logMessage(mek);
+                try {
+                    const dataHandler = require('./handlerCheckdata');
+                    await dataHandler.logMessage(mek);
+                    logInfo(`Message logged for user ${mek.key.participant?.split('@')[0] || mek.key.remoteJid?.split('@')[0] || 'unknown'}`);
+                } catch (dbError) {
+                    logError(`Database logging failed: ${dbError.message}`);
+                }
 
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
-                logError(lang.get('eventHandler.error.messageListener', err.message));
-                console.error(err);
+                logError(`Message listener error: ${err.message}`);
+                logError(`Stack trace: ${err.stack}`);
+                // Don't crash the bot, continue listening
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RECOVERY]')} ${chalk.white('Bot continues listening despite error...')}`);
             }
         });
 
 
         sock.ev.on('group-participants.update', async (update) => {
             try {
+                logEvent('GROUP_UPDATE', `Action: ${update.action} | Group: ${update.id} | Participants: ${update.participants?.length || 0}`);
+                
                 // Log group activity
                 const dataHandler = require('./handlerCheckdata');
                 await dataHandler.logGroupActivity(
@@ -57,23 +75,62 @@ class EventHandler {
 
                 await this.handleGroupUpdate(sock, update);
             } catch (error) {
-                logError(`Error handling group update: ${error.message}`);
+                logError(`Group update handler error: ${error.message}`);
+                logError(`Stack trace: ${error.stack}`);
             }
         });
 
         sock.ev.on('call', async (callUpdate) => {
-            await this.handleCall(sock, callUpdate);
+            try {
+                for (const call of callUpdate) {
+                    logEvent('CALL', `${call.isVideo ? 'Video' : 'Voice'} call ${call.status} from ${call.from}`);
+                }
+                await this.handleCall(sock, callUpdate);
+            } catch (error) {
+                logError(`Call handler error: ${error.message}`);
+            }
         });
 
 
         sock.ev.on('contacts.update', async (contacts) => {
-            await this.handleContactsUpdate(sock, contacts);
+            try {
+                logEvent('CONTACTS_UPDATE', `${contacts.length} contacts updated`);
+                await this.handleContactsUpdate(sock, contacts);
+            } catch (error) {
+                logError(`Contacts update handler error: ${error.message}`);
+            }
         });
 
         // Listen for group invitations
         sock.ev.on('groups.invite', async (invite) => {
-            await this.handleGroupInvite(sock, invite);
+            try {
+                logEvent('GROUP_INVITE', `Invited to ${invite.subject || 'Unknown Group'} by ${invite.creator}`);
+                await this.handleGroupInvite(sock, invite);
+            } catch (error) {
+                logError(`Group invite handler error: ${error.message}`);
+            }
         });
+
+        // Add connection state monitoring
+        sock.ev.on('connection.update', (update) => {
+            const { connection, lastDisconnect } = update;
+            if (connection === 'connecting') {
+                logConnection('connecting', 'Establishing WhatsApp connection...');
+            } else if (connection === 'open') {
+                logConnection('connected', 'WhatsApp connection established - Bot active 24/7');
+                logSuccess('Event handlers are now actively listening for all activities');
+            } else if (connection === 'close') {
+                logConnection('disconnected', 'WhatsApp connection lost');
+                logWarning('Event handlers temporarily inactive - Attempting reconnection...');
+            }
+        });
+
+        // Monitor bot health
+        setInterval(() => {
+            if (global.botConnected) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HEARTBEAT]')} ${chalk.cyan('Bot is alive and actively listening...')}`);
+            }
+        }, 300000); // Every 5 minutes
     }
 
     async handleMessage(sock, mek, store) {

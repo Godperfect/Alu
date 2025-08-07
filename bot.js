@@ -6,7 +6,7 @@ const {
 const main = require('bytenode');
 const pino = require('pino');
 const fs = require('fs');
-const chalk = require('chalk'); 
+const chalk = require('chalk');
 const { logInfo, logError, logSuccess } = require('./utils');
 const config = require('./config.json');
 const { authenticateSession, getAuthState, getTimestamp, getFormattedDate } = require('./bot/login/login.js');
@@ -146,6 +146,8 @@ async function startBotz() {
                 global.botConnected = true;
                 global.sock = ptz; // Make sock available globally for events
                 console.log('─────────────────────────────────────────');
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('WhatsApp connection established successfully')}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[STATUS]')} ${chalk.yellow('Bot is now ONLINE and ready for 24/7 operation')}`);
 
                 // Initialize database connection after successful WhatsApp connection
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CONNECTING TO DATABASE:')} ${chalk.green(config.database.type?.toUpperCase() || 'SQLITE')}`);
@@ -180,7 +182,7 @@ async function startBotz() {
         // Only authenticate if no valid session exists
         const { checkSessionExists } = require('./bot/login/login.js');
         const sessionExists = checkSessionExists();
-        
+
         if (!sessionExists) {
             await authenticateSession(ptz);
         } else {
