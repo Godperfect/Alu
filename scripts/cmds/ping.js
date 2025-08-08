@@ -1,6 +1,4 @@
 
-const { logInfo } = require("../../utils");
-
 module.exports = {
     config: {
         name: "ping",
@@ -58,7 +56,7 @@ module.exports = {
                     edit: sent.key
                 });
                 
-                logInfo(`Ping command executed via onChat by user`);
+                console.log(`[INFO] Ping command executed via onChat by user`);
                 return true; // Stop processing other onChat handlers
             } catch (error) {
                 await sock.sendMessage(chatId, {
