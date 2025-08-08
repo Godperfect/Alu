@@ -241,16 +241,10 @@ const handlerAction = {
             // Check if message starts with prefix
             const hasPrefix = messageText.startsWith(currentPrefix);
             
-            // Only process onChat for specific event-based commands that need to monitor all messages
-            const eventBasedCommands = ['groupActivities', 'spy', 'resend']; // Commands that need to monitor all messages
-            
+            // Process onChat for ALL commands that have it, not just specific ones
             for (const [commandName, command] of global.commands.entries()) {
                 if (typeof command.onChat === 'function') {
                     try {
-                        // Only execute onChat for event-based commands (regardless of prefix)
-                        if (!eventBasedCommands.includes(commandName)) {
-                            continue; // Skip onChat for regular commands
-                        }
 
                         // Check permission for onChat commands
                         if (command.permission !== undefined) {
