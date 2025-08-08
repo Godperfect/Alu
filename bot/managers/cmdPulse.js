@@ -24,14 +24,13 @@ function safeRequire(moduleName) {
 
 // External utilities (assumed to be local files, not external modules)
 const { logSuccess, logCommand, logError, logInfo, getTimestamp, getFormattedDate } = require('../../utils');
-const { config } = require('../../config/globals');
 const chalk = require('chalk');
 
 class CommandManager {
     constructor() {
         this.cooldowns = new Map();
         this.commandsFolder = path.resolve(__dirname, '../../scripts/cmds');
-        this.cooldownTime = config.antiSpam.cooldownTime || 5; // seconds
+        this.cooldownTime = global.config?.antiSpam?.cooldownTime || 5; // seconds
     }
 
     // Load all command files from the commands folder
@@ -42,6 +41,16 @@ class CommandManager {
         }
         if (!global.Luna.commands) {
             global.Luna.commands = new Map();
+        }
+        
+        // Also initialize global.commands for backward compatibility
+        if (!global.commands) {
+            global.commands = new Map();
+        }
+        
+        // Initialize global.aliases if it doesn't exist
+        if (!global.aliases) {
+            global.aliases = new Map();
         }
 
         const commandFiles = fs.readdirSync(this.commandsFolder).filter(file => file.endsWith('.js'));
@@ -92,6 +101,7 @@ class CommandManager {
                     };
 
                     global.Luna.commands.set(cmd.name, cmd);
+                    global.commands.set(cmd.name, cmd); // For backward compatibility
 
                     if (cmd.aliases && cmd.aliases.length > 0) {
                         cmd.aliases.forEach(alias => {
@@ -103,6 +113,7 @@ class CommandManager {
                 } else if (command && command.name) {
                     // Original Luna style command structure
                     global.Luna.commands.set(command.name, command);
+                    global.commands.set(command.name, command); // For backward compatibility
 
                     if (command.aliases && Array.isArray(command.aliases)) {
                         command.aliases.forEach(alias => {
@@ -134,7 +145,7 @@ class CommandManager {
 
     // Check if the command is on cooldown for the sender
     checkCooldown(command, sender) {
-        if (!config.antiSpam.enable) return false;
+        if (!global.config?.antiSpam?.enable) return false;
 
         const now = Date.now();
         if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
@@ -155,7 +166,7 @@ class CommandManager {
 
     // Apply cooldown to a command for a specific sender
     applyCooldown(command, sender) {
-        if (!config.antiSpam.enable) return;
+        if (!global.config?.antiSpam?.enable) return;
 
         const now = Date.now();
         if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
@@ -172,11 +183,11 @@ class CommandManager {
     canExecuteCommand(sender) {
         const senderId = sender.replace(/[^0-9]/g, '');
 
-        if (config.adminOnly.enable && !global.adminList.includes(senderId)) {
+        if (global.config?.adminOnly?.enable && !global.adminList?.includes(senderId)) {
             return false;
         }
 
-        if (config.whiteListMode.enable && !global.whiteList.includes(senderId)) {
+        if (global.config?.whiteListMode?.enable && !global.whiteList?.includes(senderId)) {
             return false;
         }
 

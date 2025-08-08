@@ -52,6 +52,10 @@ global.botConnected = false;
 // Initialize global events Map
 global.events = new Map();
 
+// Initialize global command maps
+global.commands = new Map();
+global.aliases = new Map();
+
 // Initialize global GoatBot object for dashboard
 global.GoatBot = {
     stats: {
