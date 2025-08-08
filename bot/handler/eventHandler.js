@@ -150,9 +150,15 @@ class EventHandler {
     async handleMessage(sock, mek, store) {
         try {
 
-            mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage')
-                ? mek.message.ephemeralMessage.message
-                : mek.message;
+            // Handle ephemeral messages with proper null checks
+            if (mek.message && Object.keys(mek.message).length > 0) {
+                mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage')
+                    ? mek.message.ephemeralMessage.message
+                    : mek.message;
+            } else {
+                // Skip processing if message is null/undefined or empty
+                return;
+            }
 
 
             if (mek.key && mek.key.remoteJid === 'status@broadcast') return;
@@ -254,6 +260,11 @@ class EventHandler {
             }
 
 
+            // Ensure message exists before getting content type
+            if (!mek.message || Object.keys(mek.message).length === 0) {
+                return;
+            }
+            
             const contentType = Object.keys(mek.message)[0];
 
 
