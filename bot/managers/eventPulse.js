@@ -36,88 +36,49 @@ class EventManager {
     }
 
     loadEvents() {
-        const eventsPath = path.join(__dirname, '../../scripts/events');
+        const eventFiles = fs.readdirSync(this.eventsFolder).filter(file => file.endsWith('.js'));
+        let loadedCount = 0;
+        let failedCount = 0;
 
-        try {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EVENT_MANAGER]')} Loading events from: ${eventsPath}`);
-            logInfo(`Loading events from: ${eventsPath}`);
+        eventFiles.forEach(async (file) => {
+            const eventPath = path.join(this.eventsFolder, file);
 
-            if (!fs.existsSync(eventsPath)) {
-                logWarning(`Events directory does not exist: ${eventsPath}`);
-                return;
-            }
+            try {
+                delete require.cache[require.resolve(eventPath)];
+                const eventModule = require(eventPath);
 
-            const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+                if (eventModule && (eventModule.config || eventModule.name)) {
+                    const eventName = eventModule.config?.name || eventModule.name;
+                    this.events.set(eventName, eventModule);
 
-            if (eventFiles.length === 0) {
-                logWarning('No event files found in events directory');
-                return;
-            }
+                    // Execute onStart if available and socket is available
+                    if (global.sock) {
+                        if (eventModule.onStart && typeof eventModule.onStart === 'function') {
+                            await eventModule.onStart({ sock: global.sock });
+                        }
 
-            let loadedCount = 0;
-
-            for (const file of eventFiles) {
-                try {
-                    const eventPath = path.join(eventsPath, file);
-
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[LOADING_EVENT]')} Processing event file: ${file}`);
-
-                    // Clear require cache to allow reloading
-                    delete require.cache[require.resolve(eventPath)];
-
-                    const event = require(eventPath);
-
-                    if (event && event.config && event.config.name) {
-                        // Store the event
-                        this.events.set(event.config.name, event);
-
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENT_STORED]')} Event ${event.config.name} stored in manager`);
-
-                        // Wait for global.sock to be available
-                        const waitForSock = () => {
-                            if (global.sock) {
-                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SOCK_AVAILABLE]')} Socket available for event: ${event.config.name}`);
-
-                                // Execute onStart if it exists
-                                if (typeof event.onStart === 'function') {
-                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EXECUTING_ONSTART]')} Running onStart for: ${event.config.name}`);
-                                    event.onStart({ sock: global.sock });
-                                }
-
-                                // Execute onLoad if it exists
-                                if (typeof event.onLoad === 'function') {
-                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EXECUTING_ONLOAD]')} Running onLoad for: ${event.config.name}`);
-                                    event.onLoad({ sock: global.sock });
-                                }
-                            } else {
-                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[WAITING_SOCK]')} Waiting for socket to be available for: ${event.config.name}`);
-                                setTimeout(waitForSock, 100);
-                            }
-                        };
-
-                        waitForSock();
-
-                        logSuccess(`Loaded event: ${event.config.name}`);
-                        loadedCount++;
-                    } else {
-                        logWarning(`Invalid event file: ${file} - Missing config or name`);
+                        if (eventModule.onLoad && typeof eventModule.onLoad === 'function') {
+                            await eventModule.onLoad({ sock: global.sock });
+                        }
                     }
-                } catch (error) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[EVENT_LOAD_ERROR]')} Failed to load ${file}: ${error.message}`);
-                    logError(`Failed to load event ${file}: ${error.message}`);
+
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded event:')} ${chalk.yellow(eventName)}`);
+                    loadedCount++;
+                } else {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)}`);
+                    failedCount++;
                 }
+            } catch (error) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load event from')} ${chalk.yellow(file)}: ${chalk.red(error.message)}`);
+                failedCount++;
             }
+        });
 
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENTS_LOADED]')} Successfully loaded ${loadedCount} events`);
-            logSuccess(`Successfully loaded ${loadedCount} events`);
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[STATUS]')} Events are now active and listening 24/7`);
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[NOTIFICATIONS]')} Bot will now send real-time notifications to WhatsApp groups`);
-            console.log('─────────────────────────────────────────');
-
-        } catch (error) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[EVENT_MANAGER_ERROR]')} Error loading events: ${error.message}`);
-            logError(`Error loading events: ${error.message}`);
+        if (failedCount > 0) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load')} ${chalk.yellow(failedCount)} ${chalk.red('events')}`);
         }
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(loadedCount)} ${chalk.cyan('events')} ${failedCount > 0 ? chalk.red(`(${failedCount} failed)`) : ''}`);
+        console.log('─────────────────────────────────────────');
     }
 
     handleEvents({ sock, m = null, sender }) {
