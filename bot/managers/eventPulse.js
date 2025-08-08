@@ -47,9 +47,11 @@ class EventManager {
                 delete require.cache[require.resolve(eventPath)];
                 const eventModule = require(eventPath);
 
-                if (eventModule && (eventModule.config || eventModule.name)) {
-                    const eventName = eventModule.config?.name || eventModule.name;
+                if (eventModule && eventModule.config && eventModule.config.name) {
+                    const eventName = eventModule.config.name;
                     this.events.set(eventName, eventModule);
+
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded event:')} ${chalk.yellow(eventName)}`);
 
                     // Execute onStart and onLoad silently
                     if (global.sock) {
@@ -64,7 +66,7 @@ class EventManager {
 
                     loadedCount++;
                 } else {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)}`);
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)} ${chalk.gray('- Missing config.name')}`);
                     failedCount++;
                 }
             } catch (error) {
