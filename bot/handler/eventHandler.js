@@ -67,7 +67,7 @@ class EventHandler {
                 console.error(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MESSAGE_ERROR]')} Error processing message:`, err);
                 // Don't crash the bot, continue listening
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RECOVERY]')} ${chalk.white('Bot continues listening despite error...')}`);
-
+                
                 // Try to inform the user about the error if possible
                 try {
                     if (chatUpdate?.messages?.[0]?.key?.remoteJid) {
