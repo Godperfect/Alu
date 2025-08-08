@@ -312,38 +312,26 @@ module.exports = {
     },
 
     onStart: async ({ sock }) => {
-        // Group Activities event handlers initialized silently
         // Register event handlers
         if (!global.Luna.onEvent) {
             global.Luna.onEvent = new Map();
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[INIT]')} Created Luna.onEvent Map`);
         }
 
-        // Register group event handlers with enhanced logging
         global.Luna.onEvent.set('group.join', { callback: (data) => handleGroupJoin(sock, data.eventData) });
         global.Luna.onEvent.set('group.leave', { callback: (data) => handleGroupLeave(sock, data.eventData) });
         global.Luna.onEvent.set('group.promote', { callback: (data) => handleGroupPromote(sock, data.eventData) });
         global.Luna.onEvent.set('group.demote', { callback: (data) => handleGroupDemote(sock, data.eventData) });
-
-        logSuccess('Group activities event handlers registered successfully');
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENT]')} Group Activities event is now monitoring all groups 24/7`);
     },
 
     onLoad: async ({ sock }) => {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EVENT_LOAD]')} Loading Group Activities event handlers...`);
-
-        // Also register on load for immediate activation
+        // Register on load for immediate activation
         if (!global.Luna.onEvent) {
             global.Luna.onEvent = new Map();
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[LOAD_INIT]')} Created Luna.onEvent Map`);
         }
 
         global.Luna.onEvent.set('group.join', { callback: (data) => handleGroupJoin(sock, data.eventData) });
         global.Luna.onEvent.set('group.leave', { callback: (data) => handleGroupLeave(sock, data.eventData) });
         global.Luna.onEvent.set('group.promote', { callback: (data) => handleGroupPromote(sock, data.eventData) });
         global.Luna.onEvent.set('group.demote', { callback: (data) => handleGroupDemote(sock, data.eventData) });
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENT_LOADED]')} Group Activities monitoring is ACTIVE and ready to send notifications`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[STATUS]')} Bot will now send real-time notifications to WhatsApp groups`);
     }
 };
