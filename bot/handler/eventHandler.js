@@ -133,7 +133,7 @@ class EventHandler {
                 logSuccess('Event handlers are now actively listening for all activities');
             } else if (connection === 'close') {
                 logConnection('disconnected', 'WhatsApp connection lost');
-                logWarning('Event handlers temporarily inactive - Attempting reconnection...');
+                logWarning(' Attempting reconnection...');
             }
         });
 
