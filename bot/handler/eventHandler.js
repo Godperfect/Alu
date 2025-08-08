@@ -25,9 +25,7 @@ class EventHandler {
     }
 
     initializeMessageListener(sock, store) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SYSTEM]')} ${chalk.cyan('Event Handler initialized - Bot is now actively listening for messages 24/7')}`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SYSTEM]')} ${chalk.yellow('Ready to process:')} ${chalk.white('Messages, Commands, Reactions, Group Events, Calls')}`);
-        console.log('─────────────────────────────────────────');
+        // Event handler initialized silently
 
         // Enhanced message listener with better error handling
         sock.ev.on('messages.upsert', async (chatUpdate) => {
