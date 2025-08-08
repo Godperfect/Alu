@@ -2,6 +2,8 @@
 const config = require('../config.json');
 
 const initializeGlobals = () => {
+    // Make config globally available
+    global.config = config;
     global.owner = config.botSettings.ownerNumber ? [config.botSettings.ownerNumber] : [];
     global.prefix = config.botSettings.prefix || '+';
     global.botName = config.botSettings.botName || 'Luna v1';

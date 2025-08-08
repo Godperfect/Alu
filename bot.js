@@ -8,13 +8,12 @@ const pino = require('pino');
 const fs = require('fs');
 const chalk = require('chalk');
 const { logInfo, logError, logSuccess } = require('./utils');
-const config = require('./config.json');
 const { authenticateSession, getAuthState, getTimestamp, getFormattedDate } = require('./bot/login/login.js');
 const eventHandler = require('./bot/handler/eventHandler');
 const { handleConnection } = require('./bot/login/plug');
 const { initializeMediaHandlers } = require('./utils');
 const { startUptimeServer } = require('./bot/sentainal');
-const { initializeGlobals, config: globalConfig } = require('./config/globals');
+const { initializeGlobals } = require('./config/globals');
 const CommandManager = require('./bot/managers/cmdPulse');
 const EventManager = require('./bot/managers/eventPulse');
 const db = require('./dashboard/connectDB');
@@ -71,8 +70,8 @@ async function startBotz() {
         // Initialize globals first
         initializeGlobals();
 
-        // Initialize language manager with config
-        languageManager.initialize(config);
+        // Initialize language manager with global config
+        languageManager.initialize(global.config);
 
         process.on('unhandledRejection', (reason, promise) => {
             // Handle unhandled rejections silently for session-related errors
@@ -88,18 +87,18 @@ async function startBotz() {
         const { state, saveCreds } = await getAuthState();
 
         const ptz = makeWASocket({
-            logger: pino({ level: config.waSocket.logLevel || "silent" }),
-            printQRInTerminal: config.whatsappAccount.printQRInTerminal,
+            logger: pino({ level: global.config.waSocket.logLevel || "silent" }),
+            printQRInTerminal: global.config.whatsappAccount.printQRInTerminal,
             auth: state,
-            browser: config.waSocket.browser,
-            connectTimeoutMs: config.whatsappAccount.qrTimeout * 1000,
-            defaultQueryTimeoutMs: config.waSocket.defaultQueryTimeoutMs,
-            keepAliveIntervalMs: config.waSocket.keepAliveIntervalMs,
-            emitOwnEvents: config.waSocket.emitOwnEvents,
-            fireInitQueries: config.waSocket.fireInitQueries,
-            generateHighQualityLinkPreview: config.waSocket.generateHighQualityLinkPreview,
-            syncFullHistory: config.waSocket.syncFullHistory,
-            markOnlineOnConnect: config.waSocket.markOnlineOnConnect,
+            browser: global.config.waSocket.browser,
+            connectTimeoutMs: global.config.whatsappAccount.qrTimeout * 1000,
+            defaultQueryTimeoutMs: global.config.waSocket.defaultQueryTimeoutMs,
+            keepAliveIntervalMs: global.config.waSocket.keepAliveIntervalMs,
+            emitOwnEvents: global.config.waSocket.emitOwnEvents,
+            fireInitQueries: global.config.waSocket.fireInitQueries,
+            generateHighQualityLinkPreview: global.config.waSocket.generateHighQualityLinkPreview,
+            syncFullHistory: global.config.waSocket.syncFullHistory,
+            markOnlineOnConnect: global.config.waSocket.markOnlineOnConnect,
             getMessage: async (key) => {
                 if (store) {
                     const msg = await store.loadMessage(key.remoteJid, key.id);
@@ -149,7 +148,7 @@ async function startBotz() {
                 logSuccess('Bot is now ready and listening for messages');
 
                 // Initialize database connection after successful WhatsApp connection
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CONNECTING TO DATABASE:')} ${chalk.green(config.database.type?.toUpperCase() || 'SQLITE')}`);
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CONNECTING TO DATABASE:')} ${chalk.green(global.config.database.type?.toUpperCase() || 'SQLITE')}`);
                 const dbConnected = await db.connect();
 
                 if (dbConnected) {
@@ -204,11 +203,11 @@ async function startBotz() {
 
         ptz.ev.on('creds.update', saveCreds);
 
-        if (config.autoRestart && config.autoRestart.enable && config.autoRestart.time) {
+        if (global.config.autoRestart && global.config.autoRestart.enable && global.config.autoRestart.time) {
             setInterval(() => {
-                logInfo(languageManager.get('bot.restartScheduled', config.autoRestart.time));
+                logInfo(languageManager.get('bot.restartScheduled', global.config.autoRestart.time));
                 process.exit();
-            }, config.autoRestart.time * 1000 * 60);
+            }, global.config.autoRestart.time * 1000 * 60);
         }
 
         // Monitor bot health (reduced frequency)

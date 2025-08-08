@@ -43,46 +43,79 @@ const logWarning = (message) => {
 };
 
 const logMessage = (details) => {
-    const { messageType, chatName, senderName, messageText, hasAttachment, attachmentType, isForwarded, isReply, isReaction, reaction, fromMe } = details;
+    const { messageType, chatName, senderName, messageText, hasAttachment, attachmentType, isForwarded, isReply, isReaction, reaction, fromMe, timestamp, messageId, remoteJid, sender } = details;
 
-    // Format message type with colors
+    // Create JSON structure for message log
+    const messageLog = {
+        timestamp: timestamp || new Date().toISOString(),
+        messageId: messageId || 'unknown',
+        remoteJid: remoteJid || 'unknown',
+        sender: {
+            name: senderName || 'Unknown',
+            number: sender || 'unknown',
+            fromMe: fromMe || false
+        },
+        chat: {
+            name: chatName || 'Unknown',
+            type: messageType || 'unknown'
+        },
+        message: {
+            text: messageText || '',
+            hasAttachment: hasAttachment || false,
+            attachmentType: attachmentType || null,
+            isForwarded: isForwarded || false,
+            isReply: isReply || false,
+            isReaction: isReaction || false,
+            reaction: reaction || null
+        }
+    };
+
+    // Format colored output for console
     const typeColor = messageType === 'private' ? chalk.cyan : messageType === 'group' ? chalk.green : chalk.magenta;
     const typeDisplay = typeColor(`[${messageType.toUpperCase()}]`);
-
-    // Format sender info
     const senderDisplay = fromMe ? chalk.yellow('BOT') : chalk.white(senderName || 'Unknown');
-
-    // Format chat info
     const chatDisplay = messageType === 'private' ? chalk.cyan(chatName) : chalk.green(chatName);
 
-    // Format message content
-    let messageDisplay = messageText ? chalk.white(`"${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`): '';
-
-    // Add attachment info
-    if (hasAttachment) {
-        messageDisplay += ` ${chalk.magenta(`[${attachmentType.toUpperCase()}]`)}`;
-    }
-
-    // Add special indicators
-    const indicators = [];
-    if (isForwarded) indicators.push(chalk.blue('[FORWARDED]'));
-    if (isReply) indicators.push(chalk.yellow('[REPLY]'));
-    if (isReaction) indicators.push(chalk.red(`[REACTION: ${reaction}]`));
-
-    const indicatorDisplay = indicators.length > 0 ? ` ${indicators.join(' ')}` : '';
-
-    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE]')} ${typeDisplay} ${senderDisplay} ${chalk.gray('→')} ${chatDisplay}${indicatorDisplay}`);
-    if (messageDisplay) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.gray('[CONTENT]')} ${messageDisplay}`);
+    // Log JSON structure with colors
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE_JSON]')}`);
+    console.log(JSON.stringify(messageLog, null, 2));
+    
+    // Log simple formatted message for quick reading
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE]')} ${typeDisplay} ${senderDisplay} ${chalk.gray('→')} ${chatDisplay}`);
+    
+    if (messageText) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.gray('[CONTENT]')} ${chalk.white(messageText.substring(0, 100))}${messageText.length > 100 ? chalk.gray('...') : ''}`);
     }
 };
 
-const logCommand = (command, user, chatType = 'private') => {
+const logCommand = (command, user, chatType = 'private', executionTime = 0, success = true) => {
+    const commandLog = {
+        timestamp: new Date().toISOString(),
+        command: command,
+        user: user,
+        chatType: chatType,
+        executionTime: executionTime,
+        success: success
+    };
+
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[COMMAND_JSON]')}`);
+    console.log(JSON.stringify(commandLog, null, 2));
+    
     const typeColor = chatType === 'private' ? chalk.cyan : chalk.green;
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[COMMAND]')} ${chalk.white(command)} ${chalk.gray('by')} ${chalk.white(user)} ${chalk.gray('in')} ${typeColor(chatType)}`);
 };
 
-const logEvent = (eventType, details) => {
+const logEvent = (eventType, details, metadata = {}) => {
+    const eventLog = {
+        timestamp: new Date().toISOString(),
+        eventType: eventType,
+        details: details,
+        metadata: metadata
+    };
+
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[EVENT_JSON]')}`);
+    console.log(JSON.stringify(eventLog, null, 2));
+    
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[EVENT]')} ${chalk.white(eventType)} ${chalk.gray('-')} ${details}`);
 };
 
@@ -91,7 +124,18 @@ const logConnection = (status, details = '') => {
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CONNECTION]')} ${statusColor(status.toUpperCase())} ${details}`);
 };
 
-const logDatabase = (operation, status, details = '') => {
+const logDatabase = (operation, status, details = '', queryTime = 0) => {
+    const dbLog = {
+        timestamp: new Date().toISOString(),
+        operation: operation,
+        status: status,
+        details: details,
+        queryTime: queryTime
+    };
+
+    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[DATABASE_JSON]')}`);
+    console.log(JSON.stringify(dbLog, null, 2));
+    
     const statusColor = status === 'success' ? chalk.green : chalk.red;
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[DATABASE]')} ${chalk.white(operation)} ${statusColor(status.toUpperCase())} ${details}`);
 };

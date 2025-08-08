@@ -1,6 +1,5 @@
 const fs = require('fs');
 const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate } = require('../../utils');
-const { config } = require('../../config/globals');
 const chalk = require('chalk');
 
 const handlerAction = require('./handlerAction');
@@ -389,7 +388,6 @@ class EventHandler {
                         logMessage({
                             messageType,
                             chatName,
-                            sender,
                             senderName,
                             messageText,
                             hasAttachment,
@@ -399,7 +397,10 @@ class EventHandler {
                             repliedTo,
                             isReaction,
                             reaction,
-                            timestamp,
+                            timestamp: new Date().toISOString(),
+                            messageId: mek.key.id,
+                            remoteJid: mek.key.remoteJid,
+                            sender: sender,
                             fromMe: mek.key.fromMe
                         });
                     } catch (err) {
