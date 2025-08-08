@@ -140,13 +140,13 @@ async function startBotz() {
                     logError('Connection closed permanently');
                 }
             } else if (connection === 'connecting') {
-                // Removed redundant connection log
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CONNECTION]')} ${chalk.yellow('CONNECTING')} ${chalk.white('Establishing WhatsApp connection...')}`);
             } else if (connection === 'open') {
                 clearTimeout(connectionTimeout);
                 global.botConnected = true;
                 global.sock = ptz; // Make sock available globally for events
-                // Removed redundant success log
-                // Removed redundant status log
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CONNECTION]')} ${chalk.green('CONNECTED')} ${chalk.white('WhatsApp connection established - Bot active 24/7')}`);
+                logSuccess('Bot is now ready and listening for messages');
 
                 // Initialize database connection after successful WhatsApp connection
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CONNECTING TO DATABASE:')} ${chalk.green(config.database.type?.toUpperCase() || 'SQLITE')}`);
