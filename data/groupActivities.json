@@ -19,5 +19,50 @@
         "groupName": "Elites Support Guild"
       }
     ]
+  },
+  "120363421008046908@g.us": {
+    "joins": [],
+    "leaves": [
+      {
+        "userId": "266872641609827",
+        "timestamp": 1754636788833,
+        "action": "leave",
+        "groupName": "^ bhoom🦋🪷"
+      }
+    ],
+    "promotes": [],
+    "demotes": []
+  },
+  "120363400316992910@g.us": {
+    "joins": [],
+    "leaves": [
+      {
+        "userId": "266872641609827",
+        "timestamp": 1754636788863,
+        "action": "leave",
+        "groupName": ".."
+      },
+      {
+        "userId": "27299315507430",
+        "timestamp": 1754636832005,
+        "action": "leave",
+        "groupName": ".."
+      }
+    ],
+    "promotes": [],
+    "demotes": []
+  },
+  "120363395745229824@g.us": {
+    "joins": [],
+    "leaves": [
+      {
+        "userId": "66761542131795",
+        "timestamp": 1754636790255,
+        "action": "leave",
+        "groupName": "GMAIL'S & FB 🆔 MARKETING (NS)❤️"
+      }
+    ],
+    "promotes": [],
+    "demotes": []
   }
 }
