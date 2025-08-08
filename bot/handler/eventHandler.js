@@ -315,15 +315,82 @@ class EventHandler {
             const messageText = getTextContent(mek.message);
 
 
-            // Log message details (async without blocking)
+            // Log detailed message information
             if (config.logMessages?.enable !== false) {
                 setImmediate(async () => {
                     try {
+                        const senderName = await getSenderName(sock, sender);
+                        const senderPhone = extractPhoneNumber(sender, senderNumber);
+                        
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('═══════════════════════════════════════')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE LOG]')} ${chalk.white('New Message Received')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Sender:')} ${chalk.white(senderName)} ${chalk.gray('(')}${chalk.yellow(senderPhone)}${chalk.gray(')')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Chat:')} ${chalk.white(chatName)} ${chalk.gray('[')}${chalk.magenta(messageType)}${chalk.gray(']')}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Message ID:')} ${chalk.white(mek.key.id)}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Remote JID:')} ${chalk.white(mek.key.remoteJid)}`);
+                        
+                        if (messageText && messageText.trim()) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Content:')} ${chalk.white(messageText.substring(0, 100))}${messageText.length > 100 ? chalk.gray('...') : ''}`);
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Length:')} ${chalk.white(messageText.length)} ${chalk.gray('characters')}`);
+                        }
+                        
+                        if (isReply && repliedTo) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Replied to:')} ${chalk.white(repliedTo)}`);
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Quoted Message ID:')} ${chalk.white(quotedMessageId)}`);
+                        }
+                        
+                        if (hasAttachment) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Attachment:')} ${chalk.green('YES')} ${chalk.gray('[')}${chalk.yellow(attachmentType)}${chalk.gray(']')}`);
+                            
+                            // Log media details if available
+                            const mediaMessage = mek.message[contentType];
+                            if (mediaMessage) {
+                                if (mediaMessage.url) {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Media URL:')} ${chalk.white(mediaMessage.url)}`);
+                                }
+                                if (mediaMessage.mimetype) {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('MIME Type:')} ${chalk.white(mediaMessage.mimetype)}`);
+                                }
+                                if (mediaMessage.fileLength) {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('File Size:')} ${chalk.white(mediaMessage.fileLength)} ${chalk.gray('bytes')}`);
+                                }
+                                if (mediaMessage.fileName) {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('File Name:')} ${chalk.white(mediaMessage.fileName)}`);
+                                }
+                                if (mediaMessage.caption) {
+                                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Caption:')} ${chalk.white(mediaMessage.caption)}`);
+                                }
+                            }
+                        } else {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Attachment:')} ${chalk.red('NO')}`);
+                        }
+                        
+                        if (isForwarded) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Forwarded:')} ${chalk.yellow('YES')}`);
+                        }
+                        
+                        if (isReaction && reaction) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Reaction:')} ${chalk.white(reaction)}`);
+                        }
+                        
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Timestamp:')} ${chalk.white(new Date(mek.messageTimestamp * 1000).toLocaleString())}`);
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('From Me:')} ${mek.key.fromMe ? chalk.green('YES') : chalk.red('NO')}`);
+                        
+                        // Log raw message keys for debugging
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Message Keys:')} ${chalk.gray(Object.keys(mek.message || {}).join(', '))}`);
+                        
+                        if (isGroup && groupMetadata) {
+                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Group Participants:')} ${chalk.white(groupMetadata.participants ? groupMetadata.participants.length : 0)}`);
+                        }
+                        
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('═══════════════════════════════════════')}`);
+                        
+                        // Also call the original logMessage function
                         logMessage({
                             messageType,
                             chatName,
                             sender,
-                            senderName: await getSenderName(sock, sender),
+                            senderName,
                             messageText,
                             hasAttachment,
                             attachmentType,
@@ -336,7 +403,7 @@ class EventHandler {
                             fromMe: mek.key.fromMe
                         });
                     } catch (err) {
-                        // Silent fail
+                        logError(`Error in detailed message logging: ${err.message}`);
                     }
                 });
             }

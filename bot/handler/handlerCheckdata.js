@@ -1,4 +1,5 @@
-const { logInfo, logError, getSenderName } = require('../../utils');
+const { logInfo, logError, getSenderName, getTimestamp, getFormattedDate } = require('../../utils');
+const chalk = require('chalk');
 const db = require('../../dashboard/connectDB');
 const { config } = require('../../config/globals');
 
@@ -247,6 +248,16 @@ class DataHandler {
                 isForwarded: messageInfo.message?.contextInfo?.isForwarded || false,
                 isReply: !!messageInfo.message?.contextInfo?.quotedMessage
             };
+
+            // Log database operation details
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[DATABASE LOG]')} Saving message to database`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB Message ID:')} ${chalk.white(messageData.messageId)}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB User ID:')} ${chalk.white(messageData.userId)}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB Group ID:')} ${chalk.white(messageData.groupId || 'N/A')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB Message Type:')} ${chalk.white(messageData.messageType)}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB Has Media:')} ${messageData.hasMedia ? chalk.green('YES') : chalk.red('NO')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB Is Forwarded:')} ${messageData.isForwarded ? chalk.yellow('YES') : chalk.red('NO')}`);
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('DB Is Reply:')} ${messageData.isReply ? chalk.green('YES') : chalk.red('NO')}`);
 
             await db.logMessage(messageData);
         } catch (error) {
