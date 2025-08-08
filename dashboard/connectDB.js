@@ -42,7 +42,6 @@ class DatabaseManager {
             await this.sqlite.close();
         }
         this.isConnected = false;
-        logInfo('All database connections closed');
     }
 
     // Wrapper methods that use the primary database

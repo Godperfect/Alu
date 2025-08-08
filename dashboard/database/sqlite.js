@@ -593,7 +593,6 @@ class SQLiteDB {
                 WHERE groupId = ?
             `, [groupName, participantCount || 0, groupId]);
 
-            console.log(`[SQLite] Group activity updated successfully`);
             return true;
         } catch (error) {
             console.error('Error updating group activity:', error);

@@ -24,8 +24,6 @@ class MongoDB {
             
             // Clean all collections on startup
             await this.cleanAllCollections();
-            
-            logSuccess('Connected to MongoDB successfully');
             return true;
         } catch (error) {
             logError(`MongoDB connection failed: ${error.message}`);
@@ -40,7 +38,6 @@ class MongoDB {
             for (const collectionName of collections) {
                 try {
                     await this.db.collection(collectionName).deleteMany({});
-                    logInfo(`Cleaned MongoDB collection: ${collectionName}`);
                 } catch (error) {
                     // Ignore errors for non-existent collections
                 }
@@ -54,7 +51,6 @@ class MongoDB {
         if (this.client) {
             await this.client.close();
             this.isConnected = false;
-            logInfo('Disconnected from MongoDB');
         }
     }
 
@@ -322,7 +318,6 @@ class MongoDB {
                 { upsert: true }
             );
 
-            console.log(`[MongoDB] User activity updated successfully`);
             return true;
         } catch (error) {
             logError(`Failed to update user activity: ${error.message}`);
@@ -337,8 +332,6 @@ class MongoDB {
                 console.error(`Invalid group ID in updateGroupActivity: ${groupId}`);
                 return false;
             }
-
-            console.log(`[MongoDB] Updating group activity for: ${groupId} - ${groupName}`);
 
             const groups = this.db.collection('groups');
             await groups.updateOne(
@@ -361,7 +354,6 @@ class MongoDB {
                 { upsert: true }
             );
 
-            console.log(`[MongoDB] Group activity updated successfully`);
             return true;
         } catch (error) {
             logError(`Failed to update group activity: ${error.message}`);
