@@ -70,21 +70,31 @@ const logMessage = (details) => {
         }
     };
 
-    // Format colored output for console
-    const typeColor = messageType === 'private' ? chalk.cyan : messageType === 'group' ? chalk.green : chalk.magenta;
-    const typeDisplay = typeColor(`[${messageType.toUpperCase()}]`);
-    const senderDisplay = fromMe ? chalk.yellow('BOT') : chalk.white(senderName || 'Unknown');
-    const chatDisplay = messageType === 'private' ? chalk.cyan(chatName) : chalk.green(chatName);
+    // Store in global logs array if it exists
+    if (global.messageLogs) {
+        global.messageLogs.push(messageLog);
+        // Keep only last 1000 logs to prevent memory issues
+        if (global.messageLogs.length > 1000) {
+            global.messageLogs = global.messageLogs.slice(-1000);
+        }
+    }
 
     // Log JSON structure with colors
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE_JSON]')}`);
     console.log(JSON.stringify(messageLog, null, 2));
     
-    // Log simple formatted message for quick reading
-    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE]')} ${typeDisplay} ${senderDisplay} ${chalk.gray('→')} ${chatDisplay}`);
-    
-    if (messageText) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.gray('[CONTENT]')} ${chalk.white(messageText.substring(0, 100))}${messageText.length > 100 ? chalk.gray('...') : ''}`);
+    // Simple one-liner for quick reading (optional, can be disabled)
+    if (global.config?.logging?.showSimpleFormat !== false) {
+        const typeColor = messageType === 'private' ? chalk.cyan : messageType === 'group' ? chalk.green : chalk.magenta;
+        const typeDisplay = typeColor(`[${messageType.toUpperCase()}]`);
+        const senderDisplay = fromMe ? chalk.yellow('BOT') : chalk.white(senderName || 'Unknown');
+        const chatDisplay = messageType === 'private' ? chalk.cyan(chatName) : chalk.green(chatName);
+        
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[MESSAGE]')} ${typeDisplay} ${senderDisplay} ${chalk.gray('→')} ${chatDisplay}`);
+        
+        if (messageText) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.gray('[CONTENT]')} ${chalk.white(messageText.substring(0, 100))}${messageText.length > 100 ? chalk.gray('...') : ''}`);
+        }
     }
 };
 
@@ -98,11 +108,21 @@ const logCommand = (command, user, chatType = 'private', executionTime = 0, succ
         success: success
     };
 
+    // Store in global logs array
+    if (global.commandLogs) {
+        global.commandLogs.push(commandLog);
+        if (global.commandLogs.length > 500) {
+            global.commandLogs = global.commandLogs.slice(-500);
+        }
+    }
+
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[COMMAND_JSON]')}`);
     console.log(JSON.stringify(commandLog, null, 2));
     
-    const typeColor = chatType === 'private' ? chalk.cyan : chalk.green;
-    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[COMMAND]')} ${chalk.white(command)} ${chalk.gray('by')} ${chalk.white(user)} ${chalk.gray('in')} ${typeColor(chatType)}`);
+    if (global.config?.logging?.showSimpleFormat !== false) {
+        const typeColor = chatType === 'private' ? chalk.cyan : chalk.green;
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[COMMAND]')} ${chalk.white(command)} ${chalk.gray('by')} ${chalk.white(user)} ${chalk.gray('in')} ${typeColor(chatType)}`);
+    }
 };
 
 const logEvent = (eventType, details, metadata = {}) => {
@@ -113,10 +133,20 @@ const logEvent = (eventType, details, metadata = {}) => {
         metadata: metadata
     };
 
+    // Store in global logs array
+    if (global.eventLogs) {
+        global.eventLogs.push(eventLog);
+        if (global.eventLogs.length > 500) {
+            global.eventLogs = global.eventLogs.slice(-500);
+        }
+    }
+
     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[EVENT_JSON]')}`);
     console.log(JSON.stringify(eventLog, null, 2));
     
-    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[EVENT]')} ${chalk.white(eventType)} ${chalk.gray('-')} ${details}`);
+    if (global.config?.logging?.showSimpleFormat !== false) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.magenta('[EVENT]')} ${chalk.white(eventType)} ${chalk.gray('-')} ${details}`);
+    }
 };
 
 const logConnection = (status, details = '') => {
