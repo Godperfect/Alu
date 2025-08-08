@@ -25,7 +25,6 @@ class EventHandler {
     }
 
     initializeMessageListener(sock, store) {
-        // Event handler initialized silently
 
         // Enhanced message listener with better error handling
         sock.ev.on('messages.upsert', async (chatUpdate) => {
@@ -123,19 +122,7 @@ class EventHandler {
             }
         });
 
-        // Add connection state monitoring
-        sock.ev.on('connection.update', (update) => {
-            const { connection, lastDisconnect } = update;
-            if (connection === 'connecting') {
-                logConnection('connecting', 'Establishing WhatsApp connection...');
-            } else if (connection === 'open') {
-                logConnection('connected', 'WhatsApp connection established - Bot active 24/7');
-                logSuccess('Event handlers are now actively listening for all activities');
-            } else if (connection === 'close') {
-                logConnection('disconnected', 'WhatsApp connection lost');
-                logWarning(' Attempting reconnection...');
-            }
-        });
+        // Connection state monitoring handled in main bot.js
 
         // Monitor bot health
         setInterval(() => {
