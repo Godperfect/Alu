@@ -62,7 +62,6 @@ class EventManager {
                         }
                     }
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded event:')} ${chalk.yellow(eventName)}`);
                     loadedCount++;
                 } else {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)}`);
@@ -74,9 +73,6 @@ class EventManager {
             }
         });
 
-        if (failedCount > 0) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load')} ${chalk.yellow(failedCount)} ${chalk.red('events')}`);
-        }
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(loadedCount)} ${chalk.cyan('events')} ${failedCount > 0 ? chalk.red(`(${failedCount} failed)`) : ''}`);
         console.log('─────────────────────────────────────────');
     }
