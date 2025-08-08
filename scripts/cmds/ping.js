@@ -25,9 +25,11 @@ module.exports = {
             
             const latency = Date.now() - start;
             
+            // Edit the original message instead of sending a new one
             await sock.sendMessage(chatId, {
-                text: `🚀 *Lightning Fast!*\n⚡ *Response Time:* ${latency}ms\n🤖 *Bot Status:* Active & Ready\n🌐 *Connection:* Stable`
-            }, { quoted: mek });
+                text: `🚀 *Lightning Fast!*\n⚡ *Response Time:* ${latency}ms\n🤖 *Bot Status:* Active & Ready\n🌐 *Connection:* Stable`,
+                edit: sent.key
+            });
             
         } catch (error) {
             await sock.sendMessage(chatId, {
@@ -44,15 +46,17 @@ module.exports = {
             const start = Date.now();
             
             try {
-                await sock.sendMessage(chatId, {
+                const sent = await sock.sendMessage(chatId, {
                     text: "⚡ Checking connection speed..."
                 }, { quoted: m });
                 
                 const latency = Date.now() - start;
                 
+                // Edit the original message instead of sending a new one
                 await sock.sendMessage(chatId, {
-                    text: `🚀 *Lightning Fast!*\n⚡ *Response Time:* ${latency}ms\n🤖 *Bot Status:* Active & Ready\n🌐 *Connection:* Stable\n\n_You can also use ${global.prefix}ping_`
-                }, { quoted: m });
+                    text: `🚀 *Lightning Fast!*\n⚡ *Response Time:* ${latency}ms\n🤖 *Bot Status:* Active & Ready\n🌐 *Connection:* Stable\n\n_You can also use ${global.prefix}ping_`,
+                    edit: sent.key
+                });
                 
                 logInfo(`Ping command executed via onChat by user`);
                 return true; // Stop processing other onChat handlers
