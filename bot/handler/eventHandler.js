@@ -52,14 +52,15 @@ class EventHandler {
                     return;
                 }
 
-                // Log message to database
-                try {
-                    const dataHandler = require('./handlerCheckdata');
-                    await dataHandler.logMessage(mek);
-                    logInfo(`Message logged for user ${mek.key.participant?.split('@')[0] || mek.key.remoteJid?.split('@')[0] || 'unknown'}`);
-                } catch (dbError) {
-                    logError(`Database logging failed: ${dbError.message}`);
-                }
+                // Log message to database (async without waiting)
+                setImmediate(async () => {
+                    try {
+                        const dataHandler = require('./handlerCheckdata');
+                        await dataHandler.logMessage(mek);
+                    } catch (dbError) {
+                        // Silent fail for logging to prevent blocking
+                    }
+                });
 
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
@@ -314,72 +315,56 @@ class EventHandler {
             const messageText = getTextContent(mek.message);
 
 
-            // Log message details
-            logMessage({
-                messageType,
-                chatName,
-                sender,
-                senderName: await getSenderName(sock, sender),
-                messageText,
-                hasAttachment,
-                attachmentType,
-                isForwarded,
-                isReply,
-                repliedTo,
-                isReaction,
-                reaction,
-                timestamp,
-                fromMe: mek.key.fromMe
-            });
-
-            // Update database with user/group activity
-            try {
-                const db = require('../../dashboard/connectDB');
-                if (db.getStatus().connected) {
-                    const senderName = await getSenderName(sock, sender);
-
-                    // Extract phone number for database operations
-                    const phoneNumber = extractPhoneNumber(sender, senderNumber);
-                    if (!phoneNumber || phoneNumber.length < 8) {
-                        console.log('Skipping message log - invalid or short userId:', phoneNumber, 'from sender:', sender);
-                        // Don't return here for channels/communities - continue processing
-                        if (!isChannel && !isCommunity) {
-                            return;
-                        }
+            // Log message details (async without blocking)
+            if (config.logMessages?.enable !== false) {
+                setImmediate(async () => {
+                    try {
+                        logMessage({
+                            messageType,
+                            chatName,
+                            sender,
+                            senderName: await getSenderName(sock, sender),
+                            messageText,
+                            hasAttachment,
+                            attachmentType,
+                            isForwarded,
+                            isReply,
+                            repliedTo,
+                            isReaction,
+                            reaction,
+                            timestamp,
+                            fromMe: mek.key.fromMe
+                        });
+                    } catch (err) {
+                        // Silent fail
                     }
-
-                    // Additional validation for phone numbers (more lenient for channels)
-                    if (phoneNumber && !/^\d{8,15}$/.test(phoneNumber)) {
-                        console.log('Skipping message log - invalid phone number format:', phoneNumber, 'from sender:', sender);
-                        // Don't return here for channels/communities - continue processing
-                        if (!isChannel && !isCommunity) {
-                            return;
-                        }
-                    }
-
-                    if (phoneNumber && phoneNumber.length >= 8) {
-                        // Update user activity
-                        await db.updateUserActivity(phoneNumber, senderName);
-                    }
-
-                    // Update group activity if in group
-                    if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
-                        await db.updateGroupActivity(
-                            mek.key.remoteJid,
-                            groupMetadata.subject,
-                            groupMetadata.participants ? groupMetadata.participants.length : 0
-                        );
-                    }
-
-                    // Log channel activity
-                    if (isChannel) {
-                        console.log(`[INFO] Channel message processed in: ${chatName}`);
-                    }
-                }
-            } catch (dbError) {
-                // Don't let database errors stop message processing
-                console.error('Database update error:', dbError.message);
+                });
             }
+
+            // Update database with user/group activity (async without blocking)
+            setImmediate(async () => {
+                try {
+                    const db = require('../../dashboard/connectDB');
+                    if (db.getStatus().connected) {
+                        const senderName = await getSenderName(sock, sender);
+                        const phoneNumber = extractPhoneNumber(sender, senderNumber);
+                        
+                        if (phoneNumber && phoneNumber.length >= 8 && /^\d{8,15}$/.test(phoneNumber)) {
+                            db.updateUserActivity(phoneNumber, senderName).catch(() => {});
+                        }
+
+                        if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
+                            db.updateGroupActivity(
+                                mek.key.remoteJid,
+                                groupMetadata.subject,
+                                groupMetadata.participants ? groupMetadata.participants.length : 0
+                            ).catch(() => {});
+                        }
+                    }
+                } catch (dbError) {
+                    // Silent fail to prevent blocking
+                }
+            });
 
 
             if (config.adminOnly?.enable &&
@@ -647,23 +632,29 @@ class EventHandler {
         }
     }
 
-    async safelyGetGroupMetadata(sock, jid, maxRetries = 3) {
-        let retries = maxRetries;
-        let backoffTime = 1000;
+    async safelyGetGroupMetadata(sock, jid, maxRetries = 2) {
+        // Simple cache to avoid repeated metadata calls
+        if (!this.metadataCache) this.metadataCache = new Map();
+        
+        const cached = this.metadataCache.get(jid);
+        if (cached && (Date.now() - cached.timestamp) < 300000) { // 5 min cache
+            return cached.data;
+        }
 
+        let retries = maxRetries;
         while (retries > 0) {
             try {
                 const metadata = await sock.groupMetadata(jid);
+                this.metadataCache.set(jid, { data: metadata, timestamp: Date.now() });
                 return metadata;
             } catch (err) {
                 retries--;
                 if (retries > 0) {
-                    logInfo(lang.get('luna.system.retryingGroupMetadata', retries));
-                    await new Promise(resolve => setTimeout(resolve, backoffTime));
-                    backoffTime *= 2;
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 } else {
-                    logError(lang.get('eventHandler.error.failedGroupMetadataRetries', maxRetries, err.message));
-                    return { subject: lang.get('eventHandler.unknownGroup'), participants: [] };
+                    const fallback = { subject: lang.get('eventHandler.unknownGroup'), participants: [] };
+                    this.metadataCache.set(jid, { data: fallback, timestamp: Date.now() });
+                    return fallback;
                 }
             }
         }

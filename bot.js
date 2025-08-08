@@ -211,6 +211,13 @@ async function startBotz() {
             }, config.autoRestart.time * 1000 * 60);
         }
 
+        // Monitor bot health (reduced frequency)
+        setInterval(() => {
+            if (global.botConnected) {
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HEARTBEAT]')} ${chalk.cyan('Bot is alive and actively listening...')}`);
+            }
+        }, 600000); // Every 10 minutes
+
         return ptz;
     } catch (err) {
         logError('Bot startup failed: ' + err.message);

@@ -117,7 +117,6 @@ class CommandManager {
                         });
                     }
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded command:')} ${chalk.yellow(cmd.name)}`);
                     totalCommands++;
                 } else if (command && command.name) {
                     // Original Luna style command structure
@@ -129,7 +128,6 @@ class CommandManager {
                         });
                     }
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded command:')} ${chalk.yellow(command.name)}`);
                     totalCommands++;
                 } else {
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid command structure in file:')} ${chalk.yellow(file)}`);
