@@ -1,6 +1,6 @@
 const fs = require('fs');
 const chalk = require('chalk');
-const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate, getPermissionLevel } = require('../../utils');
+const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate, getPermissionLevel, logCommand } = require('../../utils');
 const { config } = require('../../config/globals');
 const languageManager = require('../../language/language');
 const dataHandler = require('./handlerCheckdata');
@@ -186,8 +186,10 @@ const handlerAction = {
                     }
                 }
 
-
                 // Command executed - reduced logging
+                const startTime = Date.now();
+                let success = false;
+                let argsForLog = args || [];
 
                 try {
                     await executeMethod({
@@ -200,6 +202,7 @@ const handlerAction = {
                         messageInfo,
                         isGroup
                     });
+                    success = true;
                 } catch (err) {
                     logError(lang.get('error.executeCommand', command, err.message));
                     console.error(err);
@@ -207,6 +210,10 @@ const handlerAction = {
                     sock.sendMessage(threadID, {
                         text: lang.get('error.commandExecutionFailed', command)
                     }, { quoted: mek });
+                } finally {
+                    const endTime = Date.now();
+                    const executionTime = endTime - startTime;
+                    logCommand(command, userNumber || 'unknown', isGroup ? 'group' : 'private', executionTime, success);
                 }
             }
         } catch (err) {

@@ -301,7 +301,25 @@ class EventHandler {
             const messageText = getTextContent(mek.message);
 
 
-            // Reduced logging as requested by user
+            // Log message using utils logger
+            const senderName = getSenderName(mek) || 'Unknown';
+            logMessage({
+                messageType,
+                chatName,
+                senderName,
+                messageText,
+                hasAttachment,
+                attachmentType,
+                isForwarded,
+                isReply,
+                isReaction,
+                reaction,
+                fromMe: mek.key.fromMe,
+                timestamp: new Date(mek.messageTimestamp * 1000).toISOString(),
+                messageId: mek.key.id,
+                remoteJid: mek.key.remoteJid,
+                sender: senderNumber
+            });
 
             
 
