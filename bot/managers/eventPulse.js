@@ -4,18 +4,6 @@ const chalk = require('chalk');
 const { logInfo, logError, logSuccess, getTimestamp, getFormattedDate } = require('../../utils');
 
 /**
- * Get formatted timestamp
- * @returns {string} Formatted timestamp in [HH:mm:ss] format
- */
-const getTimestamp = () => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
-};
-
-/**
  * Get formatted date
  * @returns {string} Formatted date in [YYYY-MM-DD] format
  */
