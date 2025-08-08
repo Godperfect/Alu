@@ -64,9 +64,21 @@ class EventHandler {
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
                 logError(`Message listener error: ${err.message}`);
-                logError(`Stack trace: ${err.stack}`);
+                console.error(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MESSAGE_ERROR]')} Error processing message:`, err);
                 // Don't crash the bot, continue listening
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RECOVERY]')} ${chalk.white('Bot continues listening despite error...')}`);
+                
+                // Try to inform the user about the error if possible
+                try {
+                    if (chatUpdate?.messages?.[0]?.key?.remoteJid) {
+                        const errorChatId = chatUpdate.messages[0].key.remoteJid;
+                        await sock.sendMessage(errorChatId, {
+                            text: `⚠️ An error occurred while processing your message. The bot is still active and will continue to respond to other messages.`
+                        }).catch(() => {}); // Silent fail to prevent infinite loops
+                    }
+                } catch (notifyError) {
+                    // Silent fail - don't let error notification cause more errors
+                }
             }
         });
 

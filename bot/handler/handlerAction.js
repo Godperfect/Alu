@@ -176,17 +176,25 @@ const handlerAction = {
 
                 logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
 
-
-                await executeMethod({
-                    sock,
-                    mek,
-                    args,
-                    command,
-                    sender,
-                    botNumber,
-                    messageInfo,
-                    isGroup
-                });
+                try {
+                    await executeMethod({
+                        sock,
+                        mek,
+                        args,
+                        command,
+                        sender,
+                        botNumber,
+                        messageInfo,
+                        isGroup
+                    });
+                } catch (err) {
+                    logError(lang.get('error.executeCommand', command, err.message));
+                    console.error(err);
+                    // Optionally send an error message to the user
+                    sock.sendMessage(threadID, {
+                        text: lang.get('error.commandExecutionFailed', command)
+                    }, { quoted: mek });
+                }
             }
         } catch (err) {
             logError(lang.get('error.handleCommand', err.message));
@@ -250,7 +258,7 @@ const handlerAction = {
 
             // Check if message starts with prefix
             const hasPrefix = messageText.startsWith(currentPrefix);
-            
+
             // Process onChat for ALL commands that have it, not just specific ones
             for (const [commandName, command] of global.commands.entries()) {
                 if (typeof command.onChat === 'function') {
