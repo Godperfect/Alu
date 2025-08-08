@@ -86,6 +86,8 @@ class CommandManager {
 
                 // Check for newer Luna command structure (with config object)
                 if (command && command.config && command.config.name) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[LOADING]')} Loading command: ${chalk.cyan(command.config.name)}`);
+                    
                     const cmd = {
                         name: command.config.name,
                         description: command.config.description || 'No description provided',
@@ -111,6 +113,8 @@ class CommandManager {
 
                     totalCommands++;
                 } else if (command && command.name) {
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[LOADING]')} Loading command: ${chalk.cyan(command.name)}`);
+                    
                     // Original Luna style command structure
                     global.Luna.commands.set(command.name, command);
                     global.commands.set(command.name, command); // For backward compatibility
