@@ -369,12 +369,12 @@ const isGroupAdmin = async (sock, groupId, userNumber) => {
 };
 
 const getPermissionLevel = (userNumber, groupId = null, sock = null) => {
-    if (isBotAdmin(userNumber)) return 2; // Bot admin
+    if (isBotAdmin(userNumber)) return 3; // Bot admin (level 3)
     if (groupId && sock) {
         // Use await for async operation
-        if (isGroupAdmin(sock, groupId, userNumber)) return 1; // Group admin
+        if (isGroupAdmin(sock, groupId, userNumber)) return 2; // Group admin (level 2)
     }
-    return 0; // Regular user
+    return 1; // Regular user (level 1)
 };
 
 const hasPermission = (userNumber, requiredLevel, groupData = null, sock = null) => {

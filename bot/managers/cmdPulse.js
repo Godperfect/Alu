@@ -26,6 +26,7 @@ function safeRequire(moduleName) {
 const { logSuccess, logCommand, logError } = require('../../utils');
 const { config } = require('../../config/globals');
 const chalk = require('chalk');
+const { getTimestamp, getFormattedDate, logInfo, logError, logSuccess } = require('../../utils');
 
 /**
  * Get formatted timestamp
