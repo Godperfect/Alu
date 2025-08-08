@@ -5,6 +5,9 @@ const { config } = require('../../config/globals');
 const languageManager = require('../../language/language');
 const dataHandler = require('./handlerCheckdata');
 
+// Initialize lang reference
+const lang = languageManager;
+
 
 if (!global.cooldowns) {
     global.cooldowns = new Map();
@@ -41,6 +44,9 @@ const handlerAction = {
                 return; // Silently return if no command (prefix wasn't detected)
             }
 
+            console.log(`[DEBUG] Looking for command: "${command}"`);
+            console.log(`[DEBUG] Available commands:`, Array.from(global.commands.keys()));
+
             // First try to get command directly
             let cmd = global.commands.get(command);
 
@@ -48,6 +54,7 @@ const handlerAction = {
             if (!cmd && global.aliases && global.aliases.has(command)) {
                 const actualCommandName = global.aliases.get(command);
                 cmd = global.commands.get(actualCommandName);
+                console.log(`[DEBUG] Found via alias: ${command} -> ${actualCommandName}`);
             }
 
             // Fallback: search through command config aliases (for backwards compatibility)
@@ -55,16 +62,21 @@ const handlerAction = {
                 for (const [cmdName, cmdObj] of global.commands.entries()) {
                     if (cmdObj.config && cmdObj.config.aliases && cmdObj.config.aliases.includes(command)) {
                         cmd = cmdObj;
+                        console.log(`[DEBUG] Found via config alias: ${command} -> ${cmdName}`);
                         break;
                     }
                 }
             }
 
             if (!cmd) {
+                console.log(`[DEBUG] Command not found: "${command}"`);
                 return sock.sendMessage(threadID, { 
                     text: `❌ Unknown command: *${command}*\n\nType *${currentPrefix}help* to see available commands.`
                 }, { quoted: mek });
             }
+
+            console.log(`[DEBUG] Found command: ${cmd.config?.name || 'unknown'}`);
+            console.log(`[DEBUG] Execute method available:`, typeof (cmd.run || cmd.onStart));
 
 
             // Try to execute the command using run or onStart method
@@ -178,7 +190,7 @@ const handlerAction = {
                 }
 
 
-                logInfo(lang.get('system.commandExecuted', global.prefix, command, userNumber, isGroup ? 'group: ' + messageInfo.chatName : 'private chat'));
+                // Command executed - reduced logging
 
                 try {
                     await executeMethod({

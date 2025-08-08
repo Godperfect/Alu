@@ -59,6 +59,13 @@ global.aliases = new Map();
 // Initialize global group prefix system
 global.groupPrefix = {};
 
+// Ensure global prefix is set from config
+if (!global.prefix && global.config && global.config.bot && global.config.bot.prefix) {
+    global.prefix = global.config.bot.prefix;
+} else if (!global.prefix) {
+    global.prefix = '+'; // Default fallback
+}
+
 // Initialize global GoatBot object for dashboard
 global.GoatBot = {
     stats: {
