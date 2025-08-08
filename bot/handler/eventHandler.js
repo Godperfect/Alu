@@ -56,9 +56,8 @@ class EventHandler {
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
                 logError(`Message listener error: ${err.message}`);
-                console.error(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MESSAGE_ERROR]')} Error processing message:`, err);
                 // Don't crash the bot, continue listening
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RECOVERY]')} ${chalk.white('Bot continues listening despite error...')}`);
+                logWarning('Bot continues listening despite error...');
 
                 // Try to inform the user about the error if possible
                 try {
@@ -430,8 +429,6 @@ class EventHandler {
                     const command = isCmd ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
                     const args = isCmd ? body.trim().split(/ +/).slice(1) : [];
 
-                    console.log(`[DEBUG] Group: ${isGroup}, Prefix: "${currentPrefix}", Body: "${body}", IsCmd: ${isCmd}, Command: "${command}"`);
-
                     // Process command first if it's a command
                     if (isCmd && command && command.length > 0 && !mek.message?.protocolMessage) {
                         try {
@@ -497,16 +494,16 @@ class EventHandler {
             };
 
             if (action === 'remove') {
-                console.log(lang.get('luna.system.userLeft', participants[0], groupName, id));
+                logEvent('GROUP_LEAVE', `User ${participants[0]} left group ${groupName}`);
                 await handlerAction.handleGroupEvent(sock, 'leave', eventData);
             } else if (action === 'add') {
-                console.log(lang.get('luna.system.userAdded', participants[0], groupName, id));
+                logEvent('GROUP_JOIN', `User ${participants[0]} joined group ${groupName}`);
                 await handlerAction.handleGroupEvent(sock, 'join', eventData);
             } else if (action === 'promote') {
-                console.log(lang.get('luna.system.userPromoted', participants[0], groupName, id));
+                logEvent('GROUP_PROMOTE', `User ${participants[0]} promoted in group ${groupName}`);
                 await handlerAction.handleGroupEvent(sock, 'promote', eventData);
             } else if (action === 'demote') {
-                console.log(lang.get('luna.system.userDemoted', participants[0], groupName, id));
+                logEvent('GROUP_DEMOTE', `User ${participants[0]} demoted in group ${groupName}`);
                 await handlerAction.handleGroupEvent(sock, 'demote', eventData);
             }
         } catch (err) {
@@ -528,18 +525,10 @@ class EventHandler {
                 };
 
                 if (call.status === "MISSED") {
-                    console.log(lang.get('luna.system.missedCallNotification'));
-                    console.log(lang.get('luna.system.caller', call.from));
-                    console.log(lang.get('luna.system.callType', call.isVideo ? lang.get('eventHandler.videoCall') : lang.get('eventHandler.voiceCall')));
-                    console.log(lang.get('luna.system.missedCallAt', new Date(call.timestamp * 1000).toLocaleTimeString()));
-
+                    logEvent('CALL_MISSED', `Missed ${call.isVideo ? 'video' : 'voice'} call from ${await getSenderName(sock, call.from)}`);
                     await handlerAction.handleCallEvent(sock, 'missed', callData);
                 } else if (call.status === "INCOMING") {
-                    console.log(lang.get('luna.system.incomingCall', call.isVideo ? lang.get('eventHandler.video') : lang.get('eventHandler.voice')));
-                    console.log(lang.get('luna.system.caller', await getSenderName(sock, call.from)));
-                    console.log(lang.get('luna.system.callType', call.isVideo ? lang.get('eventHandler.videoCall') : lang.get('eventHandler.voiceCall')));
-                    console.log(lang.get('luna.system.incomingCallAt', new Date(call.timestamp * 1000).toLocaleTimeString()));
-
+                    logEvent('CALL_INCOMING', `Incoming ${call.isVideo ? 'video' : 'voice'} call from ${await getSenderName(sock, call.from)}`);
                     await handlerAction.handleCallEvent(sock, 'incoming', callData);
                 }
             }
@@ -553,8 +542,7 @@ class EventHandler {
         try {
             for (const contact of contacts) {
                 if (contact.notify && contact.status === 200) {
-                    console.log(lang.get('luna.system.contactJoinedWhatsApp'));
-                    console.log(lang.get('luna.system.newContact', contact.notify, contact.id));
+                    logEvent('CONTACT_UPDATE', `Contact ${contact.notify} joined WhatsApp`);
 
                     const contactData = {
                         contactId: contact.id,
@@ -573,9 +561,7 @@ class EventHandler {
 
     async handleGroupInvite(sock, invite) {
         try {
-            console.log(lang.get('luna.system.groupInvitationReceived'));
-            console.log(lang.get('luna.system.invitationToJoin', invite.subject || lang.get('eventHandler.unknownGroup')));
-            console.log(lang.get('luna.system.invitedBy', await getSenderName(sock, invite.creator)));
+            logEvent('GROUP_INVITE', `Invitation to join ${invite.subject || 'Unknown Group'} from ${await getSenderName(sock, invite.creator)}`);
 
             const inviteData = {
                 groupName: invite.subject || lang.get('eventHandler.unknownGroup'),

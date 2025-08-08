@@ -144,10 +144,7 @@ const handlerAction = {
                 if (config.adminOnly?.enable && 
                     !config.adminOnly.adminNumbers.includes(userNumber) && 
                     !mek.key.fromMe) {
-                    logWarning(lang.get('log.commandBlocked', userNumber));
-                    return sock.sendMessage(threadID, { 
-                        text: lang.get('handler.adminOnlyMode', command, global.prefix)
-                    }, { quoted: mek });
+                    return;
                 }
 
 
