@@ -88,6 +88,11 @@ class CommandManager {
                     }
                 }
 
+                // Skip certain files during development
+                if (filename === 'example.js' || filename === '.DS_Store' || filename === 'resend.js') {
+                    continue;
+                }
+
                 // Check for newer Luna command structure (with config object)
                 if (command && command.config && command.config.name) {
                     const cmd = {

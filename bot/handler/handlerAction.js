@@ -240,10 +240,20 @@ const handlerAction = {
                 global.Luna.onChat = new Map();
             }
 
-            // Check for Luna-style command onChat functions
+            // Only process onChat for messages that start with prefix or specific patterns
+            const hasPrefix = messageText.startsWith(currentPrefix);
+            
+            // Check for Luna-style command onChat functions (only for prefixed messages or specific patterns)
             for (const [commandName, command] of global.commands.entries()) {
                 if (typeof command.onChat === 'function') {
                     try {
+                        // Only execute onChat if message has prefix OR if it's a specific event-based command
+                        const isEventCommand = commandName === 'groupActivities' || commandName === 'spy';
+                        
+                        if (!hasPrefix && !isEventCommand) {
+                            continue; // Skip onChat for non-prefixed messages unless it's an event command
+                        }
+
                         // Check permission for onChat commands
                         if (command.permission !== undefined) {
                             const userPermission = getPermissionLevel(userNumber, isGroup ? messageInfo.groupMetadata : null);

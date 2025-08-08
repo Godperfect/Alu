@@ -42,30 +42,9 @@ class EventHandler {
                     return;
                 }
 
-                // PRIORITY: Handle protocol messages (deletions) FIRST
+                // Skip protocol messages (deletions)
                 if (mek.message?.protocolMessage?.type === 0) {
-                    console.log(`[DELETE_DETECTED] Protocol message detected - processing deletion`);
-
-                    // Get the messageResend event handler
-                    try {
-                        const messageResendEvent = require('../../scripts/events/messageResend');
-                        if (messageResendEvent && typeof messageResendEvent.onChat === 'function') {
-                            await messageResendEvent.onChat({
-                                sock: sock,
-                                m: mek,
-                                messageInfo: {
-                                    chatName: 'Unknown',
-                                    groupMetadata: null
-                                },
-                                isGroup: mek.key.remoteJid.endsWith('@g.us'),
-                                messageText: ''
-                            });
-                        }
-                    } catch (error) {
-                        console.error('Error handling protocol message:', error.message);
-                    }
-
-                    return; // Don't process as regular message
+                    return; // Don't process protocol messages
                 }
 
                 // Skip ephemeral messages and system notifications
