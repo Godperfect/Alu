@@ -67,7 +67,7 @@ class EventHandler {
                 console.error(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MESSAGE_ERROR]')} Error processing message:`, err);
                 // Don't crash the bot, continue listening
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RECOVERY]')} ${chalk.white('Bot continues listening despite error...')}`);
-                
+
                 // Try to inform the user about the error if possible
                 try {
                     if (chatUpdate?.messages?.[0]?.key?.remoteJid) {
@@ -496,36 +496,24 @@ class EventHandler {
                 });
             } else {
 
-                const body = messageText || '';
-                const isCmd = body.startsWith(global.prefix);
-                const command = isCmd ? body.slice(global.prefix.length).trim().split(' ').shift().toLowerCase() : '';
-                const args = body.trim().split(/ +/).slice(1);
-
-                // Handle non-command messages (onChat events)
-                try {
-                    await handlerAction.handleChat({ sock, mek, sender, messageText: body, messageInfo, isGroup });
-                } catch (chatErr) {
-                    logError(lang.get('eventHandler.error.handleChat', chatErr.message));
-                }
-
-                // Check for group-specific prefix
+                // Get the appropriate prefix for this chat
                 const currentPrefix = isGroup && global.groupPrefix && global.groupPrefix[mek.key.remoteJid] 
                     ? global.groupPrefix[mek.key.remoteJid] 
                     : global.prefix;
 
-                // Recheck command detection with proper prefix
-                const hasCorrectPrefix = body.startsWith(currentPrefix);
-                const correctCommand = hasCorrectPrefix ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
+                // Check for command (starts with prefix)
+                const isCmd = body.startsWith(currentPrefix);
+                const command = isCmd ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
+                const args = isCmd ? body.trim().split(/ +/).slice(1) : [];
 
-                // Only process as command if message starts with correct prefix and is not a protocol message
-                if (hasCorrectPrefix && correctCommand && !mek.message?.protocolMessage) {
+                // Process command first if it's a command
+                if (isCmd && command && !mek.message?.protocolMessage) {
                     try {
-                        const correctArgs = body.trim().split(/ +/).slice(1);
                         await handlerAction.handleCommand({ 
                             sock, 
                             mek, 
-                            args: correctArgs, 
-                            command: correctCommand, 
+                            args, 
+                            command, 
                             sender, 
                             botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', 
                             messageInfo, 
@@ -533,6 +521,13 @@ class EventHandler {
                         });
                     } catch (cmdErr) {
                         logError(lang.get('eventHandler.error.handleCommand', cmdErr.message));
+                    }
+                } else if (messageText && messageText.trim().length > 0) {
+                    // Only process as chat if it's not a command
+                    try {
+                        await handlerAction.handleChat({ sock, mek, sender, messageText, messageInfo, isGroup });
+                    } catch (chatErr) {
+                        logError(lang.get('eventHandler.error.handleChat', chatErr.message));
                     }
                 }
             }
