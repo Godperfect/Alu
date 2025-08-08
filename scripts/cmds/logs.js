@@ -94,20 +94,23 @@ module.exports = {
                 logText += `\n`;
             }
 
-            // Console log for detailed view
+            // Console log in JSON format
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[LOGS DISPLAY]')} Showing ${recentMessages.length} recent messages:`);
             
             for (const msg of recentMessages) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('─────────────────────────')}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Message ID:')} ${chalk.white(msg.messageId)}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('User ID:')} ${chalk.white(msg.userId)}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Group ID:')} ${chalk.white(msg.groupId || 'Private Chat')}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Type:')} ${chalk.white(msg.messageType)}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Has Media:')} ${msg.hasMedia ? chalk.green('YES') : chalk.red('NO')}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Forwarded:')} ${msg.isForwarded ? chalk.yellow('YES') : chalk.red('NO')}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Reply:')} ${msg.isReply ? chalk.green('YES') : chalk.red('NO')}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Length:')} ${chalk.white(msg.messageLength || 0)} chars`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('Timestamp:')} ${chalk.white(new Date(msg.timestamp).toLocaleString())}`);
+                const logData = {
+                    messageId: msg.messageId,
+                    userId: msg.userId,
+                    groupId: msg.groupId || 'Private Chat',
+                    messageType: msg.messageType,
+                    hasMedia: msg.hasMedia || false,
+                    isForwarded: msg.isForwarded || false,
+                    isReply: msg.isReply || false,
+                    messageLength: msg.messageLength || 0,
+                    timestamp: msg.timestamp
+                };
+                
+                console.log(JSON.stringify(logData, null, 2));
             }
 
             return message.reply(logText);
