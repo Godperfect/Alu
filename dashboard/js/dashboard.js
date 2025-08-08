@@ -907,12 +907,12 @@ function showCommandsEventsTab(tabName) {
 
 function getRoleText(role) {
     switch (role) {
-        case 0:
-            return 'Everyone';
         case 1:
-            return 'Group Admin';
+            return 'Everyone';
         case 2:
-            return 'Bot Admin';
+            return 'Bot Admin & Group Admin';
+        case 3:
+            return 'Bot Admin Only';
         default:
             return 'Unknown';
     }

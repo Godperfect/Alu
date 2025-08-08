@@ -1,31 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
-const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
-
-/**
- * Get formatted timestamp
- * @returns {string} Formatted timestamp in [HH:mm:ss] format
- */
-const getTimestamp = () => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
-};
-
-/**
- * Get formatted date
- * @returns {string} Formatted date in [YYYY-MM-DD] format
- */
-const getFormattedDate = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return chalk.gray(`[${year}-${month}-${day}]`);
-};
+const { logInfo, logError, logSuccess, getTimestamp, getFormattedDate } = require('../../utils');
 
 class EventManager {
     constructor() {
@@ -33,7 +9,7 @@ class EventManager {
         this.eventsFolder = path.resolve(__dirname, '../../scripts/events');
     }
 
-    loadEvents() {
+    async loadEvents() {
         const eventsPath = path.join(__dirname, '../../scripts/events');
 
         if (!fs.existsSync(eventsPath)) {
@@ -103,7 +79,7 @@ class EventManager {
     }
 
     handleEvents({ sock, m = null, sender }) {
-        if (!config.logEvents?.enable) return;
+        if (!global.config.logEvents?.enable) return;
 
         if (!m) {
             logError("handleEvents called but 'm' is undefined or null!");
@@ -120,24 +96,24 @@ class EventManager {
                     event.event({ sock, m, sender });
                     processedEvents++;
 
-                    if (config.logEvents?.verbose) {
+                    if (global.config.logEvents?.verbose) {
                         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_EXEC]')} ${chalk.white(eventName)} ${chalk.green('✓')}`);
                     }
                 } else {
                     failedEvents++;
-                    if (config.logEvents?.logErrors) {
+                    if (global.config.logEvents?.logErrors) {
                         logError(`Event '${eventName}' does not have an 'event' function.`);
                     }
                 }
             } catch (error) {
                 failedEvents++;
-                if (config.logEvents?.logErrors) {
+                if (global.config.logEvents?.logErrors) {
                     logError(`Event execution failed [${eventName}]: ${error.message}`);
                 }
             }
         });
 
-        if (config.logEvents?.verbose && processedEvents > 0) {
+        if (global.config.logEvents?.verbose && processedEvents > 0) {
             console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EVENT_SUMMARY]')} Processed: ${chalk.green(processedEvents)} | Failed: ${chalk.red(failedEvents)}`);
         }
     }

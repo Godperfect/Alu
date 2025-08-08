@@ -49,6 +49,9 @@ let isLoggedIn = false;
 // Initialize bot status global
 global.botConnected = false;
 
+// Initialize global events Map
+global.events = new Map();
+
 // Initialize global GoatBot object for dashboard
 global.GoatBot = {
     stats: {
@@ -172,10 +175,10 @@ async function startBotz() {
                 }
 
                 // Load commands and events after successful connection
-                setTimeout(() => {
+                setTimeout(async () => {
                     console.log('─────────────────────────────────────────');
                     commandManager.loadCommands();
-                    eventManager.loadEvents();
+                    await eventManager.loadEvents();
                 }, 100);
             }
         });
