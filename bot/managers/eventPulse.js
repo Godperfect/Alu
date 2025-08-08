@@ -51,7 +51,7 @@ class EventManager {
                     const eventName = eventModule.config?.name || eventModule.name;
                     this.events.set(eventName, eventModule);
 
-                    // Execute onStart if available and socket is available
+                    // Execute onStart and onLoad silently
                     if (global.sock) {
                         if (eventModule.onStart && typeof eventModule.onStart === 'function') {
                             await eventModule.onStart({ sock: global.sock });

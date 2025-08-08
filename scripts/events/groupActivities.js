@@ -11,7 +11,7 @@ function loadGroupActivities() {
         if (fs.existsSync(groupActivitiesPath)) {
             const data = fs.readFileSync(groupActivitiesPath, 'utf8');
             const parsedData = JSON.parse(data);
-            
+
             // Ensure all groups have proper structure
             Object.keys(parsedData).forEach(groupId => {
                 if (!parsedData[groupId].joins) parsedData[groupId].joins = [];
@@ -19,7 +19,7 @@ function loadGroupActivities() {
                 if (!parsedData[groupId].promotes) parsedData[groupId].promotes = [];
                 if (!parsedData[groupId].demotes) parsedData[groupId].demotes = [];
             });
-            
+
             return parsedData;
         }
     } catch (error) {
@@ -312,8 +312,7 @@ module.exports = {
     },
 
     onStart: async ({ sock }) => {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[EVENT_INIT]')} Initializing Group Activities event handlers...`);
-
+        // Group Activities event handlers initialized silently
         // Register event handlers
         if (!global.Luna.onEvent) {
             global.Luna.onEvent = new Map();
@@ -325,12 +324,6 @@ module.exports = {
         global.Luna.onEvent.set('group.leave', { callback: (data) => handleGroupLeave(sock, data.eventData) });
         global.Luna.onEvent.set('group.promote', { callback: (data) => handleGroupPromote(sock, data.eventData) });
         global.Luna.onEvent.set('group.demote', { callback: (data) => handleGroupDemote(sock, data.eventData) });
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[REGISTERED]')} All group event handlers registered:`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.white('  - group.join')}`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.white('  - group.leave')}`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.white('  - group.promote')}`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.white('  - group.demote')}`);
 
         logSuccess('Group activities event handlers registered successfully');
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[EVENT]')} Group Activities event is now monitoring all groups 24/7`);
