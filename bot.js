@@ -56,6 +56,9 @@ global.events = new Map();
 global.commands = new Map();
 global.aliases = new Map();
 
+// Initialize global group prefix system
+global.groupPrefix = {};
+
 // Initialize global GoatBot object for dashboard
 global.GoatBot = {
     stats: {

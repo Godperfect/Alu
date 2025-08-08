@@ -508,10 +508,29 @@ class EventHandler {
                     logError(lang.get('eventHandler.error.handleChat', chatErr.message));
                 }
 
-                // Only process as command if message starts with prefix and is not a protocol message
-                if (isCmd && command && !mek.message?.protocolMessage) {
+                // Check for group-specific prefix
+                const currentPrefix = isGroup && global.groupPrefix && global.groupPrefix[mek.key.remoteJid] 
+                    ? global.groupPrefix[mek.key.remoteJid] 
+                    : global.prefix;
+
+                // Recheck command detection with proper prefix
+                const hasCorrectPrefix = body.startsWith(currentPrefix);
+                const correctCommand = hasCorrectPrefix ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
+
+                // Only process as command if message starts with correct prefix and is not a protocol message
+                if (hasCorrectPrefix && correctCommand && !mek.message?.protocolMessage) {
                     try {
-                        await handlerAction.handleCommand({ sock, mek, args, command, sender, botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', messageInfo, isGroup });
+                        const correctArgs = body.trim().split(/ +/).slice(1);
+                        await handlerAction.handleCommand({ 
+                            sock, 
+                            mek, 
+                            args: correctArgs, 
+                            command: correctCommand, 
+                            sender, 
+                            botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', 
+                            messageInfo, 
+                            isGroup 
+                        });
                     } catch (cmdErr) {
                         logError(lang.get('eventHandler.error.handleCommand', cmdErr.message));
                     }

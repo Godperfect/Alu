@@ -37,7 +37,7 @@ const handlerAction = {
             }
 
             // Only show "no command provided" if there was actually a prefix detected
-            if (!command) {
+            if (!command || command.trim() === '') {
                 return; // Silently return if no command (prefix wasn't detected)
             }
 
