@@ -315,7 +315,7 @@ class EventHandler {
 
 
             // Log detailed message information
-            if (config.logMessages?.enable !== false) {
+            if (global.config.logMessages?.enable !== false) {
                 setImmediate(async () => {
                     try {
                         const senderName = await getSenderName(sock, sender);
@@ -372,16 +372,16 @@ class EventHandler {
             });
 
 
-            if (config.adminOnly?.enable &&
-                !config.adminOnly.adminNumbers.includes(senderNumber) &&
+            if (global.config.adminOnly?.enable &&
+                !global.config.adminOnly.adminNumbers.includes(senderNumber) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedAdminOnly'));
                 return;
             }
 
 
-            if (config.whiteListMode?.enable &&
-                !config.whiteListMode.allowedNumbers.includes(senderNumber) &&
+            if (global.config.whiteListMode?.enable &&
+                !global.config.whiteListMode.allowedNumbers.includes(senderNumber) &&
                 !mek.key.fromMe) {
                 console.log(lang.get('luna.system.messageBlockedWhitelist'));
                 return;
