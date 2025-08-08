@@ -51,16 +51,14 @@ class EventManager {
                     const eventName = eventModule.config.name;
                     this.events.set(eventName, eventModule);
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Loaded event:')} ${chalk.yellow(eventName)}`);
-
                     // Execute onStart and onLoad silently
                     if (global.sock) {
                         if (eventModule.onStart && typeof eventModule.onStart === 'function') {
-                            await eventModule.onStart({ sock: global.sock });
+                            setImmediate(() => eventModule.onStart({ sock: global.sock }).catch(() => {}));
                         }
 
                         if (eventModule.onLoad && typeof eventModule.onLoad === 'function') {
-                            await eventModule.onLoad({ sock: global.sock });
+                            setImmediate(() => eventModule.onLoad({ sock: global.sock }).catch(() => {}));
                         }
                     }
 
