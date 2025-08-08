@@ -18,25 +18,25 @@ if (!global.bannedUsers) {
 // Helper function to get user permission level
 function getPermissionLevel(userNumber, groupMetadata = null) {
     try {
-        // Bot admin (highest permission)
+        // Bot admin (highest permission - level 3)
         if (config.adminOnly?.adminNumbers?.includes(userNumber)) {
-            return 2;
+            return 3;
         }
         
-        // Group admin (if in group)
+        // Group admin (if in group - level 2)
         if (groupMetadata && groupMetadata.participants) {
             const userParticipant = groupMetadata.participants.find(p => 
                 p.id.split('@')[0] === userNumber
             );
             if (userParticipant && userParticipant.admin) {
-                return 1;
+                return 2;
             }
         }
         
-        // Regular user
-        return 0;
+        // Regular user (level 1)
+        return 1;
     } catch (error) {
-        return 0; // Default to regular user on error
+        return 1; // Default to regular user on error
     }
 }
 

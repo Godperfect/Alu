@@ -141,12 +141,12 @@ module.exports = {
 // Function to convert role numbers to text
 function roleToString(role) {
     switch (role) {
-        case 0:
-            return "All users";
         case 1:
-            return "Group Admins";
+            return "Everyone";
         case 2:
-            return "Bot Admins";
+            return "Bot Admins & Group Admins";
+        case 3:
+            return "Bot Admins Only";
         default:
             return "Unknown Role";
     }
