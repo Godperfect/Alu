@@ -506,8 +506,8 @@ class EventHandler {
                     logError(lang.get('eventHandler.error.handleChat', chatErr.message));
                 }
 
-                // Then check if it's a command and process it (only for non-protocol messages)
-                if (!mek.message?.protocolMessage) {
+                // Only process as command if message starts with prefix and is not a protocol message
+                if (isCmd && command && !mek.message?.protocolMessage) {
                     try {
                         await handlerAction.handleCommand({ sock, mek, args, command, sender, botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', messageInfo, isGroup });
                     } catch (cmdErr) {

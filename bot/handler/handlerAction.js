@@ -24,10 +24,9 @@ const handlerAction = {
             const isChannel = threadID.endsWith('@newsletter');
             const isCommunity = messageInfo.messageType === 'community';
 
+            // Only show "no command provided" if there was actually a prefix detected
             if (!command) {
-                return sock.sendMessage(threadID, { 
-                    text: lang.get('handler.noCommandProvided', global.prefix) 
-                }, { quoted: mek });
+                return; // Silently return if no command (prefix wasn't detected)
             }
 
             // First try to get command directly, then check aliases
@@ -235,23 +234,22 @@ const handlerAction = {
                 ? global.groupPrefix[threadID] 
                 : global.prefix;
 
-
             if (!global.Luna.onChat) {
                 global.Luna.onChat = new Map();
             }
 
-            // Only process onChat for messages that start with prefix or specific patterns
+            // Check if message starts with prefix
             const hasPrefix = messageText.startsWith(currentPrefix);
             
-            // Check for Luna-style command onChat functions (only for prefixed messages or specific patterns)
+            // Only process onChat for specific event-based commands that need to monitor all messages
+            const eventBasedCommands = ['groupActivities', 'spy', 'resend']; // Commands that need to monitor all messages
+            
             for (const [commandName, command] of global.commands.entries()) {
                 if (typeof command.onChat === 'function') {
                     try {
-                        // Only execute onChat if message has prefix OR if it's a specific event-based command
-                        const isEventCommand = commandName === 'groupActivities' || commandName === 'spy';
-                        
-                        if (!hasPrefix && !isEventCommand) {
-                            continue; // Skip onChat for non-prefixed messages unless it's an event command
+                        // Only execute onChat for event-based commands (regardless of prefix)
+                        if (!eventBasedCommands.includes(commandName)) {
+                            continue; // Skip onChat for regular commands
                         }
 
                         // Check permission for onChat commands
@@ -262,7 +260,7 @@ const handlerAction = {
                             }
                         }
 
-                        // Execute onChat function
+                        // Execute onChat function for event-based commands
                         const result = await command.onChat({
                             sock,
                             m: mek,
@@ -281,7 +279,7 @@ const handlerAction = {
 
                         // If onChat returns true, stop processing other commands
                         if (result === true) {
-                            logInfo(`OnChat command executed: ${commandName} by ${userNumber}`);
+                            logInfo(`OnChat event command executed: ${commandName} by ${userNumber}`);
                             return;
                         }
                     } catch (err) {
