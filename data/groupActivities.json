@@ -47,6 +47,12 @@
         "timestamp": 1754636832005,
         "action": "leave",
         "groupName": ".."
+      },
+      {
+        "userId": "220559858233496",
+        "timestamp": 1754649636247,
+        "action": "leave",
+        "groupName": ".."
       }
     ],
     "promotes": [],
@@ -60,6 +66,32 @@
         "timestamp": 1754636790255,
         "action": "leave",
         "groupName": "GMAIL'S & FB 🆔 MARKETING (NS)❤️"
+      }
+    ],
+    "promotes": [],
+    "demotes": []
+  },
+  "120363419150429283@g.us": {
+    "joins": [],
+    "leaves": [
+      {
+        "userId": "220559858233496",
+        "timestamp": 1754649635958,
+        "action": "leave",
+        "groupName": "एलेक्स x आकाशकि आमासँग मस्ती गर्ने संगठन   ||🍷💙||"
+      }
+    ],
+    "promotes": [],
+    "demotes": []
+  },
+  "120363421965233147@g.us": {
+    "joins": [],
+    "leaves": [
+      {
+        "userId": "220559858233496",
+        "timestamp": 1754649636348,
+        "action": "leave",
+        "groupName": "Lauda"
       }
     ],
     "promotes": [],

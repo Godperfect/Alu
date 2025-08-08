@@ -249,7 +249,6 @@ class DataHandler {
             };
 
             await db.logMessage(messageData);
-            logInfo(`Message logged for user ${messageData.userId}`);
         } catch (error) {
             logError(`Error logging message: ${error.message}`);
         }
