@@ -302,37 +302,7 @@ class EventHandler {
             const messageText = getTextContent(mek.message);
 
 
-            // Log detailed message information
-            if (global.config.logMessages?.enable !== false) {
-                setImmediate(async () => {
-                    try {
-                        const senderName = await getSenderName(sock, sender);
-                        const senderPhone = extractPhoneNumber(sender, senderNumber);
-
-                        // Use the global logMessage function for JSON format logging
-                        logMessage({
-                            messageType,
-                            chatName,
-                            senderName,
-                            messageText,
-                            hasAttachment,
-                            attachmentType,
-                            isForwarded,
-                            isReply,
-                            repliedTo,
-                            isReaction,
-                            reaction,
-                            timestamp: new Date().toISOString(),
-                            messageId: mek.key.id,
-                            remoteJid: mek.key.remoteJid,
-                            sender: sender,
-                            fromMe: mek.key.fromMe
-                        });
-                    } catch (err) {
-                        logError(`Error in detailed message logging: ${err.message}`);
-                    }
-                });
-            }
+            // Reduced logging as requested by user
 
             
 
@@ -454,32 +424,38 @@ class EventHandler {
 
                 // Check for command (starts with prefix)
                 const body = getTextContent(mek.message);
-                const isCmd = body.startsWith(currentPrefix);
-                const command = isCmd ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
-                const args = isCmd ? body.trim().split(/ +/).slice(1) : [];
+                
+                if (body && body.trim().length > 0) {
+                    const isCmd = body.startsWith(currentPrefix);
+                    const command = isCmd ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
+                    const args = isCmd ? body.trim().split(/ +/).slice(1) : [];
 
-                // Process command first if it's a command
-                if (isCmd && command && !mek.message?.protocolMessage) {
-                    try {
-                        await handlerAction.handleCommand({ 
-                            sock, 
-                            mek, 
-                            args, 
-                            command, 
-                            sender, 
-                            botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', 
-                            messageInfo, 
-                            isGroup 
-                        });
-                    } catch (cmdErr) {
-                        logError(lang.get('eventHandler.error.handleCommand', cmdErr.message));
-                    }
-                } else if (messageText && messageText.trim().length > 0) {
-                    // Only process as chat if it's not a command
-                    try {
-                        await handlerAction.handleChat({ sock, mek, sender, messageText, messageInfo, isGroup });
-                    } catch (chatErr) {
-                        logError(lang.get('eventHandler.error.handleChat', chatErr.message));
+                    console.log(`[DEBUG] Group: ${isGroup}, Prefix: "${currentPrefix}", Body: "${body}", IsCmd: ${isCmd}, Command: "${command}"`);
+
+                    // Process command first if it's a command
+                    if (isCmd && command && command.length > 0 && !mek.message?.protocolMessage) {
+                        try {
+                            await handlerAction.handleCommand({ 
+                                sock, 
+                                mek, 
+                                args, 
+                                command, 
+                                sender, 
+                                botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', 
+                                messageInfo, 
+                                isGroup 
+                            });
+                        } catch (cmdErr) {
+                            logError(`Command execution error: ${cmdErr.message}`);
+                            console.error(cmdErr);
+                        }
+                    } else if (!isCmd && messageText && messageText.trim().length > 0) {
+                        // Only process as chat if it's not a command
+                        try {
+                            await handlerAction.handleChat({ sock, mek, sender, messageText, messageInfo, isGroup });
+                        } catch (chatErr) {
+                            logError(`Chat handler error: ${chatErr.message}`);
+                        }
                     }
                 }
             }
