@@ -1,8 +1,34 @@
 {
   "120363387008285977@g.us": {
     "enabled": false,
-    "joins": [],
-    "leaves": [],
+    "joins": [
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754656240905,
+        "action": "join",
+        "groupName": "Elites Support Guild"
+      },
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754656273143,
+        "action": "join",
+        "groupName": "Elites Support Guild"
+      }
+    ],
+    "leaves": [
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754656231398,
+        "action": "leave",
+        "groupName": "Elites Support Guild"
+      },
+      {
+        "userId": "165614425481345",
+        "timestamp": 1754656265126,
+        "action": "leave",
+        "groupName": "Elites Support Guild"
+      }
+    ],
     "promotes": [
       {
         "userId": "165614425481345",
@@ -18,7 +44,13 @@
         "action": "demote",
         "groupName": "Elites Support Guild"
       }
-    ]
+    ],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
   },
   "120363421008046908@g.us": {
     "joins": [],
@@ -31,7 +63,13 @@
       }
     ],
     "promotes": [],
-    "demotes": []
+    "demotes": [],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
   },
   "120363400316992910@g.us": {
     "joins": [],
@@ -56,7 +94,13 @@
       }
     ],
     "promotes": [],
-    "demotes": []
+    "demotes": [],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
   },
   "120363395745229824@g.us": {
     "joins": [],
@@ -69,7 +113,13 @@
       }
     ],
     "promotes": [],
-    "demotes": []
+    "demotes": [],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
   },
   "120363419150429283@g.us": {
     "joins": [],
@@ -82,7 +132,13 @@
       }
     ],
     "promotes": [],
-    "demotes": []
+    "demotes": [],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
   },
   "120363421965233147@g.us": {
     "joins": [],
@@ -95,6 +151,25 @@
       }
     ],
     "promotes": [],
-    "demotes": []
+    "demotes": [],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
+  },
+  "120363417712656936@g.us": {
+    "enabled": false,
+    "joins": [],
+    "leaves": [],
+    "promotes": [],
+    "demotes": [],
+    "customMessages": {
+      "welcome": null,
+      "leave": null,
+      "promote": null,
+      "demote": null
+    }
   }
 }
