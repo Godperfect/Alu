@@ -1,19 +1,38 @@
-
 const config = require('../config.json');
 
 const initializeGlobals = () => {
-    // Make config globally available
+    // Initialize configuration from config.json
+    const config = require('../config.json');
     global.config = config;
-    global.owner = config.botSettings.ownerNumber ? [config.botSettings.ownerNumber] : [];
-    global.prefix = config.botSettings.prefix || '+';
-    global.botName = config.botSettings.botName || 'Luna v1';
+
+    // Initialize other global variables here
+    global.stats = {
+        totalMessages: 0,
+        commandsExecuted: 0,
+        errors: 0,
+        startTime: Date.now()
+    };
+
+    global.cache = {
+        users: new Map(),
+        groups: new Map(),
+        commands: new Map()
+    };
+
+    // Initialize command and event handlers
     global.commands = new Map();
-    global.aliases = new Map();
     global.events = new Map();
-    global.cc = {};
-    global.adminList = config.adminOnly.adminNumbers || [];
-    global.whiteList = config.whiteListMode.allowedNumbers || [];
+
+    // Bot status
+    global.botConnected = false;
+
+    // Initialize global logs arrays
+    global.messageLogs = [];
+    global.commandLogs = [];
+    global.eventLogs = [];
+    global.databaseLogs = [];
+
+    console.log('[GLOBALS] All global variables initialized successfully');
 };
 
 module.exports = { initializeGlobals, config };
-
