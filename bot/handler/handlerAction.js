@@ -24,6 +24,19 @@ const handlerAction = {
             const isChannel = threadID.endsWith('@newsletter');
             const isCommunity = messageInfo.messageType === 'community';
 
+            // Check if user sent prefix only (no command)
+            const messageText = mek.message ? getTextContent(mek.message) : '';
+            const currentPrefix = isGroup && global.groupPrefix && global.groupPrefix[threadID] 
+                ? global.groupPrefix[threadID] 
+                : global.prefix;
+
+            // If message is exactly the prefix or prefix + whitespace, show error
+            if (messageText && messageText.trim() === currentPrefix.trim()) {
+                return sock.sendMessage(threadID, { 
+                    text: `❌ Prefix detected but no command provided. Please type a valid command after the prefix. Example: ${currentPrefix}help`
+                }, { quoted: mek });
+            }
+
             // Only show "no command provided" if there was actually a prefix detected
             if (!command) {
                 return; // Silently return if no command (prefix wasn't detected)
