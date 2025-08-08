@@ -469,61 +469,72 @@ function initializeApp() {
     }
   });
 
+  // Helper function to get role text
+  const getRoleText = (permissionLevel) => {
+    switch (permissionLevel) {
+      case 0: return "Everyone";
+      case 1: return "Admin";
+      case 2: return "Owner";
+      default: return "Unknown";
+    }
+  };
+
   app.get("/api/commands", requireAuth, (req, res) => {
     try {
       let commands = [];
 
       if (global.commands && global.commands.size > 0) {
         commands = Array.from(global.commands.entries()).map(
-          ([name, cmd]) => ({
+          ([name, command]) => ({
             name,
             description:
-              cmd.config?.description ||
-              cmd.description ||
+              command.config?.description ||
+              command.description ||
               "No description available",
-            aliases: cmd.config?.aliases || cmd.aliases || [],
-            category: cmd.config?.category || cmd.category || "general",
-            permissions: cmd.config?.permissions || cmd.permissions || [],
-            cooldown: cmd.config?.cooldown || cmd.cooldown || 0,
-            usage: cmd.config?.usage || cmd.usage || `${global.prefix || '+'}${name}`,
-            guide: cmd.config?.guide || cmd.guide || "No guide available",
-            role: cmd.config?.role || cmd.role || 0,
+            permission:
+              command.config?.permission !== undefined
+                ? getRoleText(command.config.permission)
+                : "Everyone",
+            category: command.config?.category || command.category || "general",
+            cooldown: command.config?.cooldown || command.cooldown || 0,
+            aliases: command.config?.aliases || command.aliases || [],
           })
         );
       } else {
         // Fallback to reading from file system
-        const commandFiles = fs
-          .readdirSync(path.join("scripts", "cmds"))
-          .filter((f) => f.endsWith(".js"));
-        for (const file of commandFiles) {
-          try {
-            const command = require(path.join(
-              "..",
-              "scripts",
-              "cmds",
-              file
-            ));
-            commands.push({
-              name: command.config?.name || file.replace(".js", ""),
-              description:
-                command.config?.description || "No description available",
-              aliases: command.config?.aliases || [],
-              category: command.config?.category || "General",
-              role: command.config?.role || 0,
-              usage: command.config?.usage || `${global.prefix || '+'}${command.config?.name || file.replace(".js", "")}`,
-              guide: command.config?.guide || "No guide available",
-              cooldown: command.config?.cooldown || 0,
-            });
-          } catch (error) {
-            logError(`Error loading command ${file}:`, error);
+        try {
+          const commandFiles = fs
+            .readdirSync(path.join(__dirname, "..", "scripts", "cmds"))
+            .filter((f) => f.endsWith(".js"));
+          for (const file of commandFiles) {
+            try {
+              const filePath = path.join(__dirname, "..", "scripts", "cmds", file);
+              delete require.cache[require.resolve(filePath)];
+              const command = require(filePath);
+              commands.push({
+                name: command.config?.name || file.replace(".js", ""),
+                description:
+                  command.config?.description || "No description available",
+                permission: command.config?.permission
+                  ? getRoleText(command.config.permission)
+                  : "Everyone",
+                category: command.config?.category || "general",
+                cooldown: command.config?.cooldown || 0,
+                aliases: command.config?.aliases || [],
+              });
+            } catch (error) {
+              logError(`Error loading command ${file}:`, error);
+            }
           }
+        } catch (dirError) {
+          logError("Error reading commands directory:", dirError);
         }
       }
 
       res.json({ total: commands.length, commands });
     } catch (error) {
       logError("Error fetching commands:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || 'Failed to load commands' });
     }
   });
 
@@ -1057,10 +1068,10 @@ function startServer() {
   if (server) return;
   const PORT = process.env.PORT || config.dashboard?.port || 3000;
   const HOST = process.env.HOST || '0.0.0.0';
-  
+
   // Kill any existing process on the port
   killPortProcess(PORT);
-  
+
   const appInstance = initializeApp();
   server = appInstance.listen(PORT, HOST, () => {
     // Dashboard availability message is already logged in bot.js

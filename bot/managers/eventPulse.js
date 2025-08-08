@@ -1,9 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
-const { logInfo, logError, logSuccess, logWarning } = require('../../utils');
-const { config } = require('../../config/globals');
 const chalk = require('chalk');
+const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
 
 /**
  * Get formatted timestamp
@@ -36,45 +34,72 @@ class EventManager {
     }
 
     loadEvents() {
-        const eventFiles = fs.readdirSync(this.eventsFolder).filter(file => file.endsWith('.js'));
+        const eventsPath = path.join(__dirname, '../../scripts/events');
+
+        if (!fs.existsSync(eventsPath)) {
+            logError('Events directory not found: ' + eventsPath);
+            return;
+        }
+
+        const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENTS]')} Loading ${eventFiles.length} event files...`);
+
         let loadedCount = 0;
-        let failedCount = 0;
 
-        eventFiles.forEach(async (file) => {
-            const eventPath = path.join(this.eventsFolder, file);
-
+        for (const file of eventFiles) {
             try {
-                delete require.cache[require.resolve(eventPath)];
-                const eventModule = require(eventPath);
+                const filePath = path.join(eventsPath, file);
 
-                if (eventModule && eventModule.config && eventModule.config.name) {
-                    const eventName = eventModule.config.name;
-                    this.events.set(eventName, eventModule);
+                // Clear require cache to allow reloading
+                delete require.cache[require.resolve(filePath)];
 
-                    // Execute onStart and onLoad silently
-                    if (global.sock) {
-                        if (eventModule.onStart && typeof eventModule.onStart === 'function') {
-                            setImmediate(() => eventModule.onStart({ sock: global.sock }).catch(() => {}));
+                const event = require(filePath);
+
+                if (event && event.config) {
+                    const eventName = event.config.name;
+
+                    if (eventName) {
+                        global.events.set(eventName, event);
+
+                        // Execute onStart if it exists
+                        if (typeof event.onStart === 'function') {
+                            try {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[STARTING]')} Initializing event: ${chalk.cyan(eventName)}`);
+                                await event.onStart({ sock: global.sock });
+                            } catch (startError) {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('✗')} Error starting event ${eventName}: ${startError.message}`);
+                                logError(`Error starting event ${eventName}: ${startError.message}`);
+                            }
                         }
 
-                        if (eventModule.onLoad && typeof eventModule.onLoad === 'function') {
-                            setImmediate(() => eventModule.onLoad({ sock: global.sock }).catch(() => {}));
+                        // Execute onLoad if it exists
+                        if (typeof event.onLoad === 'function') {
+                            try {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[LOADING]')} Loading event: ${chalk.cyan(eventName)}`);
+                                await event.onLoad({ sock: global.sock });
+                            } catch (loadError) {
+                                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('✗')} Error loading event ${eventName}: ${loadError.message}`);
+                                logError(`Error loading event ${eventName}: ${loadError.message}`);
+                            }
                         }
+
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('✓')} Loaded event: ${chalk.cyan(eventName)}`);
+                        loadedCount++;
+                    } else {
+                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('⚠')} Event ${file} missing name in config`);
                     }
-
-                    loadedCount++;
                 } else {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Invalid event structure in file:')} ${chalk.yellow(file)} ${chalk.gray('- Missing config.name')}`);
-                    failedCount++;
+                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('⚠')} Event ${file} missing config object`);
                 }
             } catch (error) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} ${chalk.red('Failed to load event from')} ${chalk.yellow(file)}: ${chalk.red(error.message)}`);
-                failedCount++;
+                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('✗')} Failed to load event ${file}: ${error.message}`);
+                logError(`Failed to load event ${file}: ${error.message}`);
             }
-        });
+        }
 
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('Successfully loaded')} ${chalk.yellow(loadedCount)} ${chalk.cyan('events')} ${failedCount > 0 ? chalk.red(`(${failedCount} failed)`) : ''}`);
-        console.log('─────────────────────────────────────────');
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} Successfully loaded ${loadedCount}/${eventFiles.length} events`);
+        logSuccess(`Successfully loaded ${global.events.size} events`);
     }
 
     handleEvents({ sock, m = null, sender }) {
