@@ -1,3 +1,4 @@
+
 const fs = require('fs');
 const path = require('path');
 const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
@@ -18,6 +19,14 @@ function loadGroupActivities() {
                 if (!parsedData[groupId].leaves) parsedData[groupId].leaves = [];
                 if (!parsedData[groupId].promotes) parsedData[groupId].promotes = [];
                 if (!parsedData[groupId].demotes) parsedData[groupId].demotes = [];
+                if (!parsedData[groupId].customMessages) {
+                    parsedData[groupId].customMessages = {
+                        welcome: null,
+                        leave: null,
+                        promote: null,
+                        demote: null
+                    };
+                }
             });
 
             return parsedData;
@@ -31,9 +40,61 @@ function loadGroupActivities() {
 function saveGroupActivities(data) {
     try {
         fs.writeFileSync(groupActivitiesPath, JSON.stringify(data, null, 2));
-        logSuccess('Group activities data saved successfully');
     } catch (error) {
         logError(`Failed to save group activities: ${error.message}`);
+    }
+}
+
+async function sendCustomMessage(sock, groupId, messageType, userName, groupName, userJid) {
+    try {
+        const activities = loadGroupActivities();
+        const groupSettings = activities[groupId];
+        
+        if (!groupSettings?.enabled) {
+            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[SKIP]')} Group activities disabled for ${groupName}`);
+            return;
+        }
+
+        const customMessage = groupSettings.customMessages?.[messageType];
+        let message = '';
+        
+        // Default messages
+        const defaultMessages = {
+            welcome: `🎉 *Welcome to the Group!*\n\n• *New Member:* @${userName}\n• *Group:* ${groupName}\n• *Time:* ${new Date().toLocaleTimeString()}\n\nWelcome to our community! 👋`,
+            leave: `👋 *Member Left*\n\n• *Member:* @${userName}\n• *Group:* ${groupName}\n• *Time:* ${new Date().toLocaleTimeString()}\n\nGoodbye! We'll miss you!`,
+            promote: `👑 *New Admin!*\n\n• *Promoted Member:* @${userName}\n• *Group:* ${groupName}\n• *Role:* Admin\n• *Time:* ${new Date().toLocaleTimeString()}\n\nCongratulations! 🎉`,
+            demote: `📉 *Admin Removed*\n\n• *Member:* @${userName}\n• *Group:* ${groupName}\n• *Previous Role:* Admin\n• *Time:* ${new Date().toLocaleTimeString()}\n\nAdmin privileges removed.`
+        };
+
+        // Use custom message if available, otherwise default
+        if (customMessage && customMessage.text) {
+            message = customMessage.text
+                .replace('{user}', `@${userName}`)
+                .replace('{group}', groupName)
+                .replace('{time}', new Date().toLocaleTimeString());
+        } else {
+            message = defaultMessages[messageType];
+        }
+
+        // Send message with or without attachment
+        if (customMessage && customMessage.attachment) {
+            // For now, send text message (attachment handling can be enhanced later)
+            await sock.sendMessage(groupId, {
+                text: message,
+                mentions: [userJid]
+            });
+        } else {
+            await sock.sendMessage(groupId, {
+                text: message,
+                mentions: [userJid]
+            });
+        }
+
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_SENT]')} ${messageType} notification sent to ${groupName}`);
+
+    } catch (error) {
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR]')} Failed to send ${messageType} message: ${error.message}`);
+        logError(`Error sending custom ${messageType} message: ${error.message}`);
     }
 }
 
@@ -48,21 +109,19 @@ async function handleGroupJoin(sock, eventData) {
         // Load current activities
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
-            activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
-        }
-
-        // Ensure all arrays exist
-        if (!activities[groupId].joins) {
-            activities[groupId].joins = [];
-        }
-        if (!activities[groupId].leaves) {
-            activities[groupId].leaves = [];
-        }
-        if (!activities[groupId].promotes) {
-            activities[groupId].promotes = [];
-        }
-        if (!activities[groupId].demotes) {
-            activities[groupId].demotes = [];
+            activities[groupId] = { 
+                enabled: false,
+                joins: [], 
+                leaves: [], 
+                promotes: [], 
+                demotes: [],
+                customMessages: {
+                    welcome: null,
+                    leave: null,
+                    promote: null,
+                    demote: null
+                }
+            };
         }
 
         // Add join activity
@@ -79,25 +138,11 @@ async function handleGroupJoin(sock, eventData) {
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[GROUP_JOIN]')} User ${userName} joined ${groupName}`);
 
-        // Send notification to group with enhanced logging
-        const message = `🎉 *Group Activities Notification*\n\n` +
-                       `• *Member joined:* @${userName}\n` +
-                       `• *Group:* ${groupName}\n` +
-                       `• *Time:* ${new Date().toLocaleTimeString()}\n\n` +
-                       `Welcome to the group! 👋`;
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[SENDING_MESSAGE]')} Attempting to send join notification to ${groupId}`);
-
-        await sock.sendMessage(groupId, {
-            text: message,
-            mentions: [joinedUser]
-        });
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_SENT]')} Join notification successfully sent to ${groupName}`);
-        logSuccess(`Join notification sent to ${groupName}`);
+        // Send custom welcome message
+        await sendCustomMessage(sock, groupId, 'welcome', userName, groupName, joinedUser);
 
     } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_JOIN]')} Failed to send join notification: ${error.message}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_JOIN]')} Failed to handle join: ${error.message}`);
         logError(`Error handling group join: ${error.message}`);
     }
 }
@@ -113,21 +158,19 @@ async function handleGroupLeave(sock, eventData) {
         // Load current activities
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
-            activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
-        }
-
-        // Ensure all arrays exist
-        if (!activities[groupId].leaves) {
-            activities[groupId].leaves = [];
-        }
-        if (!activities[groupId].joins) {
-            activities[groupId].joins = [];
-        }
-        if (!activities[groupId].promotes) {
-            activities[groupId].promotes = [];
-        }
-        if (!activities[groupId].demotes) {
-            activities[groupId].demotes = [];
+            activities[groupId] = { 
+                enabled: false,
+                joins: [], 
+                leaves: [], 
+                promotes: [], 
+                demotes: [],
+                customMessages: {
+                    welcome: null,
+                    leave: null,
+                    promote: null,
+                    demote: null
+                }
+            };
         }
 
         // Add leave activity
@@ -144,25 +187,11 @@ async function handleGroupLeave(sock, eventData) {
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[GROUP_LEAVE]')} User ${userName} left ${groupName}`);
 
-        // Send notification to group
-        const message = `📢 *Group Activities Notification*\n\n` +
-                       `• *Member left:* @${userName}\n` +
-                       `• *Group:* ${groupName}\n` +
-                       `• *Time:* ${new Date().toLocaleTimeString()}\n\n` +
-                       `Goodbye! 👋`;
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[SENDING_MESSAGE]')} Attempting to send leave notification to ${groupId}`);
-
-        await sock.sendMessage(groupId, {
-            text: message,
-            mentions: [leftUser]
-        });
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_SENT]')} Leave notification successfully sent to ${groupName}`);
-        logSuccess(`Leave notification sent to ${groupName}`);
+        // Send custom leave message
+        await sendCustomMessage(sock, groupId, 'leave', userName, groupName, leftUser);
 
     } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_LEAVE]')} Failed to send leave notification: ${error.message}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_LEAVE]')} Failed to handle leave: ${error.message}`);
         logError(`Error handling group leave: ${error.message}`);
     }
 }
@@ -178,21 +207,19 @@ async function handleGroupPromote(sock, eventData) {
         // Load current activities
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
-            activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
-        }
-
-        // Ensure all arrays exist
-        if (!activities[groupId].promotes) {
-            activities[groupId].promotes = [];
-        }
-        if (!activities[groupId].joins) {
-            activities[groupId].joins = [];
-        }
-        if (!activities[groupId].leaves) {
-            activities[groupId].leaves = [];
-        }
-        if (!activities[groupId].demotes) {
-            activities[groupId].demotes = [];
+            activities[groupId] = { 
+                enabled: false,
+                joins: [], 
+                leaves: [], 
+                promotes: [], 
+                demotes: [],
+                customMessages: {
+                    welcome: null,
+                    leave: null,
+                    promote: null,
+                    demote: null
+                }
+            };
         }
 
         // Add promote activity
@@ -209,26 +236,11 @@ async function handleGroupPromote(sock, eventData) {
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[GROUP_PROMOTE]')} User ${userName} promoted in ${groupName}`);
 
-        // Send notification to group
-        const message = `👑 *Group Activities Notification*\n\n` +
-                       `• *Member promoted:* @${userName}\n` +
-                       `• *Group:* ${groupName}\n` +
-                       `• *New role:* Admin\n` +
-                       `• *Time:* ${new Date().toLocaleTimeString()}\n\n` +
-                       `Congratulations on becoming an admin! 🎉`;
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[SENDING_MESSAGE]')} Attempting to send promotion notification to ${groupId}`);
-
-        await sock.sendMessage(groupId, {
-            text: message,
-            mentions: [promotedUser]
-        });
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_SENT]')} Promotion notification successfully sent to ${groupName}`);
-        logSuccess(`Promotion notification sent to ${groupName}`);
+        // Send custom promote message
+        await sendCustomMessage(sock, groupId, 'promote', userName, groupName, promotedUser);
 
     } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_PROMOTE]')} Failed to send promotion notification: ${error.message}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_PROMOTE]')} Failed to handle promotion: ${error.message}`);
         logError(`Error handling group promotion: ${error.message}`);
     }
 }
@@ -244,21 +256,19 @@ async function handleGroupDemote(sock, eventData) {
         // Load current activities
         let activities = loadGroupActivities();
         if (!activities[groupId]) {
-            activities[groupId] = { joins: [], leaves: [], promotes: [], demotes: [] };
-        }
-
-        // Ensure all arrays exist
-        if (!activities[groupId].demotes) {
-            activities[groupId].demotes = [];
-        }
-        if (!activities[groupId].joins) {
-            activities[groupId].joins = [];
-        }
-        if (!activities[groupId].leaves) {
-            activities[groupId].leaves = [];
-        }
-        if (!activities[groupId].promotes) {
-            activities[groupId].promotes = [];
+            activities[groupId] = { 
+                enabled: false,
+                joins: [], 
+                leaves: [], 
+                promotes: [], 
+                demotes: [],
+                customMessages: {
+                    welcome: null,
+                    leave: null,
+                    promote: null,
+                    demote: null
+                }
+            };
         }
 
         // Add demote activity
@@ -275,26 +285,11 @@ async function handleGroupDemote(sock, eventData) {
 
         console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_DEMOTE]')} User ${userName} demoted in ${groupName}`);
 
-        // Send notification to group
-        const message = `📉 *Group Activities Notification*\n\n` +
-                       `• *Member demoted:* @${userName}\n` +
-                       `• *Group:* ${groupName}\n` +
-                       `• *Previous role:* Admin\n` +
-                       `• *Time:* ${new Date().toLocaleTimeString()}\n\n` +
-                       `Admin privileges have been removed.`;
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[SENDING_MESSAGE]')} Attempting to send demotion notification to ${groupId}`);
-
-        await sock.sendMessage(groupId, {
-            text: message,
-            mentions: [demotedUser]
-        });
-
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[MESSAGE_SENT]')} Demotion notification successfully sent to ${groupName}`);
-        logSuccess(`Demotion notification sent to ${groupName}`);
+        // Send custom demote message
+        await sendCustomMessage(sock, groupId, 'demote', userName, groupName, demotedUser);
 
     } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_DEMOTE]')} Failed to send demotion notification: ${error.message}`);
+        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[ERROR_DEMOTE]')} Failed to handle demotion: ${error.message}`);
         logError(`Error handling group demotion: ${error.message}`);
     }
 }
@@ -303,11 +298,11 @@ module.exports = {
     config: {
         name: 'groupActivities',
         author: 'Luna',
-        version: '1.0.0',
-        description: 'Monitors and notifies about group activities',
+        version: '2.0.0',
+        description: 'Monitors and notifies about group activities with custom messages',
         category: 'events',
         guide: {
-            en: 'This event automatically monitors group activities and sends notifications'
+            en: 'This event automatically monitors group activities and sends custom notifications'
         }
     },
 
