@@ -140,14 +140,13 @@ async function startBotz() {
                     logError('Connection closed permanently');
                 }
             } else if (connection === 'connecting') {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('Connecting to WhatsApp...')}`);
+                // Removed redundant connection log
             } else if (connection === 'open') {
                 clearTimeout(connectionTimeout);
                 global.botConnected = true;
                 global.sock = ptz; // Make sock available globally for events
-                console.log('─────────────────────────────────────────');
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[SUCCESS]')} ${chalk.cyan('WhatsApp connection established successfully')}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[STATUS]')} ${chalk.yellow('Bot is now ONLINE and ready for 24/7 operation')}`);
+                // Removed redundant success log
+                // Removed redundant status log
 
                 // Initialize database connection after successful WhatsApp connection
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('CONNECTING TO DATABASE:')} ${chalk.green(config.database.type?.toUpperCase() || 'SQLITE')}`);
@@ -156,7 +155,7 @@ async function startBotz() {
                 if (dbConnected) {
                     const dbType = db.getStatus().primaryDB;
                     console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('SUCCESSFULLY CONNECTED TO')} ${chalk.green(dbType.toUpperCase())}`);
-                    
+
                     // Make database globally available for events
                     global.db = db;
                 } else {
@@ -194,9 +193,9 @@ async function startBotz() {
         }
 
         store.bind(ptz.ev);
-        
-        
-        
+
+
+
         eventHandler.initializeMessageListener(ptz, store);
 
         handleConnection(ptz, startBotz);

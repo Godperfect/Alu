@@ -196,10 +196,7 @@ const checkSessionExists = () => {
                     // Check if it has essential properties (basic validation)
                     if (credsData && typeof credsData === 'object' && Object.keys(credsData).length > 0 && 
                         (credsData.noiseKey || credsData.signedIdentityKey || credsData.signedPreKey)) {
-                        if (!sessionChecked) {
-                            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('Valid session found, using existing credentials...')}`);
-                            sessionChecked = true;
-                        }
+                        sessionChecked = true;
                         return true;
                     } else {
                         if (!sessionChecked) {
@@ -312,14 +309,10 @@ const authenticateSession = async (ptz) => {
                 throw err;
             }
         } else {
-            
-            
             if (line) {
                 console.log(chalk.yellow(line));
                 console.log(chalk.green('              LOGIN SUCCESSFUL'));
                 console.log(chalk.yellow(line));
-            } else {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('LOGIN SUCCESSFUL')}`);
             }
         }
     } catch (err) {
