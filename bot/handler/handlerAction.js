@@ -41,23 +41,28 @@ const handlerAction = {
                 return; // Silently return if no command (prefix wasn't detected)
             }
 
-            // First try to get command directly, then check aliases
+            // First try to get command directly
             let cmd = global.commands.get(command);
 
+            // Then check aliases
             if (!cmd && global.aliases && global.aliases.has(command)) {
                 const actualCommandName = global.aliases.get(command);
                 cmd = global.commands.get(actualCommandName);
             }
 
-            // Fallback: search through command aliases (for backwards compatibility)
+            // Fallback: search through command config aliases (for backwards compatibility)
             if (!cmd) {
-                cmd = [...global.commands.values()].find(cmd => 
-                    cmd.aliases && cmd.aliases.includes(command)
-                );
+                for (const [cmdName, cmdObj] of global.commands.entries()) {
+                    if (cmdObj.config && cmdObj.config.aliases && cmdObj.config.aliases.includes(command)) {
+                        cmd = cmdObj;
+                        break;
+                    }
+                }
             }
-  if (!cmd) {
+
+            if (!cmd) {
                 return sock.sendMessage(threadID, { 
-                    text: `❌ Unknown command: *${command}*\n\nType *${global.prefix}help* to see available commands.`
+                    text: `❌ Unknown command: *${command}*\n\nType *${currentPrefix}help* to see available commands.`
                 }, { quoted: mek });
             }
 
@@ -134,42 +139,41 @@ const handlerAction = {
                 }
 
 
-                if (cmd.permission !== undefined) {
+                // Check permission (use config if available)
+                const requiredPermission = cmd.config?.role || cmd.permission;
+                if (requiredPermission !== undefined) {
                     const userPermission = getPermissionLevel(userNumber, isGroup ? messageInfo.groupMetadata : null);
 
-                    if (userPermission < cmd.permission) {
-                        logWarning(lang.get('log.permissionDenied', command, cmd.permission, userPermission));
+                    if (userPermission < requiredPermission) {
+                        logWarning(`Permission denied for ${command}: required ${requiredPermission}, user has ${userPermission}`);
                         return sock.sendMessage(threadID, { 
-                            text: lang.get('handler.permissionDenied', cmd.permission)
+                            text: `❌ You don't have permission to use this command. Required permission level: ${requiredPermission}`
                         }, { quoted: mek });
                     }
                 }
 
-
-                if (cmd.cooldown) {
+                // Check cooldown (use config if available)
+                const cooldown = cmd.config?.cooldown || cmd.cooldown;
+                if (cooldown) {
                     const cooldownKey = `${command}_${userNumber}`;
                     const now = Date.now();
 
-
                     if (global.cooldowns instanceof Map && global.cooldowns.has(cooldownKey)) {
                         const cooldownTime = global.cooldowns.get(cooldownKey);
-                        const timeLeft = ((cooldownTime + (cmd.cooldown * 1000)) - now) / 1000;
+                        const timeLeft = ((cooldownTime + (cooldown * 1000)) - now) / 1000;
 
                         if (timeLeft > 0) {
                             return sock.sendMessage(threadID, { 
-                                text: lang.get('handler.cooldownActive', timeLeft.toFixed(1))
+                                text: `⏰ Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`
                             }, { quoted: mek });
                         }
                     }
 
-
                     if (global.cooldowns instanceof Map) {
-
                         global.cooldowns.set(cooldownKey, now);
-
                         setTimeout(() => {
                             global.cooldowns.delete(cooldownKey);
-                        }, cmd.cooldown * 1000);
+                        }, cooldown * 1000);
                     }
                 }
 
@@ -515,47 +519,34 @@ const handlerAction = {
 
     handleGroupEvent: async function(sock, eventType, eventData) {
         try {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[GROUP_EVENT_HANDLER]')} Processing ${eventType} event for group ${eventData.groupName}`);
+            logEvent('GROUP_EVENT', `Processing ${eventType} event for group ${eventData.groupName}`);
 
             if (!global.Luna.onEvent) {
                 global.Luna.onEvent = new Map();
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[WARNING]')} Luna.onEvent was not initialized, creating new Map`);
+                logWarning('Luna.onEvent was not initialized, creating new Map');
             }
 
             const { groupId, participants, groupName } = eventData;
 
-            // Process registered event handlers first with enhanced logging
+            // Process registered event handlers
             const eventKey = `group.${eventType}`;
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[CHECKING_HANDLER]')} Looking for handler: ${eventKey}`);
 
             if (global.Luna.onEvent.has(eventKey)) {
                 const handler = global.Luna.onEvent.get(eventKey);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HANDLER_FOUND]')} Found registered handler for: ${eventKey}`);
-
                 logInfo(`Processing registered event handler for: ${eventKey}`);
 
                 try {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[CALLING_HANDLER]')} Executing handler with data:`, {
-                        eventType,
-                        groupId,
-                        groupName,
-                        participants: participants?.length || 0
-                    });
-
                     await handler.callback({
                         sock,
                         eventType,
                         eventData
                     });
-
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HANDLER_SUCCESS]')} Event handler executed successfully for ${eventKey}`);
+                    logSuccess(`Event handler executed successfully for ${eventKey}`);
                 } catch (error) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[HANDLER_ERROR]')} Error in registered event handler: ${error.message}`);
                     logError(`Error in registered event handler: ${error.message}`);
                 }
             } else {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[NO_HANDLER]')} No registered handler found for: ${eventKey}`);
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[AVAILABLE_HANDLERS]')} Available handlers:`, Array.from(global.Luna.onEvent.keys()));
+                logWarning(`No registered handler found for: ${eventKey}`);
             }
 
             // Handle welcome message for joins
@@ -573,10 +564,8 @@ const handlerAction = {
                         mentions: participants
                     });
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[WELCOME_SENT]')} Welcome message sent to ${groupName}`);
                     logInfo(lang.get('system.sentWelcomeMessage', groupName));
                 } catch (err) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[WELCOME_ERROR]')} Failed to send welcome message: ${err.message}`);
                     logError(lang.get('error.sendWelcomeMessage', err.message));
                 }
             }
@@ -594,18 +583,14 @@ const handlerAction = {
                         mentions: participants
                     });
 
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[LEAVE_SENT]')} Leave message sent to ${groupName}`);
                     logInfo(lang.get('system.sentLeaveMessage', groupName));
                 } catch (err) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[LEAVE_ERROR]')} Failed to send leave message: ${err.message}`);
                     logError(lang.get('error.sendLeaveMessage', err.message));
                 }
             }
 
         } catch (err) {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[GROUP_EVENT_ERROR]')} Error in handleGroupEvent: ${err.message}`);
             logError(lang.get('error.handleGroupEvent', err.message));
-            console.error(err);
         }
     },
 

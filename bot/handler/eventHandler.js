@@ -51,15 +51,7 @@ class EventHandler {
                     return;
                 }
 
-                // Log message to database (async without waiting)
-                setImmediate(async () => {
-                    try {
-                        const dataHandler = require('./handlerCheckdata');
-                        await dataHandler.logMessage(mek);
-                    } catch (dbError) {
-                        // Silent fail for logging to prevent blocking
-                    }
-                });
+                
 
                 await this.handleMessage(sock, mek, store);
             } catch (err) {
@@ -67,7 +59,7 @@ class EventHandler {
                 console.error(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[MESSAGE_ERROR]')} Error processing message:`, err);
                 // Don't crash the bot, continue listening
                 console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[RECOVERY]')} ${chalk.white('Bot continues listening despite error...')}`);
-                
+
                 // Try to inform the user about the error if possible
                 try {
                     if (chatUpdate?.messages?.[0]?.key?.remoteJid) {
@@ -86,20 +78,9 @@ class EventHandler {
         sock.ev.on('group-participants.update', async (update) => {
             try {
                 logEvent('GROUP_UPDATE', `Action: ${update.action} | Group: ${update.id} | Participants: ${update.participants?.length || 0}`);
-
-                // Log group activity
-                const dataHandler = require('./handlerCheckdata');
-                await dataHandler.logGroupActivity(
-                    update.id,
-                    update.action,
-                    update.participants?.[0],
-                    JSON.stringify({ participants: update.participants, action: update.action })
-                );
-
                 await this.handleGroupUpdate(sock, update);
             } catch (error) {
                 logError(`Group update handler error: ${error.message}`);
-                logError(`Stack trace: ${error.stack}`);
             }
         });
 
@@ -136,12 +117,7 @@ class EventHandler {
 
         // Connection state monitoring handled in main bot.js
 
-        // Monitor bot health
-        setInterval(() => {
-            if (global.botConnected) {
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[HEARTBEAT]')} ${chalk.cyan('Bot is alive and actively listening...')}`);
-            }
-        }, 300000); // Every 5 minutes
+        
     }
 
     async handleMessage(sock, mek, store) {
@@ -358,30 +334,7 @@ class EventHandler {
                 });
             }
 
-            // Update database with user/group activity (async without blocking)
-            setImmediate(async () => {
-                try {
-                    const db = require('../../dashboard/connectDB');
-                    if (db.getStatus().connected) {
-                        const senderName = await getSenderName(sock, sender);
-                        const phoneNumber = extractPhoneNumber(sender, senderNumber);
-
-                        if (phoneNumber && phoneNumber.length >= 8 && /^\d{8,15}$/.test(phoneNumber)) {
-                            db.updateUserActivity(phoneNumber, senderName).catch(() => {});
-                        }
-
-                        if (isGroup && groupMetadata && mek.key.remoteJid.endsWith('@g.us')) {
-                            db.updateGroupActivity(
-                                mek.key.remoteJid,
-                                groupMetadata.subject,
-                                groupMetadata.participants ? groupMetadata.participants.length : 0
-                            ).catch(() => {});
-                        }
-                    }
-                } catch (dbError) {
-                    // Silent fail to prevent blocking
-                }
-            });
+            
 
 
             if (global.config.adminOnly?.enable &&
@@ -421,7 +374,7 @@ class EventHandler {
                 const notificationType = mek.messageStubType;
 
                 if (notificationType) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_NOTIFICATION]')} Type: ${notificationType} in ${chatName}`);
+                    logEvent('GROUP_NOTIFICATION', `Type: ${notificationType} in ${chatName}`);
 
                     // Handle group member changes
                     if ([27, 28, 29, 30, 31, 32].includes(notificationType)) {
@@ -435,8 +388,6 @@ class EventHandler {
                 const stubType = mek.messageStubType;
                 const participants = mek.messageStubParameters;
                 const groupId = mek.key.remoteJid;
-
-                console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.cyan('[STUB_EVENT]')} Processing stub type ${stubType} with participants:`, participants);
 
                 let eventType = null;
                 switch (stubType) {
@@ -457,7 +408,7 @@ class EventHandler {
                 }
 
                 if (eventType && participants && participants.length > 0) {
-                    console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[TRIGGERING_EVENT]')} Triggering ${eventType} event for group ${chatName}`);
+                    logEvent('STUB_EVENT', `Triggering ${eventType} event for group ${chatName}`);
 
                     const eventData = {
                         groupId,
@@ -471,7 +422,7 @@ class EventHandler {
                         const handlerAction = require('./handlerAction');
                         await handlerAction.handleGroupEvent(sock, eventType, eventData);
                     } catch (error) {
-                        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[EVENT_TRIGGER_ERROR]')} Failed to trigger event: ${error.message}`);
+                        logError(`Failed to trigger event: ${error.message}`);
                     }
                 }
             }
@@ -496,36 +447,25 @@ class EventHandler {
                 });
             } else {
 
-                const body = messageText || '';
-                const isCmd = body.startsWith(global.prefix);
-                const command = isCmd ? body.slice(global.prefix.length).trim().split(' ').shift().toLowerCase() : '';
-                const args = body.trim().split(/ +/).slice(1);
-
-                // Handle non-command messages (onChat events)
-                try {
-                    await handlerAction.handleChat({ sock, mek, sender, messageText: body, messageInfo, isGroup });
-                } catch (chatErr) {
-                    logError(lang.get('eventHandler.error.handleChat', chatErr.message));
-                }
-
-                // Check for group-specific prefix
+                // Get the appropriate prefix for this chat
                 const currentPrefix = isGroup && global.groupPrefix && global.groupPrefix[mek.key.remoteJid] 
                     ? global.groupPrefix[mek.key.remoteJid] 
                     : global.prefix;
 
-                // Recheck command detection with proper prefix
-                const hasCorrectPrefix = body.startsWith(currentPrefix);
-                const correctCommand = hasCorrectPrefix ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
+                // Check for command (starts with prefix)
+                const body = getTextContent(mek.message);
+                const isCmd = body.startsWith(currentPrefix);
+                const command = isCmd ? body.slice(currentPrefix.length).trim().split(' ').shift().toLowerCase() : '';
+                const args = isCmd ? body.trim().split(/ +/).slice(1) : [];
 
-                // Only process as command if message starts with correct prefix and is not a protocol message
-                if (hasCorrectPrefix && correctCommand && !mek.message?.protocolMessage) {
+                // Process command first if it's a command
+                if (isCmd && command && !mek.message?.protocolMessage) {
                     try {
-                        const correctArgs = body.trim().split(/ +/).slice(1);
                         await handlerAction.handleCommand({ 
                             sock, 
                             mek, 
-                            args: correctArgs, 
-                            command: correctCommand, 
+                            args, 
+                            command, 
                             sender, 
                             botNumber: sock.user.id.split(':')[0] + '@s.whatsapp.net', 
                             messageInfo, 
@@ -533,6 +473,13 @@ class EventHandler {
                         });
                     } catch (cmdErr) {
                         logError(lang.get('eventHandler.error.handleCommand', cmdErr.message));
+                    }
+                } else if (messageText && messageText.trim().length > 0) {
+                    // Only process as chat if it's not a command
+                    try {
+                        await handlerAction.handleChat({ sock, mek, sender, messageText, messageInfo, isGroup });
+                    } catch (chatErr) {
+                        logError(lang.get('eventHandler.error.handleChat', chatErr.message));
                     }
                 }
             }
@@ -702,8 +649,7 @@ async function handleGroupNotification(sock, mek, messageInfo, notificationType)
         const groupId = mek.key.remoteJid;
         const participants = mek.messageStubParameters || [];
 
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[GROUP_EVENT]')} Processing notification type ${notificationType} in ${messageInfo.chatName}`);
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[PARTICIPANTS]')} Participants:`, participants);
+        logEvent('GROUP_EVENT', `Processing notification type ${notificationType} in ${messageInfo.chatName}`);
 
         let eventType = null;
         switch (notificationType) {
@@ -731,17 +677,15 @@ async function handleGroupNotification(sock, mek, messageInfo, notificationType)
                 eventType
             };
 
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.green('[CALLING_GROUP_HANDLER]')} Calling group event handler for ${eventType}`);
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.blue('[EVENT_DATA]')} Event data:`, eventData);
+            logInfo(`Calling group event handler for ${eventType}`);
 
             // Call the group event handler
             const handlerAction = require('./handlerAction');
             await handlerAction.handleGroupEvent(sock, eventType, eventData);
         } else {
-            console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.yellow('[NO_EVENT]')} No event type determined or no participants for notification ${notificationType}`);
+            logWarning(`No event type determined or no participants for notification ${notificationType}`);
         }
     } catch (error) {
-        console.log(`${getTimestamp()} ${getFormattedDate()} ${chalk.red('[GROUP_NOTIFICATION_ERROR]')} Error: ${error.message}`);
         logError(`Error handling group notification: ${error.message}`);
     }
 }
