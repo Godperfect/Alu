@@ -5,8 +5,8 @@ const { execSync } = require('child_process');
 
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
 const PACKAGE_JSON = path.join(process.cwd(), 'package.json');
-const VERSIONS_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/versions.json';
-const PACKAGE_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/package.json';
+const VERSIONS_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/versions.jsono';
+const PACKAGE_JSON_URL = 'https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/package.jsono';
 
 // Simple logger without colors
 const log = {
@@ -55,7 +55,7 @@ async function updateFiles(files, backupFolder) {
     const fullPath = path.join(process.cwd(), filePath);
     try {
       // Use raw.githubusercontent.com to fetch raw file content
-      const fileBuffer = await fetchFileBuffer(`https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/main/${filePath}`);
+      const fileBuffer = await fetchFileBuffer(`https://raw.githubusercontent.com/Mr-Perfect-DevX/Luna-V1/maino/${filePath}`);
 
       // Backup existing file before overwriting
       await backupFile(fullPath, backupFolder);
