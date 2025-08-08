@@ -16,11 +16,9 @@ function handleConnection(ptz, startBotz) {
                     process.exit();
                 },
                 [DisconnectReason.connectionClosed]: () => {
-                    logInfo("Connection closed, reconnecting....");
                     startBotz();
                 },
                 [DisconnectReason.connectionLost]: () => {
-                    logInfo("Connection lost, reconnecting....");
                     startBotz();
                 },
                 [DisconnectReason.connectionReplaced]: () => {
