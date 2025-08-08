@@ -60,7 +60,13 @@ class CommandManager {
 
     // Load all command files from the commands folder
     loadCommands() {
-        if (!global.commands) global.commands = new Map();
+        // Initialize command collection if it doesn't exist
+        if (!global.Luna) {
+            global.Luna = {};
+        }
+        if (!global.Luna.commands) {
+            global.Luna.commands = new Map();
+        }
 
         const commandFiles = fs.readdirSync(this.commandsFolder).filter(file => file.endsWith('.js'));
         let totalCommands = 0;
@@ -109,7 +115,7 @@ class CommandManager {
                         onReaction: command.onReaction || null
                     };
 
-                    global.commands.set(cmd.name, cmd);
+                    global.Luna.commands.set(cmd.name, cmd);
 
                     if (cmd.aliases && cmd.aliases.length > 0) {
                         cmd.aliases.forEach(alias => {
@@ -120,7 +126,7 @@ class CommandManager {
                     totalCommands++;
                 } else if (command && command.name) {
                     // Original Luna style command structure
-                    global.commands.set(command.name, command);
+                    global.Luna.commands.set(command.name, command);
 
                     if (command.aliases && Array.isArray(command.aliases)) {
                         command.aliases.forEach(alias => {
@@ -158,7 +164,7 @@ class CommandManager {
         if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
 
         const timestamps = this.cooldowns.get(command);
-        const cmd = global.commands.get(command);
+        const cmd = global.Luna.commands.get(command);
         const cooldownAmount = (cmd.cooldown || this.cooldownTime) * 1000;
 
         if (timestamps.has(sender)) {
@@ -179,7 +185,7 @@ class CommandManager {
         if (!this.cooldowns.has(command)) this.cooldowns.set(command, new Map());
 
         const timestamps = this.cooldowns.get(command);
-        const cmd = global.commands.get(command);
+        const cmd = global.Luna.commands.get(command);
         const cooldownAmount = (cmd.cooldown || this.cooldownTime) * 1000;
 
         timestamps.set(sender, now);
