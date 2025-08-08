@@ -7,11 +7,24 @@ const { proto: baileysProto, getContentType, jidDecode } = require("@whiskeysock
 
 // Enhanced Logger functions with timestamps and better formatting
 const getTimestamp = () => {
+    // Use timezone from global config if available, otherwise use system default
+    const timezone = global.config?.timezone || 'America/New_York'; // Default to US Eastern
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+    
+    try {
+        // Try to use the configured timezone
+        const timeInTimezone = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
+        const hours = String(timeInTimezone.getHours()).padStart(2, '0');
+        const minutes = String(timeInTimezone.getMinutes()).padStart(2, '0');
+        const seconds = String(timeInTimezone.getSeconds()).padStart(2, '0');
+        return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+    } catch (error) {
+        // Fallback to system timezone if configured timezone is invalid
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        return chalk.gray(`[${hours}:${minutes}:${seconds}]`);
+    }
 };
 
 /**
@@ -19,11 +32,24 @@ const getTimestamp = () => {
  * @returns {string} Formatted date in [YYYY-MM-DD] format
  */
 const getFormattedDate = () => {
+    // Use timezone from global config if available, otherwise use system default
+    const timezone = global.config?.timezone || 'America/New_York'; // Default to US Eastern
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return chalk.gray(`[${year}-${month}-${day}]`);
+    
+    try {
+        // Try to use the configured timezone
+        const dateInTimezone = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
+        const year = dateInTimezone.getFullYear();
+        const month = String(dateInTimezone.getMonth() + 1).padStart(2, '0');
+        const day = String(dateInTimezone.getDate()).padStart(2, '0');
+        return chalk.gray(`[${year}-${month}-${day}]`);
+    } catch (error) {
+        // Fallback to system timezone if configured timezone is invalid
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return chalk.gray(`[${year}-${month}-${day}]`);
+    }
 };
 
 const logInfo = (message) => {

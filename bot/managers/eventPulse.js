@@ -3,18 +3,6 @@ const path = require('path');
 const chalk = require('chalk');
 const { logInfo, logError, logSuccess, getTimestamp, getFormattedDate } = require('../../utils');
 
-/**
- * Get formatted date
- * @returns {string} Formatted date in [YYYY-MM-DD] format
- */
-const getFormattedDate = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return chalk.gray(`[${year}-${month}-${day}]`);
-};
-
 class EventManager {
     constructor() {
         this.events = new Map(); // Initialize events Map
