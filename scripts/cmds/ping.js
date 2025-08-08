@@ -20,13 +20,13 @@ module.exports = {
         
         try {
             const sent = await sock.sendMessage(chatId, {
-                text: "🏓 Pinging..."
+                text: "⚡ Checking connection speed..."
             }, { quoted: mek });
             
             const latency = Date.now() - start;
             
             await sock.sendMessage(chatId, {
-                text: `🏓 *Pong!*\n⚡ *Latency:* ${latency}ms\n🤖 *Bot Status:* Online`
+                text: `🚀 *Lightning Fast!*\n⚡ *Response Time:* ${latency}ms\n🤖 *Bot Status:* Active & Ready\n🌐 *Connection:* Stable`
             }, { quoted: mek });
             
         } catch (error) {
@@ -45,13 +45,13 @@ module.exports = {
             
             try {
                 await sock.sendMessage(chatId, {
-                    text: "🏓 Pinging..."
+                    text: "⚡ Checking connection speed..."
                 }, { quoted: m });
                 
                 const latency = Date.now() - start;
                 
                 await sock.sendMessage(chatId, {
-                    text: `🏓 *Pong!*\n⚡ *Latency:* ${latency}ms\n🤖 *Bot Status:* Online\n\n_You can also use ${global.prefix}ping_`
+                    text: `🚀 *Lightning Fast!*\n⚡ *Response Time:* ${latency}ms\n🤖 *Bot Status:* Active & Ready\n🌐 *Connection:* Stable\n\n_You can also use ${global.prefix}ping_`
                 }, { quoted: m });
                 
                 logInfo(`Ping command executed via onChat by user`);
