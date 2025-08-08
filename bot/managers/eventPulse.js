@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
-const { logInfo, logError, logSuccess, logWarning, getTimestamp, getFormattedDate } = require('../../utils');
+const { logInfo, logError, logSuccess, getTimestamp, getFormattedDate } = require('../../utils');
 
 /**
  * Get formatted timestamp

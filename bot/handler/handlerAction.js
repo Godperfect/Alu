@@ -1,6 +1,6 @@
 const fs = require('fs');
 const chalk = require('chalk');
-const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate } = require('../../utils');
+const { logError, logInfo, logWarning, logSuccess, logEvent, logConnection, getSenderName, logMessage, getTextContent, getMessageType, hasMedia, getMediaInfo, getTimestamp, getFormattedDate, getPermissionLevel } = require('../../utils');
 const { config } = require('../../config/globals');
 const languageManager = require('../../language/language');
 const dataHandler = require('./handlerCheckdata');
@@ -14,31 +14,6 @@ if (!global.bannedUsers) {
     global.bannedUsers = [];
 }
 
-
-// Helper function to get user permission level
-function getPermissionLevel(userNumber, groupMetadata = null) {
-    try {
-        // Bot admin (highest permission - level 3)
-        if (config.adminOnly?.adminNumbers?.includes(userNumber)) {
-            return 3;
-        }
-        
-        // Group admin (if in group - level 2)
-        if (groupMetadata && groupMetadata.participants) {
-            const userParticipant = groupMetadata.participants.find(p => 
-                p.id.split('@')[0] === userNumber
-            );
-            if (userParticipant && userParticipant.admin) {
-                return 2;
-            }
-        }
-        
-        // Regular user (level 1)
-        return 1;
-    } catch (error) {
-        return 1; // Default to regular user on error
-    }
-}
 
 const handlerAction = {
 
